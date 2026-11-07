@@ -1,10 +1,12 @@
-// Curates the levels: picks, from all 2^25 boards, the ones that make good puzzles, sorts them into
+﻿// Curates the levels: picks, from all 2^25 boards, the ones that make good puzzles, sorts them into
 // difficulty tiers, and writes src/levels/levels.json.
 //
-//   npm run curate                  4 levels per grade (the default: one row of 4 in the app)
+//   npm run curate                  4 levels per grade (the default: one row of 4 in the app),
+//                                   more in tiers with few grades: at least 24 per tier
 //   npm run curate -- 8             8 levels per grade
 //
-// A tier is graded by minFlips (see below): fewer flips in the flips-only solution is easier.
+// A tier is the length of the flips-only solution (minFlips: the second star, the hardest one),
+// and within a tier the levels are graded by minMoves: fewer moves is easier.
 //
 // Each level has three stars:
 //   1. solved, in any number of moves
@@ -15,10 +17,14 @@
 //   a. minMoves < min(yellow, green): forcing every tile of one color takes min(yellow, green)
 //      moves, so that never earns the third star
 //   b. it can be solved with flips alone: otherwise the second star can't be earned
-//   c. minMoves < minFlips: the best solution needs a force, so the second and third stars
-//      have different solutions
-//   d. minMoves >= 3 (MIN_DIFFICULTY): anything shorter is too easy
-// Its difficulty (the tier) is minMoves.
+//   c. minMoves <= minFlips: always so (flips are moves too). When minMoves < minFlips the best
+//      solution needs a force, and the second and third stars have different solutions; when
+//      equal, the flips-only solution is also the fewest moves, and earns both stars
+//   d. minFlips >= 3 (MIN_DIFFICULTY): anything shorter is too easy
+//   e. after Delta (minFlips > STRICT_AFTER): minMoves < minFlips, so the third star always needs
+//      a force and a different solution than the second (a 5-flip board solvable in 4 moves).
+//      (Not for 4 flips: no 4-flip board can be solved in 3 moves, so that tier would be empty.)
+// Its difficulty (the tier) is minFlips; its grade within the tier is minMoves.
 //
 // Boards that are rotations or mirror images of each other, or have the colors swapped, are the
 // same puzzle: only one of each such group (up to 16 boards) is kept. It is shown turned or
@@ -40,7 +46,8 @@ import { fileURLToPath } from "node:url";
 
 const PER_GRADE = Number(process.argv[2] ?? 4);
 const SEED = 1; // change it to pick other levels from the same tiers
-const MIN_DIFFICULTY = 3;
+const MIN_DIFFICULTY = 2; // (the tutorial, difficulty 1, is made by hand: see TUTORIAL)
+const STRICT_AFTER = 4; // tiers past Delta (4 flips) need minMoves < minFlips (rule e)
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const OUT = join(ROOT, "src", "levels", "levels.json");
@@ -168,8 +175,8 @@ const best = solutionLengths(fewestMovesTable);
 const flipFirst = solutionLengths(fewestForcesTable);
 
 // How many boards are left after each criterion (a board and its inverse count as two)
-const funnel = { all: 2 * HALF, a: 0, b: 0, c: 0, d: 0 };
-const tiers = new Map(); // difficulty -> [{ state, minMoves, minFlips }]
+const funnel = { all: 2 * HALF, a: 0, b: 0, c: 0, d: 0, e: 0 };
+const tiers = new Map(); // difficulty (minFlips) -> [{ state, minMoves, minFlips }]
 
 for (let s = 0; s < HALF; s++) {
   const minMoves = best.moves[s];
@@ -179,34 +186,89 @@ for (let s = 0; s < HALF; s++) {
   if (flipFirst.forces[s] !== 0) continue;
   funnel.b += 2;
   const minFlips = flipFirst.moves[s];
-  if (!(minMoves < minFlips)) continue;
+  if (!(minMoves <= minFlips)) continue; // (always true: flips are moves too; kept for the funnel)
   funnel.c += 2;
-  if (minMoves < MIN_DIFFICULTY) continue;
+  if (minFlips < MIN_DIFFICULTY) continue;
   funnel.d += 2;
+  if (minFlips > STRICT_AFTER && minMoves === minFlips) continue;
+  funnel.e += 2;
   if (!isRepresentative(s)) continue;
-  if (!tiers.has(minMoves)) tiers.set(minMoves, []);
-  tiers.get(minMoves).push({ state: s, minMoves, minFlips });
+  if (!tiers.has(minFlips)) tiers.set(minFlips, []);
+  tiers.get(minFlips).push({ state: s, minMoves, minFlips });
 }
 
-// Pick the levels of a tier: within the tier, the boards are grouped by minFlips (the grades),
-// and PER_GRADE are picked from each grade at random (a grade with fewer boards gives all it
-// has). Most boards have a middling minFlips, so this way the easiest and hardest grades get as
-// many levels as the others. The levels are then ordered by minFlips.
+// The first tier (difficulty 1) is the tutorial, made by hand rather than by the rules above: the
+// two puzzles of How to play (a plus in the middle: 1 flip; a single odd tile in the middle: 1
+// force), and the other boards that 1 force solves and flips alone can solve too: a single odd
+// tile, in a place where flips can also clear it. (A single tile breaks rule a: forcing it is
+// the third star. In the tutorial that is the point.)
+// They are shown exactly as listed here (not turned, mirrored or recolored at random): 1.1 and
+// 1.2 are the app's guided first steps (a tap, then a tap and hold), 1.3 is the other single tile.
+//   1.1  a gold plus in the middle of green: 1 flip
+//   1.2  one green tile in gold, diagonally next to the middle (row 4, column 4): 1 force
+//   1.3  one green tile in gold, in the middle: 1 force
+const TUTORIAL = 1;
+const tutorial = [MASKS[12], ALL ^ (1 << 18), ALL ^ (1 << 12)];
+for (let k = 0; k < N; k++) {
+  // (check: these are all the single tiles that flips alone can clear, up to symmetry)
+  const s = 1 << k;
+  if (flipFirst.forces[half(s)] === 0 && isRepresentative(half(s)) && ![6, 12].includes(k)) {
+    throw new Error(`Single tile ${k} can also be cleared by flips: add it to the tutorial`);
+  }
+}
+tiers.set(TUTORIAL, tutorial.map((s) => ({
+  state: half(s), minMoves: best.moves[half(s)], minFlips: flipFirst.moves[half(s)], shown: s,
+})));
+for (const board of tiers.get(TUTORIAL)) {
+  if (flipFirst.forces[board.state] !== 0) throw new Error(`Tutorial board ${board.state} can't be solved by flips`);
+}
+
+// The second tier (difficulty 2, Beta) is made by hand too: the random 2-flip boards were mostly
+// too trivial. Four boards, each given by its 2 flips as (row, column), counted from 1 at the top
+// left, and the color it ends on. Shown exactly as listed, in this order.
+const BETA = 2;
+const beta = [
+  { flips: [[3, 3], [3, 4]], endsOn: 0 }, // two side by side in the middle
+  { flips: [[1, 3], [5, 3]], endsOn: 1 }, // the top and bottom middle
+  { flips: [[1, 5], [2, 4]], endsOn: 0 }, // diagonal neighbours at the top right corner
+  { flips: [[3, 1], [5, 2]], endsOn: 1 }, // a knight's move apart at the left
+].map(({ flips, endsOn }) => flips.reduce((s, [r, c]) => s ^ MASKS[(r - 1) * C + (c - 1)], endsOn ? ALL : 0));
+tiers.set(BETA, beta.map((s) => {
+  const board = { state: half(s), minMoves: best.moves[half(s)], minFlips: flipFirst.moves[half(s)], shown: s };
+  if (flipFirst.forces[board.state] !== 0 || board.minFlips !== BETA) {
+    throw new Error(`Beta board ${toBoardString(s)} isn't solved by ${BETA} flips at best`);
+  }
+  return board;
+}));
+
+// Pick the levels of a tier: within the tier, the boards are grouped by minMoves (the grades),
+// and the same number is picked from each grade at random (a grade with fewer boards gives all it
+// has). Most boards have a middling minMoves, so this way the easiest and hardest grades get as
+// many levels as the others. The levels are then ordered by minMoves.
+// How many per grade: PER_GRADE (a row of 4 in the app), or more in rows of 4 for a tier with
+// few grades, so that every tier has at least MIN_PER_TIER levels (the easy tiers have few
+// grades: minMoves must stay below minFlips).
 // Each tier has its own random generator (seeded with SEED and its difficulty), so adding or
 // removing a tier doesn't change the levels picked for the others.
-function pickGraded(all, rand) {
-  const groups = new Map(); // minFlips -> boards
+const MIN_PER_TIER = 24;
+const EASY_TIER = 4; // tiers up to this many flips are a short start: 8 levels
+const MIN_PER_EASY_TIER = 8;
+
+function pickGraded(all, rand, difficulty) {
+  const groups = new Map(); // minMoves -> boards
   for (const board of all) {
-    if (!groups.has(board.minFlips)) groups.set(board.minFlips, []);
-    groups.get(board.minFlips).push(board);
+    if (!groups.has(board.minMoves)) groups.set(board.minMoves, []);
+    groups.get(board.minMoves).push(board);
   }
-  return [...groups.keys()].sort((x, y) => x - y).flatMap((minFlips) => {
-    const group = groups.get(minFlips);
+  const least = difficulty <= EASY_TIER ? MIN_PER_EASY_TIER : MIN_PER_TIER;
+  const perGrade = Math.max(PER_GRADE, 4 * Math.ceil(least / (4 * groups.size)));
+  return [...groups.keys()].sort((x, y) => x - y).flatMap((grade) => {
+    const group = groups.get(grade);
     for (let i = group.length - 1; i > 0; i--) {
       const j = Math.floor(rand() * (i + 1));
       [group[i], group[j]] = [group[j], group[i]];
     }
-    return group.slice(0, PER_GRADE).sort((x, y) => x.state - y.state);
+    return group.slice(0, perGrade).sort((x, y) => x.state - y.state);
   });
 }
 
@@ -216,10 +278,12 @@ const output = {
   seed: SEED,
   tiers: [...tiers.keys()].sort((x, y) => x - y).map((difficulty) => {
     const all = tiers.get(difficulty);
-    const picked = pickGraded(all, random(SEED * 1000 + difficulty));
-    const grades = {}; // minFlips -> [available, picked]
-    for (const board of all) (grades[board.minFlips] ??= [0, 0])[0]++;
-    for (const board of picked) grades[board.minFlips][1]++;
+    // (the hand-made tiers, the tutorial and Beta: all of their boards, in their order)
+    const handMade = difficulty === TUTORIAL || difficulty === BETA;
+    const picked = handMade ? all : pickGraded(all, random(SEED * 1000 + difficulty), difficulty);
+    const grades = {}; // minMoves -> [available, picked]
+    for (const board of all) (grades[board.minMoves] ??= [0, 0])[0]++;
+    for (const board of picked) grades[board.minMoves][1]++;
     // How each level is shown: the boards kept are each group's lowest number, which leans to
     // the first color (and always has it in the bottom right corner). So every level is turned
     // or mirrored at random, and in each grade half the levels end on one color and half on the
@@ -228,8 +292,8 @@ const output = {
     // about solving it: the same moves, turned along.
     const orient = random(SEED * 7919 + difficulty);
     const endsOnOne = []; // per picked level: should its fewest-moves solution end on color 1?
-    for (const minFlips of new Set(picked.map((b) => b.minFlips))) {
-      const at = picked.flatMap((b, i) => (b.minFlips === minFlips ? [i] : []));
+    for (const grade of new Set(picked.map((b) => b.minMoves))) {
+      const at = picked.flatMap((b, i) => (b.minMoves === grade ? [i] : []));
       const wants = at.map((_, j) => (j < at.length / 2 ? true : false));
       if (at.length % 2 && orient() < 0.5) wants[Math.floor(at.length / 2)] = true; // odd: either way
       for (let j = wants.length - 1; j > 0; j--) {
@@ -242,7 +306,7 @@ const output = {
       difficulty,
       available: all.length,
       grades,
-      levels: picked.map(({ state, minMoves, minFlips }, i) => {
+      levels: picked.map(({ state, minMoves, minFlips, shown: fixed }, i) => {
         // The two solutions the hints show: flips only (second star), and fewest moves (third)
         const flipsOnly = solutionOf(fewestForcesTable, state);
         const fewest = solutionOf(fewestMovesTable, state);
@@ -250,8 +314,9 @@ const output = {
             fewest.flips.length + fewest.forces.length !== minMoves) {
           throw new Error(`The solutions of board ${state} don't match its minFlips and minMoves`);
         }
-        // Turn or mirror it (one of the 8 symmetries); the solutions' tiles turn along
-        const perm = SYMMETRIES[Math.floor(orient() * SYMMETRIES.length)];
+        // Turn or mirror it (one of the 8 symmetries); the solutions' tiles turn along. (Not a
+        // hand-made board: that is shown as it is.)
+        const perm = fixed === undefined ? SYMMETRIES[Math.floor(orient() * SYMMETRIES.length)] : SYMMETRIES[0];
         const turn = (tiles) => tiles.map((k) => perm[k]);
         const solutionFlips = turn(flipsOnly.flips);
         const solutionMoves = { flips: turn(fewest.flips), forces: turn(fewest.forces) };
@@ -265,7 +330,7 @@ const output = {
         // wanted (the same moves then end on the other color)
         const turned = transform(state, perm);
         const swap = (end(turned, solutionMoves.flips, solutionMoves.forces) === ALL) !== endsOnOne[i];
-        const shown = turned ^ (swap ? ALL : 0);
+        const shown = fixed ?? turned ^ (swap ? ALL : 0);
         // Checked: the solutions still solve the board shown
         const solved = (t) => t === 0 || t === ALL;
         if (!solved(end(shown, solutionFlips, [])) || !solved(end(shown, solutionMoves.flips, solutionMoves.forces))) {
@@ -293,15 +358,16 @@ Boards left after each criterion:
   all boards                                   ${fmt(funnel.all)}
   a. minMoves < min(yellow, green)             ${fmt(funnel.a)}
   b. + solvable with flips only                ${fmt(funnel.b)}
-  c. + minMoves < minFlips                     ${fmt(funnel.c)}
-  d. + minMoves >= ${MIN_DIFFICULTY}                            ${fmt(funnel.d)}
+  c. + minMoves <= minFlips                    ${fmt(funnel.c)}
+  d. + minFlips >= ${MIN_DIFFICULTY}                            ${fmt(funnel.d)}
+  e. + minMoves < minFlips after ${STRICT_AFTER} flips          ${fmt(funnel.e)}
 
 Unique levels (rotations, mirror images and swapped colors counted once), per difficulty:`);
 for (const tier of output.tiers) {
-  console.log(`  ${String(tier.difficulty).padStart(2)} moves: ${fmt(tier.available)} available, ` +
+  console.log(`  ${String(tier.difficulty).padStart(2)} flips: ${fmt(tier.available)} available, ` +
     `${tier.levels.length} picked`);
-  for (const [minFlips, [available, picked]] of Object.entries(tier.grades)) {
-    console.log(`      ${minFlips.padStart(2)} flips: ${fmt(available)} available, ${String(picked).padStart(2)} picked`);
+  for (const [moves, [available, picked]] of Object.entries(tier.grades)) {
+    console.log(`      ${moves.padStart(2)} moves: ${fmt(available)} available, ${String(picked).padStart(2)} picked`);
   }
 }
 console.log(`\nWrote ${tiers.size} tiers to ${OUT} in ${((Date.now() - started) / 1000).toFixed(1)}s`);

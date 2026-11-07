@@ -5,7 +5,7 @@ import "./game/flip-tiles.css";
 import "./styles.css";
 import { findLevel, findTier } from "./levels/levels";
 import { currentRoute, go, goUp, onNavigate } from "./nav";
-import { activeSkin, hasSeenRules, isLevelOpen, loadProgress, starsToUnlock } from "./progress";
+import { activeLook, isLevelOpen, loadProgress, starsToUnlock, tutorialStep } from "./progress";
 import { homeScreen } from "./screens/home";
 import { howToPlayScreen } from "./screens/howToPlay";
 import { levelScreen } from "./screens/level";
@@ -17,15 +17,18 @@ const app = document.querySelector<HTMLElement>("#app")!;
 
 function render() {
   const route = currentRoute();
+  // A new player plays the tutorial first: the first two levels, one after the other. Every
+  // other screen leads to the step they are at (instead of that screen, in the history).
+  const step = tutorialStep();
+  if (step && !(route.screen === "level" && route.difficulty === step.difficulty && route.number === step.number)) {
+    go(`#/level/${step.difficulty}/${step.number}`, true);
+    return;
+  }
   let next: HTMLElement;
   if (route.screen === "how-to-play") next = howToPlayScreen();
   else if (route.screen === "shop") next = shopScreen(render);
   else if (route.screen === "home") next = homeScreen(render);
-  else if (!hasSeenRules()) {
-    // A new player goes through How to play first (instead of this screen in the history)
-    go("#/how-to-play", true);
-    return;
-  } else {
+  else {
     // A tier or level that doesn't exist, or isn't open yet: back home
     const tier = findTier(route.difficulty);
     const level = route.screen === "level" ? findLevel(route.difficulty, route.number) : undefined;
@@ -52,6 +55,6 @@ app.addEventListener("click", (e) => {
 
 onNavigate(render);
 loadProgress().then(() => {
-  applySkin(activeSkin());
+  applySkin(activeLook());
   render();
 });

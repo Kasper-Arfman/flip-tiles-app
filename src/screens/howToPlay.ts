@@ -1,15 +1,12 @@
-// The rules, with two tiny boards to try the two moves on. A new player comes here before their
-// first level (see main.ts); "Start playing" at the bottom marks the rules as seen.
+﻿// The rules, with two tiny boards to try the two moves on (behind the ? on the home screen; a new
+// player learns the moves in the tutorial, the first two levels).
 import { createFlipTiles } from "../game/createFlipTiles";
 import { TIERS } from "../levels/levels";
-import { hasSeenRules, markRulesSeen } from "../progress";
 import { screen, star, topbar } from "./ui";
 
 export function howToPlayScreen() {
   const element = screen("how-to-play-screen", `
     ${topbar("How to play", "#/")}
-    ${hasSeenRules() ? "" : `<p class="first-rules">First, a quick look at how to play. Tap
-      <strong>Start playing</strong> at the bottom when you're ready.</p>`}
     <div class="rules">
       <p>Turn every tile the same color: all green, or all gold.</p>
 
@@ -36,13 +33,13 @@ export function howToPlayScreen() {
         <li>${star(true)}<span><strong>Only flips</strong>, in the fewest flips possible.</span></li>
         <li>${star(true)}<span><strong>Fewest moves</strong>: flips and forces, in the fewest moves possible.</span></li>
       </ol>
-      <p>The levels come in stages, Alpha, Beta, Gamma and on, each harder than the one before: the
-        number of stars next to a stage is the number of moves of its levels' best solutions. Earn
+      <p>The levels come in stages, Alpha, Beta, Gamma and on, each harder than the one before (one
+        more star next to its name). Earn
         stars to open the next group of levels, and the next stage.</p>
       <h2>Coins and hints</h2>
-      <p>Stuck? Tap the goal <strong>Only flips</strong> or <strong>In … moves</strong> above the
-        board, and buy a hint for one coin: it marks one move of a solution for that goal (a blue
-        plus: flip that tile; a red dot: force it). Coins can also unlock levels and stages early.</p>
+      <p>Stuck? Tap the goal <strong>… moves</strong> or <strong>… flips</strong> above the
+        board, and buy a hint for one coin: it marks one move of a solution for that goal (a hollow
+        diamond, blue: flip that tile; red: force it. Making the move fills it in). Coins can also unlock levels and stages early.</p>
       <p>Earned the <strong>Only flips</strong> or <strong>Fewest moves</strong> star? <strong>▶ Replay</strong>
         lets you step through your solution again.</p>
       <a class="button primary start-playing" href="#/tier/${TIERS[0].difficulty}">Start playing</a>
@@ -55,7 +52,5 @@ export function howToPlayScreen() {
   for (const slot of element.querySelectorAll<HTMLElement>(".demo")) {
     slot.append(createFlipTiles({ solver: false, newGame: false, maxMoves: 3, start: demos[slot.dataset.demo as keyof typeof demos] }));
   }
-  // (before the link goes to the first stage, so that screen is let through)
-  element.querySelector(".start-playing")!.addEventListener("click", markRulesSeen);
   return element;
 }

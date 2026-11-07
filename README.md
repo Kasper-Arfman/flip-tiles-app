@@ -194,7 +194,8 @@ with `npx cap ...` (e.g. `npx cap doctor` checks your Capacitor setup).
 | `index.html` | the page Vite starts from |
 | `src/main.ts` | starts the app: loads the stars, shows the screen the address asks for |
 | `src/nav.ts` | the screens' addresses (`#/tier/4`, `#/level/4/7`) and going back |
-| `src/skins.ts` | the skins (tile color pairs) sold in the shop, and putting one on |
+| `src/skins.ts` | the skins (tile color pairs) and shapes (tile outlines) sold in the shop, and putting them on |
+| `src/dev.ts` | `DEV_MODE`: shows what players must not see yet (set it to `false` for a release) |
 | `src/progress.ts` | what the player has, saved on the device: stars, coins, hints, best solutions; which tiers are open |
 | `src/screens/` | one file per screen (home, tier, level, how to play), shared pieces in `ui.ts`, and the home screen's background art in `homeArt.ts` |
 | `src/styles.css` | the look of the screens |
@@ -228,12 +229,26 @@ Each level can earn three stars:
 - **minMoves < min(yellow, green)**: forcing every tile of one color doesn't earn the third star
 - **it can be solved with flips only**: otherwise the second star can't be earned (only 1 in 4
   boards can)
-- **minMoves < minFlips**: the second and third stars have different solutions
-- **minMoves ≥ 3** (`MIN_DIFFICULTY` in the script): shorter ones are too easy
+- **minMoves ≤ minFlips**: always so (flips are moves too). When equal, the flips-only solution
+  is also the fewest moves and earns both the second and third star (so in the easiest stages,
+  where forces never help, a perfect flips-only solve earns all three stars)
+- **minFlips ≥ 2** (`MIN_DIFFICULTY` in the script); the 1-flip stage is the hand-made tutorial
+- **after δ Delta (more than 4 flips): minMoves < minFlips** (`STRICT_AFTER` in the script), so
+  the third star always needs a force and a different solution than the second. (Not in Delta
+  itself: no 4-flip board can be solved in fewer than 4 moves, so it would be empty.)
 
-The difficulty (the tier) is minMoves. Within a tier, levels are graded by minFlips: a level
-whose flips-only solution is shorter is easier. Rotations, mirror images and color swaps of a
-board are the same puzzle, so each is kept only once.
+The difficulty (the tier, or stage) is minFlips: the flips-only star is the hard one, so a
+level whose flips-only solution is longer is harder. Within a stage, levels are graded by
+minMoves (fewer moves first), 4 per grade, or more (in rows of 4) in a stage with few grades,
+so that every stage has at least 24 levels (`MIN_PER_TIER` in the script); the easy stages (3
+and 4 flips) have 8. The first stage, α Alpha, is a tutorial made by hand (`TUTORIAL`): the
+two puzzles of How to play (a plus in the middle, 1 flip; a single odd tile in the middle, 1
+force) and the one other single-tile board that flips alone can also clear (a tile diagonally
+next to the middle). β Beta (2 flips) is made by hand too (`BETA`): the random 2-flip boards
+were too trivial, so it has 4 chosen ones, each given by its two flips as (row, column). Then
+γ Gamma (3 flips) up to μ Mu (12 flips). Rotations, mirror images and color swaps of a board
+are the same puzzle, so each is kept only once; it is shown turned or mirrored at random, and in
+each grade half the levels end on each color, so the color to aim for can't be guessed.
 
 The script picks 5 levels per grade, at random within the grade (a grade with fewer boards
 gives all it has). Most boards have a middling minFlips, so a plain random pick per tier would
@@ -272,16 +287,35 @@ solution tables; a sample of the levels was also checked with a separate brute-f
   saved with the Capacitor [Preferences](https://capacitorjs.com/docs/apis/preferences) plugin
   (`src/progress.ts`). Everything about a level is stored by its board, so it stays with the level
   when the levels are curated again.
-- **Unlocking.** A difficulty opens when 30 stars are earned in the one before it
-  (`UNLOCK_STARS`), or right away for 100 coins (`UNLOCK_COST`). Within a difficulty, the levels
+- **A stage on the home screen.** Its card has a progress bar of the stars earned, blue while
+  under way. With every star earned the stage is complete: the bar turns gold, the card gets a
+  gold trim and a crown with "Complete", and a sheen of light sweeps over it now and then
+  (`.tier-card.complete` in `styles.css`). Completing a stage pays 50 coins (`STAGE_REWARD`):
+  the solve that earns its last star shows "Stage complete!" without buttons and goes to the
+  menu by itself, where "+50" rises from the stage's card and its coins burst out and fly into
+  the coin pouch, which counts up (`payStageRewards` in `progress.ts`, `flyCoins` in `home.ts`;
+  the wallet remembers which stages were paid, so each pays once). After a stage's last level
+  otherwise, the button under the stars says *Menu* and leads home.
+- **Unlocking.** A difficulty opens when enough stars are earned in all, counted over every
+  stage (Beta at 5, Gamma at 20, Delta at 35, and so on, 15 more each: `FIRST_UNLOCK_STARS` and
+  `UNLOCK_STARS_STEP` in `progress.ts`), or right away for 100 coins (`UNLOCK_COST`). Within a difficulty, the levels
   come in groups (a grade: the levels with the same minFlips, usually 5); the first group is
   open, and each next one opens when 10 stars are earned in the group before it
   (`UNLOCK_GRADE_STARS`; all its stars when it has fewer). The divider line above a locked group
   says how many stars are still needed, and the locked group next in line can be unlocked for 50
   coins (`GRADE_UNLOCK_COST`).
-- **First time.** A new player goes through How to play before their first level: until they
-  tap *Start playing* at its bottom, opening a stage or level leads there instead (`main.ts`,
-  `hasSeenRules` in `progress.ts`). A player with stars is never stopped.
+- **First time: the tutorial.** The app opens a new player in level α 1 (a gold plus on green):
+  a hand over the middle tile shows a tap, with "Tap to flip" under it, on the board. Solved, the
+  only button is *Next level*, to α 2 (one green tile in gold), where the hand shows a tap and
+  hold ("Tap and hold to force"). In each step only that move on that tile works, so it is always
+  solved; the presses are caught on their way down to the board (`capture`) and only the right
+  one is let through. (So the levels have no "Tap to flip, tap and hold to force" caption.) The
+  hand is a white cartoon hand with a dark outline, tilted a little, the way casual games draw
+  it (drawn from the "hand-pointer" icon of Font Awesome Free, CC BY 4.0); a hold is shown the common way, as a hollow ring that a growing disc
+  fills, like a loading circle. Solving it ends the tutorial, with
+  5 stars (`tutorialStep` in `progress.ts`, `guided` in `level.ts`). Until then every other
+  screen leads back to the step they are at, and there is no back arrow, Retry, hints, or
+  stepping back. A player with stars elsewhere never gets it. How to play stays behind the ?.
 - **Stages.** In the app the difficulty tiers are stages named after the Greek letters: Alpha
   (difficulty 3), Beta, Gamma, ... (`STAGES` in `src/levels/levels.ts`). Their titles show the
   lower-case letter in gold before the name ("α Alpha", `stageTitle` in `ui.ts`), and a level is
@@ -289,18 +323,58 @@ solution tables; a sample of the levels was also checked with a separate brute-f
   use the difficulty.
 - **Coins.** A new player gets 1,000 (`STARTING_COINS`, generous while testing). There is no way
   to earn coins yet.
-- **The shop** (`#/shop`: the bag button on the home screen, or tap your coins) sells skins: the
-  two colors of the tiles, 50 coins each (`SKIN_COST`). The skins are listed in `src/skins.ts`,
-  in two sections: light & bright, and dark (a near-black with one strong color). The hint marks
-  have a dark outline, so they show on any skin.
+- **The shop** (`#/shop`: the bag button on the home screen, or tap your coins) sells the look
+  of the tiles in two separate parts, which go together in any combination: **skins** (the two
+  colors of the tiles: 25 to find besides Classic) and **shapes** (the outline of every tile: a
+  heart, a paw, a flower, a strawberry, a kitty, a ghost, ...: 12 to find besides the square).
+  Each has its own mystery box of 25 coins (`SKIN_COST`): a random one you don't have yet, each
+  equally likely (`buyMysterySkins`, `buyMysteryShapes` in `progress.ts`); it shakes, the lid pops
+  off and the new look's board flips in (`openBox` in `shop.ts`). **Open 10** opens ten at once
+  for 250 (`BOX_BUNDLE`, `BUNDLE_COST`: the same price per box), ten different ones, while at
+  least ten are left: they come out one after the other in a grid, and you tap one to put it on.
+  Some shapes have two colors: a detail drawn in the tile's other color (a daisy's core, a
+  strawberry's leaves, a crown's jewels: `detail` in `SHAPES`), set as the tile's background image
+  (`--skin-detail-zero`, `--skin-detail-one`), which switches with the color halfway through a
+  tile's turn. The shop shows one thing at a
+  time: at the top your look as it is now (a small board, with the skin's and shape's names), then
+  tabs: **Skins** and **Shapes** (each with how many you have, its mystery box, and the collection
+  below it) and **Extras** (Unlock all). A box is gone once there is nothing left to find, and
+  the Extras tab once Unlock all has nothing left to give; the shop remembers the open tab. In a
+  collection, one you own can be put on at any time, the others are gray cards with a "?". A
+  skin's card shows it in your shape, a shape's card in your skin, so you see the combination.
+  Both are listed in `src/skins.ts` (`SKINS` in three sections: rich & sweet, light & bright, and
+  dark; `SHAPES`). A shape is a small SVG outline, used as a CSS mask on every tile
+  (`--skin-shape`): what is outside it is cut away, and the page's background shows there (the
+  board has no white of its own in the app). Every shape covers the middle of the tile, where the
+  hint and move marks go. When the board is solved, each tile turns back into a square as the
+  wave of light reaches it, so the wave and the wires play on square tiles (a CSS transition of
+  `mask-image` with `transition-behavior: allow-discrete`, delayed per tile).
+- **Unlock all** (the shop's Extras tab, 10,000 coins: `UNLOCK_ALL_COST`) opens every stage and
+  group of levels and gives every skin and shape at once (`buyUnlockAll` in `progress.ts`); bought
+  one by one that would cost over 2,000. It is gone once there is nothing left to get.
+- **Taking a skin or shape out of the game** is safe: when progress loads, ones that no longer
+  exist leave the wallet, and if one was on, Classic (or the square) goes on instead.
+- **While building the game**, `DEV_MODE` in `src/dev.ts` shows the skins and shapes you haven't
+  found yet in the shop, in their look and with their names. Set it to `false` before handing out a
+  version: players see gray cards with a "?".
   A skin sets the CSS variables `--skin-zero` and `--skin-one` on the page; the board, the mini
   boards and the home screen's art take their colors from them (the art mixes lighter and darker
   shades with CSS `color-mix`). The "Solved!" text is in the skin's other color (on a board
   solved to one color, the text is the other), its hue turning very slightly from left to right.
   Stars and the logo keep their gold and green.
-- **Hints.** On a level, the goals "Only flips" and "In N moves" are buttons: tap one to show its
-  hints on the board, and buy the next hint for 1 coin (`HINT_COST`). A hint marks one move of a
-  solution for that goal: a blue plus = flip that tile, a red dot = force it. The solutions are
+- **Your moves on the board.** Every move made shows on its tile: a tiny filled diamond, blue
+  for a flip and red for a force (told apart by color: the shapes were too alike at this size);
+  a tile both flipped and forced gets a blue and red checkerboard diamond. Making the same move
+  again undoes it and its mark goes away. This is in the widget (`draw` in
+  `FlipTilesElement.ts`), so the replays show it too. Once solved, these marks and the hints'
+  fade out after a moment (so the last move is seen filling its slot), for the celebration.
+- **Hints.** On a level, the goals "N moves" and "N flips" are buttons: tap one to show its
+  hints on the board, and buy the next hint for 1 coin (`HINT_COST`) with the Hint button, at
+  the top right above the goals (with ▶ Replay next to it once there is a solve to watch; no
+  text around them). A hint marks one move of a
+  solution for that goal: a hollow diamond (a slot), blue = flip that tile, red = force it, and
+  making the move fills the slot with its diamond. A tile that needs both gets the two slots
+  side by side, slightly apart. All of these marks are in `flip-tiles.css`. The solutions are
   stored with the levels by the curation script (`solutionFlips`, `solutionMoves`), so the app
   needs no solver. The order of moves doesn't matter, so the marks stay right whatever the
   player has done.
@@ -372,6 +446,17 @@ Notes added as the project goes along: what was learned, problems hit, and how t
   edges), large, green with bands of gold, made as an SVG in code with an SVG noise filter
   (`feTurbulence`) for grain. Learned: an element placed *behind* the page (`z-index: -1`) is
   hidden by a background on `body`; put the page background on `html` only.
+- **2026-11-07**: 28 skins (13 with pictures on the tiles), 25 coins a box, 100 coins to start.
+  Learned: an SVG can be a CSS image (`url("data:image/svg+xml,...")`), but it is a document of
+  its own: it doesn't see the page's CSS variables, so the colors are written into it.
+- **2026-11-07**: Skins now come from mystery boxes: a random skin you don't have yet. Learned:
+  `animationend` bubbles up from the element that animates, so one listener on a wrapper can
+  wait for an animation inside it (the box's shake) before the next step (the reveal).
+- **2026-11-07**: Stages open at a total number of stars (5, 20, 35, ...), and after Delta every
+  level needs a force for the fewest moves (minMoves < minFlips). Learned: a rule can empty a
+  whole tier: applied from 4 flips on, it removed the 4-flip stage (no 4-flip board is solvable
+  in 3 moves) and the later stages moved up a letter (they are named by position), so the rule
+  now starts after 4 flips. Print the counts per tier after changing a rule.
 - **2026-11-06**: The level grid is now dark with white level tiles. Learned: `html:has(.tier-screen)`
   styles the whole page depending on which screen is in it (the `:has()` selector).
 - **2026-11-06**: A game logo for the title: every letter on a puzzle tile, in the Lilita One

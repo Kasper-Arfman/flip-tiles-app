@@ -41,8 +41,8 @@
   --zero: #2e9e4f; /* green: 0 (black in the code) */
   --flip-mark: #6ec6ff; /* light blue */
   --force-mark: #e0453a; /* red */
-  --mark: 32%; /* size of the plus and of the dot, as part of the tile */
-  --mark-under-plus: 44%; /* size of the dot when a plus sits on it */
+  --slot: 17%; /* a hint's hollow diamond, as part of the tile (before it is turned) */
+  --gem: 9%; /* a move's filled diamond: it fits inside the slot */
   --flash-time: 260ms; /* how long a tile flashes before it turns over */
   --flip-time: 260ms; /* how long a tile takes to turn over */
   display: flex;
@@ -398,42 +398,103 @@
   background: var(--one);
 }
 
-/* The solution marks: a blue plus = flip this tile (the shape of the cross it flips), a red
-   dot = force it. Both are --mark wide, centered on the tile. A tile that needs both shows
-   the plus on a slightly larger dot. */
+/* Diamonds on the tiles: blue for a flip, red for a force.
+   - The solution's moves (the hints, or the solver's): a hollow diamond, a slot, blue = flip
+     this tile, red = force it. A tile that needs both shows the two slots side by side,
+     slightly apart.
+   - The moves made so far: a small filled diamond, lit from the top left like a little gem, so
+     making a hinted move fills its slot (and the player sees what to press again to undo a
+     move). A tile both flipped and forced gets one diamond in a blue and red checkerboard.
+   All of them fade out once the board is solved, for the celebration (see below).
+   Each has a darker edge of its own color, so it shows on both tile colors. */
 .flip-mark,
-.force-mark {
+.force-mark,
+.made-flip,
+.made-force {
+  --shift: 0px; /* sideways, on a tile with both slots */
   position: absolute;
   top: 50%;
-  left: 50%;
-  width: var(--mark);
-  height: var(--mark);
-  transform: translate(-50%, -50%);
+  left: calc(50% + var(--shift));
   display: none;
+  box-sizing: border-box;
+  transform: translate(-50%, -50%) rotate(45deg);
+  pointer-events: none;
 }
 
+.flip-mark,
 .force-mark {
-  border-radius: 50%;
-  background: var(--force-mark);
+  width: var(--slot);
+  height: var(--slot);
+  border: 2px solid;
+  border-radius: 2px;
 }
 
 .flip-mark {
-  background: var(--flip-mark);
-  /* a plus, its arms a third of its width */
-  clip-path: polygon(
-    33% 0, 67% 0, 67% 33%, 100% 33%, 100% 67%, 67% 67%,
-    67% 100%, 33% 100%, 33% 67%, 0 67%, 0 33%, 33% 33%
-  );
+  border-color: var(--flip-mark);
+  box-shadow: 0 0 0 1px #0d3f6b, inset 0 0 0 1px #0d3f6b;
+}
+
+.force-mark {
+  border-color: var(--force-mark);
+  box-shadow: 0 0 0 1px #5c0f0b, inset 0 0 0 1px #5c0f0b;
+}
+
+.made-flip,
+.made-force {
+  z-index: 1; /* (in its slot) */
+  width: var(--gem);
+  height: var(--gem);
+  border-radius: 1px;
+}
+
+.made-flip {
+  background: linear-gradient(135deg, #dcf2ff 0%, #6ec6ff 45%, #2a86c9 100%);
+  box-shadow: 0 0 0 1px #0d3f6b;
+}
+
+.made-force {
+  background: linear-gradient(135deg, #ffb3a8 0%, #e5483b 45%, #a3201a 100%);
+  box-shadow: 0 0 0 1px #5c0f0b;
+}
+
+/* A tile both flipped and forced: one diamond, a checkerboard of the two (four squares, which
+   the turn makes into four small diamonds) */
+.tile.flipped.forced .made-flip {
+  background: conic-gradient(#6ec6ff 0 25%, #e5483b 0 50%, #6ec6ff 0 75%, #e5483b 0);
+  box-shadow: 0 0 0 1px #2b1b33;
+}
+
+.tile.flipped.forced .made-force {
+  display: none; /* (wins over the display: block below: more specific) */
+}
+
+/* A tile with both slots: the blue one a little to the left, the red one a little to the
+   right, and the moves made in their own slots */
+.tile.flip.force .flip-mark,
+.tile.flip.force:not(.forced) .made-flip {
+  --shift: -3px;
+}
+
+.tile.flip.force .force-mark,
+.tile.flip.force:not(.flipped) .made-force {
+  --shift: 3px;
 }
 
 .tile.flip .flip-mark,
-.tile.force .force-mark {
+.tile.force .force-mark,
+.tile.flipped .made-flip,
+.tile.forced .made-force {
   display: block;
 }
 
-.tile.flip.force .force-mark {
-  width: var(--mark-under-plus);
-  height: var(--mark-under-plus);
+/* Solved: the marks fade out after a short moment, so the last move is first seen filling its
+   slot (and come back at once when a move is taken back) */
+.flip-tiles.is-solved .flip-mark,
+.flip-tiles.is-solved .force-mark,
+.flip-tiles.is-solved .made-flip,
+.flip-tiles.is-solved .made-force {
+  opacity: 0;
+  transition: opacity 0.3s ease 0.6s;
 }
 
 .title {

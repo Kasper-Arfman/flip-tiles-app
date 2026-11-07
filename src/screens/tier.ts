@@ -1,5 +1,5 @@
-// A tier's screen: a grid of its levels, each with a picture of its board and its stars. The
-// levels are graded within the tier by minFlips (the length of the flips-only solution); a quiet
+﻿// A tier's screen: a grid of its levels, each with a picture of its board and its stars. The
+// levels are graded within the tier by minMoves (the length of the fewest-moves solution); a quiet
 // line divides the groups, without saying what they are. A group opens when enough stars are
 // earned in the group before it (see progress.ts); until then its levels are locked, and its
 // line says how many stars are still needed. The locked group next in line can also be bought

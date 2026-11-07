@@ -118,7 +118,8 @@ export function createFlipTiles(options: FlipTilesOptions = {}): HTMLElement {
     const one = startState !== undefined && ((startState >>> k) & 1) === 1;
     return `<button type="button" class="tile${one ? " one" : ""}" style="--wave-delay: ${waveDelay(k)}ms"
       data-tile="${k}" aria-label="Tile ${Math.floor(k / 5) + 1}, ${(k % 5) + 1}">
-      <span class="force-mark"></span><span class="flip-mark"></span></button>`;
+      <span class="force-mark"></span><span class="flip-mark"></span>
+      <span class="made-flip"></span><span class="made-force"></span></button>`;
   }).join("");
 
   const wires = WIRES.map((wire) => {

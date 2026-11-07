@@ -1,4 +1,4 @@
-// The levels, from levels.json (made by scripts/curate-levels.mjs), grouped in tiers by difficulty.
+﻿// The levels, from levels.json (made by scripts/curate-levels.mjs), grouped in tiers by difficulty.
 import data from "./levels.json";
 
 export interface Level {
@@ -8,9 +8,9 @@ export interface Level {
   minFlips: number; // the second star: the fewest flips, with flips only
   solutionFlips: number[]; // a flips-only solution with minFlips flips (tiles 5r + c): its hints
   solutionMoves: { flips: number[]; forces: number[] }; // a solution in minMoves moves: its hints
-  difficulty: number; // its tier: equal to minMoves
+  difficulty: number; // its tier: equal to minFlips (the flips-only star is the hard one)
   number: number; // its place in the tier, from 1
-  grade: number; // its group in the tier, from 0: the levels with the same minFlips
+  grade: number; // its group in the tier, from 0: the levels with the same minMoves
   key: string; // the board's standard form: the same for all its rotations, mirror images and
   //              color swaps (stars and hints are saved by it, see progress.ts)
 }
@@ -49,19 +49,19 @@ export interface Tier {
   stage: string; // the stage's own name: "Alpha", "Beta", ...
   symbol: string; // its Greek letter, lower case: "α", "β", ...
   levels: Level[];
-  grades: Level[][]; // the levels in groups, easiest first (the levels are sorted by minFlips)
+  grades: Level[][]; // the levels in groups, easiest first (the levels are sorted by minMoves)
 }
 
 // The tiers are called stages, after the Greek letters, easiest first: their names and letters
 const STAGES = [
   ["Alpha", "α"], ["Beta", "β"], ["Gamma", "γ"], ["Delta", "δ"], ["Epsilon", "ε"], ["Zeta", "ζ"],
-  ["Eta", "η"], ["Theta", "θ"], ["Iota", "ι"], ["Kappa", "κ"], ["Lambda", "λ"],
+  ["Eta", "η"], ["Theta", "θ"], ["Iota", "ι"], ["Kappa", "κ"], ["Lambda", "λ"], ["Mu", "μ"], ["Nu", "ν"],
 ];
 
 export const TIERS: Tier[] = data.tiers.map((tier, t) => {
   const grades: Level[][] = [];
   const levels = tier.levels.map((level, i): Level => {
-    if (i === 0 || level.minFlips !== tier.levels[i - 1].minFlips) grades.push([]);
+    if (i === 0 || level.minMoves !== tier.levels[i - 1].minMoves) grades.push([]);
     const full = {
       ...level, difficulty: tier.difficulty, number: i + 1, grade: grades.length - 1, key: standardForm(level.board),
     };

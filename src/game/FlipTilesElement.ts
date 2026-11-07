@@ -16,7 +16,7 @@ export interface FlipTilesChange {
 // What a page can do with the widget once it is on the page (the app's level screen uses these
 // for hints and replays)
 export interface FlipTilesControls {
-  setMarks(moves: Move[]): void; // show these moves on the board: a plus = flip, a dot = force
+  setMarks(moves: Move[]): void; // show these moves on the board: a hollow diamond, blue = flip, red = force
   playMove(move: Move): void; // make a move, as if the tile was pressed
   resetGame(): void; // back to the start board
   setHistory(moves: Move[]): void; // these moves as the game's history, at its start (step with < >)
@@ -90,6 +90,11 @@ class FlipTiles extends HTMLElement implements FlipTilesControls {
       const marked = showing ? moves : pageMarks;
       const flips = new Set(marked?.filter((m) => m.kind === "flip").map((m) => m.tile));
       const forces = new Set(marked?.filter((m) => m.kind === "force").map((m) => m.tile));
+      // The moves made so far, marked on their tiles (a blue diamond = flipped, a red one = forced, like the hints),
+      // so the player sees what to press again to undo one
+      const made = steps.slice(1, at + 1);
+      const madeFlips = new Set(made.filter((m) => m.kind === "flip").map((m) => m.tile));
+      const madeForces = new Set(made.filter((m) => m.kind === "force").map((m) => m.tile));
       tiles.forEach((tile, k) => {
         if ((((shown ^ state) >>> k) & 1) === 1) {
           const distance = Math.abs(Math.floor(k / 5) - Math.floor(origin / 5)) + Math.abs((k % 5) - (origin % 5));
@@ -101,6 +106,8 @@ class FlipTiles extends HTMLElement implements FlipTilesControls {
         tile.classList.toggle("one", ((state >>> k) & 1) === 1);
         tile.classList.toggle("flip", flips.has(k));
         tile.classList.toggle("force", forces.has(k));
+        tile.classList.toggle("flipped", madeFlips.has(k));
+        tile.classList.toggle("forced", madeForces.has(k));
       });
       shown = state;
       back.disabled = at === 0;

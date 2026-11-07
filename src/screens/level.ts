@@ -9,8 +9,8 @@
 //   2. only flips, and exactly minFlips of them (fewer is impossible)
 //   3. exactly minMoves moves (fewer is impossible)
 //
-// Hints: the goals "Only flips" and "In N moves" are buttons. Tapping one shows the hints bought
-// for it on the board (a plus = flip that tile, a dot = force it); each hint costs a coin and
+// Hints: the goals "N moves" and "N flips" are buttons. Tapping one shows the hints bought
+// for it on the board (a hollow diamond, blue = flip that tile, red = force it); each hint costs a coin and
 // shows one more move of a solution for that goal. The order of moves doesn't matter, so the
 // marks stay right whatever moves have been made already.
 //
@@ -22,7 +22,8 @@ import { findTier, levelName, nextLevel, type Level } from "../levels/levels";
 import { go } from "../nav";
 import {
   ALL_STARS, HINT_COST, STAR_FLIPS, STAR_MOVES, STAR_SOLVED, award, buyHint, coins, countStars,
-  hasRecordedSolves, hintsBought, isLevelOpen, recordSolve, solutionFor, starsOf, type HintGoal,
+  finishTutorial, hasRecordedSolves, hintsBought, isLevelOpen, isTierComplete, recordSolve, solutionFor, starsOf, tutorialStep,
+  type HintGoal,
 } from "../progress";
 import { openReplays } from "./replayDialog";
 import { bigStarGold, bigStarSocket, coin, plural, screen, star, topbar } from "./ui";
@@ -30,38 +31,59 @@ import { bigStarGold, bigStarSocket, coin, plural, screen, star, topbar } from "
 // The result (stars and buttons over the board) comes this long after the solving move: once the
 // board's own solved animation (tiles turning, the wave of light, Solved!) has played
 const RESULT_DELAY_MS = 2600;
+// After the solve that completes a stage: how long its result shows (the stars landing, the
+// finale) before the game goes to the menu by itself
+const STAGE_DONE_MS = 3200;
+
+// The tutorial's hand, the way casual games draw it: a white cartoon hand with a dark outline,
+// tilted a little, so it shows on any tile color (the dark skins included). Its outline is the
+// "hand-pointer" icon of Font Awesome Free 6.7.2 (fontawesome.com, icons licensed CC BY 4.0)
+// without the lines on its palm, plus short lines between the fingers and a soft shade on the
+// palm's side. Its fingertip is at (168, 0) of its 448 x 512, and it is turned around that point.
+const HAND = `<svg class="touch-finger" viewBox="0 0 448 512" aria-hidden="true">
+  <g transform="rotate(-18 168 0)" stroke="#1b1d22" stroke-linecap="round" stroke-linejoin="round">
+    <path fill="#ffffff" stroke-width="40" paint-order="stroke"
+      d="M128 40c0-22.1 17.9-40 40-40s40 17.9 40 40l0 148.2c8.5-7.6 19.7-12.2 32-12.2c20.6 0 38.2 13 45 31.2c8.8-9.3 21.2-15.2 35-15.2c25.3 0 46 19.5 47.9 44.3c8.5-7.7 19.8-12.3 32.1-12.3c26.5 0 48 21.5 48 48l0 48 0 16 0 48c0 70.7-57.3 128-128 128l-16 0-64 0-.1 0-5.2 0c-5 0-9.9-.3-14.7-1c-55.3-5.6-106.2-34-140-79L8 336c-13.3-17.7-9.7-42.7 8-56s42.7-9.7 56 8l56 74.7L128 40z" />
+    <path fill="#dfe3ea" stroke="none"
+      d="M392 256c13 4 24 16 24 32l0 112c0 50-30 90-74 106c26-28 40-62 40-106l0-112c0-14 4-26 10-32z" />
+    <path fill="none" stroke-width="16" d="M208 200l0 64M285 214l0 52M368 236l0 34" />
+  </g>
+</svg>`;
 
 export function levelScreen(level: Level) {
   const next = nextLevel(level);
   const tierHash = `#/tier/${level.difficulty}`;
   const nextIsOpen = () => next !== undefined && isLevelOpen(findTier(level.difficulty)!, next);
   const earnedBefore = (bit: number) => (starsOf(level) & bit) !== 0;
-  const goalNames: Record<HintGoal, string> = { flips: "Only flips", moves: `In ${level.minMoves} moves` };
+  const goalNames: Record<HintGoal, string> = {
+    flips: plural(level.minFlips, "flip"), moves: plural(level.minMoves, "move"),
+  };
+  // A step of the tutorial (a new player's first two levels): a finger shows what to do, and the
+  // only way on is Next level (no back arrow, hints or Retry)
+  const guided = tutorialStep() === level;
+  const endsTutorial = guided && level.number === 2; // solving it finishes the tutorial
 
-  const element = screen("level-screen", `
-    ${topbar(levelName(level), tierHash, `${coin()} <span class="coin-count">${coins()}</span>`)}
+  const element = screen(`level-screen${guided ? " guided" : ""}`, `
+    ${topbar(levelName(level), guided ? undefined : tierHash, `${coin()} <span class="coin-count">${coins()}</span>`)}
+    <div class="hint-bar"${guided ? " hidden" : ""}>
+      <button type="button" class="replay" hidden>▶ Replay</button>
+      <button type="button" class="buy-hint">Hint · ${coin()} ${HINT_COST}</button>
+    </div>
     <ol class="goals">
       <li class="goal" data-star="${STAR_SOLVED}">${star(earnedBefore(STAR_SOLVED))}<span>Solve it</span></li>
-      <li><button type="button" class="goal" data-star="${STAR_FLIPS}" data-goal="flips" aria-pressed="false">
-        ${star(earnedBefore(STAR_FLIPS))}<span>Only flips, in ${level.minFlips}</span><small>hints</small></button></li>
       <li><button type="button" class="goal" data-star="${STAR_MOVES}" data-goal="moves" aria-pressed="false">
-        ${star(earnedBefore(STAR_MOVES))}<span>In ${level.minMoves} moves</span><small>hints</small></button></li>
+        ${star(earnedBefore(STAR_MOVES))}<span>${goalNames.moves}</span><small>hints</small></button></li>
+      <li><button type="button" class="goal" data-star="${STAR_FLIPS}" data-goal="flips" aria-pressed="false">
+        ${star(earnedBefore(STAR_FLIPS))}<span>${goalNames.flips}</span><small>hints</small></button></li>
     </ol>
     <p class="counter" aria-live="polite"></p>
     <div class="board-slot"></div>
-    <div class="hint-bar">
-      <p class="hint-info" aria-live="polite"></p>
-      <div class="hint-actions">
-        <button type="button" class="buy-hint">Hint · ${coin()} ${HINT_COST}</button>
-        <button type="button" class="replay" hidden>▶ Replay</button>
-      </div>
-    </div>
     <div class="result" hidden aria-live="polite">
       <div class="result-stars" role="img"></div>
       <p class="result-title"></p>
       <div class="result-bottom">
         <div class="result-buttons">
-          <button type="button" class="again">Retry</button>
+          <button type="button" class="again"${guided ? " hidden" : ""}>Retry</button>
           <button type="button" class="next-level">Next level</button>
         </div>
       </div>
@@ -79,6 +101,45 @@ export function levelScreen(level: Level) {
   // The result: a layer of decorations over the solved board, so it goes inside the board
   const result = element.querySelector<HTMLElement>(".result")!;
   widget.querySelector(".board")!.append(result);
+
+  // The tutorial's finger, over the tile to press: tapping (1.1), or tapping and holding (1.2),
+  // with what it does written under it. Only that move on that tile works, so the step is always
+  // solved: the tiles' presses are caught on their way down (capture), before the board's own
+  // handlers hear of them, and only the right one is let through.
+  let finger: HTMLElement | undefined;
+  if (guided) {
+    const holding = level.number === 2;
+    const bits = level.board.replace(/\s/g, "");
+    const target = holding ? [...bits].findIndex((b) => bits.split(b).length === 2) : 12; // the odd one / the middle
+    finger = document.createElement("div");
+    finger.className = `touch-guide ${holding ? "hold" : "tap"}`;
+    finger.setAttribute("aria-hidden", "true");
+    finger.style.setProperty("--x", `${((target % 5) + 0.5) * 20}%`);
+    finger.style.setProperty("--y", `${(Math.floor(target / 5) + 0.5) * 20}%`);
+    // (a tap: a ripple; a hold: a hollow ring that a growing disc fills, like a loading circle)
+    const press = holding
+      ? `<span class="hold-track"><span class="hold-fill"></span></span>`
+      : `<span class="touch-ring"></span>`;
+    finger.innerHTML = `${press}${HAND}<span class="touch-text">${holding ? "Tap and hold to force" : "Tap to flip"}</span>`;
+    widget.querySelector(".board")!.append(finger);
+
+    for (const type of ["pointerdown", "click", "contextmenu"]) {
+      widget.addEventListener(type, (e) => {
+        const tile = (e.target as Element).closest<HTMLElement>(".tile");
+        if (!tile) return;
+        const onTarget = Number(tile.dataset.tile) === target;
+        // 1.1: only a plain tap (click) on the middle; 1.2: only a hold (pointerdown starts the
+        // hold; a right click forces with a mouse) on the odd tile
+        const allowed = onTarget && (holding
+          ? type !== "click"
+          : type === "click" && !(e as MouseEvent).shiftKey);
+        if (!allowed) {
+          e.stopPropagation();
+          if (type === "contextmenu") e.preventDefault();
+        }
+      }, { capture: true });
+    }
+  }
   let resultTimer: number | undefined;
   const hideResult = () => {
     clearTimeout(resultTimer);
@@ -86,7 +147,6 @@ export function levelScreen(level: Level) {
   };
   const goals = [...element.querySelectorAll<HTMLElement>(".goal")];
   const goalButtons = [...element.querySelectorAll<HTMLButtonElement>("button.goal")];
-  const hintInfo = element.querySelector<HTMLElement>(".hint-info")!;
   const buyButton = element.querySelector<HTMLButtonElement>(".buy-hint")!;
   const replayButton = element.querySelector<HTMLButtonElement>(".replay")!;
   const coinCount = element.querySelector<HTMLElement>(".coin-count")!;
@@ -101,7 +161,6 @@ export function levelScreen(level: Level) {
     coinCount.textContent = String(coins());
     if (!hintGoal) {
       widget.setMarks([]);
-      hintInfo.textContent = "Stuck? Get a hint, or tap a goal above to see its hints.";
       // Always ready to sell a hint (it asks which one), unless there are none left to sell
       buyButton.disabled = coins() < HINT_COST || (hintsLeft("flips") === 0 && hintsLeft("moves") === 0);
       return;
@@ -109,8 +168,6 @@ export function levelScreen(level: Level) {
     const solution = solutionFor(level, hintGoal);
     const shown = hintsBought(level, hintGoal);
     widget.setMarks(solution.slice(0, shown));
-    hintInfo.innerHTML = `${goalNames[hintGoal]}: ${shown} of ${plural(solution.length, "hint")} shown` +
-      (shown ? ` <span class="legend"><span class="legend-plus"></span>flip <span class="legend-dot"></span>force</span>` : "");
     buyButton.disabled = shown >= solution.length || coins() < HINT_COST;
   };
 
@@ -139,7 +196,7 @@ export function levelScreen(level: Level) {
       const total = solutionFor(level, goal).length;
       const shown = hintsBought(level, goal);
       return `<button type="button" class="hint-option" data-goal="${goal}" ${shown >= total ? "disabled" : ""}>
-        <strong>${goal === "flips" ? `Only flips, in ${level.minFlips}` : `In ${level.minMoves} moves`}</strong>
+        <strong>${goalNames[goal]}</strong>
         <span>${shown >= total ? "all hints shown" : `${shown} of ${total} hints shown`}</span></button>`;
     };
     const dialog = document.createElement("dialog");
@@ -150,7 +207,7 @@ export function levelScreen(level: Level) {
         <button type="button" class="close" aria-label="Close">×</button>
       </header>
       <p class="hint-dialog-text">A hint shows one move of a solution, for ${coin()} ${HINT_COST}.</p>
-      <div class="hint-options">${option("flips")}${option("moves")}</div>
+      <div class="hint-options">${option("moves")}${option("flips")}</div>
     </div>`;
     document.body.append(dialog);
     const close = () => dialog.close();
@@ -188,6 +245,7 @@ export function levelScreen(level: Level) {
     const forces = moves.filter((m) => m.kind === "force").length;
     const flips = moves.length - forces;
     counter.textContent = `${plural(moves.length, "move")}: ${plural(flips, "flip")}, ${plural(forces, "force")}`;
+    if (finger) finger.hidden = moves.length > 0; // (the finger has done its job once a move is made)
 
     // Goals this attempt can't reach any more (a goal already earned stays lit)
     const missed = (forces > 0 || flips > level.minFlips ? STAR_FLIPS : 0) |
@@ -202,7 +260,14 @@ export function levelScreen(level: Level) {
     const earned = STAR_SOLVED |
       (forces === 0 && flips === level.minFlips ? STAR_FLIPS : 0) |
       (moves.length === level.minMoves ? STAR_MOVES : 0);
+    const tier = findTier(level.difficulty)!;
+    const wasComplete = isTierComplete(tier);
     const fresh = award(level, earned);
+    // This solve earned the stage's last star: once its stars have landed, the game goes to the
+    // menu by itself (no buttons), where the stage's reward flies into the coin pouch
+    const stageDone = !wasComplete && isTierComplete(tier);
+    result.classList.toggle("stage-done", stageDone);
+    if (guided && level.number === 2) finishTutorial(); // the second step solved: the tutorial is done
     recordSolve(level, moves, earned);
     showReplayButton();
     const best = starsOf(level);
@@ -214,16 +279,17 @@ export function levelScreen(level: Level) {
     const perfect = fresh !== 0 && best === ALL_STARS;
     result.classList.toggle("perfect", perfect);
     // (under the board's own Solved!)
-    result.querySelector(".result-title")!.textContent = perfect
-      ? "Three stars!"
-      : `in ${plural(moves.length, "move")}`;
-    // The level's stars (its best, also the ones from earlier solves), in an arc: each drops
-    // into its socket, one after the other
-    let order = 0;
+    result.querySelector(".result-title")!.textContent = stageDone
+      ? "Stage complete!"
+      : perfect ? "Three stars!" : `in ${plural(moves.length, "move")}`;
+    // The level's stars (its best, also the ones from earlier solves), in an arc: solved on the
+    // left, flips only (the hardest) as the big one in the middle, fewest moves on the right. Each
+    // drops into its socket, from easy to hard: left, right, then the middle.
+    const landing = [STAR_SOLVED, STAR_MOVES, STAR_FLIPS].filter((s) => best & s);
     result.querySelector(".result-stars")!.innerHTML = [STAR_SOLVED, STAR_FLIPS, STAR_MOVES].map((s) => {
       const kind = best & s ? "earned" : "empty";
       // (counted from the moment the result appears)
-      const delay = kind === "earned" ? ` style="--delay: ${(0.4 + 0.45 * order++).toFixed(2)}s"` : "";
+      const delay = kind === "earned" ? ` style="--delay: ${(0.4 + 0.45 * landing.indexOf(s)).toFixed(2)}s"` : "";
       const sparks = kind === "earned"
         ? Array.from({ length: 8 }, (_, i) => `<span class="spark" style="--angle: ${i * 45 + 22.5}deg"></span>`).join("")
         : "";
@@ -232,13 +298,18 @@ export function levelScreen(level: Level) {
     }).join("");
     result.querySelector(".result-stars")!.setAttribute("aria-label", `${countStars(best)} of 3 stars`);
     // (after this solve's stars: they may just have opened the next group)
-    result.querySelector(".next-level")!.textContent = nextIsOpen() ? "Next level" : "All levels";
+    // (the tutorial's last step leads home: the player sees where the game goes from here)
+    // (the stage's last level leads to the menu, where the stages are)
+    result.querySelector(".next-level")!.textContent =
+      endsTutorial ? "Continue" : next === undefined ? "Menu" : nextIsOpen() ? "Next level" : "All levels";
     // (not called "solved": the widget's CSS already uses .solved for its Solved! banner)
     element.classList.add("level-complete");
     // The decorations come once the board's own solved animation has played
     hideResult();
     resultTimer = window.setTimeout(() => {
       result.hidden = false; // (its animations start now)
+      // (a move taken back before then clears this timer too: see hideResult)
+      if (stageDone) resultTimer = window.setTimeout(() => go("#/", true), STAGE_DONE_MS);
     }, RESULT_DELAY_MS);
   };
   widget.addEventListener("flip-tiles-change", (e) => update((e as CustomEvent<FlipTilesChange>).detail));
@@ -249,8 +320,10 @@ export function levelScreen(level: Level) {
     window.scrollTo({ top: 0, behavior: "smooth" });
   });
   element.querySelector(".next-level")!.addEventListener("click", () => {
-    // Instead of this level in the history: back from the next level goes to the tier. When the
-    // next level's group isn't open yet, to the tier, where it says what opens it.
+    // The tutorial's last step and a stage's last level: home, the menu. Otherwise, instead of
+    // this level in the history (back from the next level goes to the tier): the next level;
+    // when its group isn't open yet, the tier, where it says what opens it.
+    if (endsTutorial || next === undefined) return go("#/", true);
     go(nextIsOpen() ? `#/level/${next!.difficulty}/${next!.number}` : tierHash, true);
   });
 
