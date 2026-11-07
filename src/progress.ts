@@ -19,14 +19,18 @@ export const STAR_MOVES = 4; // the fewest moves
 export const STARS = [STAR_SOLVED, STAR_FLIPS, STAR_MOVES];
 export const ALL_STARS = STAR_SOLVED | STAR_FLIPS | STAR_MOVES;
 
-// A tier opens when the player has earned enough stars in all (counted over every tier), or when
-// it is bought with coins. Alpha is always open, Beta needs FIRST_UNLOCK_STARS, and each tier
-// after that UNLOCK_STARS_STEP more: 5, 20, 35, 50, ...
-export const FIRST_UNLOCK_STARS = 5;
-export const UNLOCK_STARS_STEP = 15;
+// A tier opens when the player has earned UNLOCK_SHARE of all the stars of the tiers before it
+// (rounded up), or when it is bought with coins. Alpha is always open. So the cost grows with the
+// game: Beta needs 7 of Alpha's 9 stars, Gamma 15 of the 21 of Alpha and Beta, and so on.
+export const UNLOCK_SHARE = 0.7;
 
-// The stars in all a tier needs to open (by its place in the list: 0 = Alpha)
-export const unlockStars = (i: number) => (i <= 0 ? 0 : FIRST_UNLOCK_STARS + UNLOCK_STARS_STEP * (i - 1));
+// The stars a tier needs, earned in the tiers before it (by its place in the list: 0 = Alpha)
+export const unlockStars = (i: number) =>
+  Math.ceil(UNLOCK_SHARE * TIERS.slice(0, Math.max(0, i)).reduce((n, t) => n + maxStars(t), 0) - 1e-9);
+
+// Whether a tier is open is worked out anew every time, from the stars on the levels in the game
+// now: only the stars of the tiers before it count (not stars further on, nor stars on levels
+// since taken out of the game). Nothing is remembered, except what was bought with coins.
 
 // Within a tier, a group of levels (a grade) opens when this many stars are earned in the group
 // before it (or all of them, for a group with fewer stars than this)
@@ -55,12 +59,17 @@ export type HintGoal = "flips" | "moves";
 
 // What is saved, each under its own key
 let stars: Record<string, number> = {}; // level key -> star bits
+// level key -> when its last new star was earned (ms since 1970). For the leaderboard to come:
+// players with the same stars rank by who got there first, also for stars earned offline.
+let starTimes: Record<string, number> = {};
 // The wallet: coins, the difficulties and groups of levels opened with coins (a group as
-// "difficulty:grade"), the skins and shapes owned and the ones in use, and the stages whose
-// completion reward was paid (by difficulty)
+// "difficulty/minMoves", see gradeKey), the skins and shapes owned and the ones in use, the
+// stages whose completion reward was paid (by difficulty), and the version of this format (see
+// migrate)
+const WALLET_VERSION = 3;
 const NEW_WALLET = () => ({
   coins: STARTING_COINS, unlocked: [] as number[], grades: [] as string[], skins: [DEFAULT_SKIN], skin: DEFAULT_SKIN,
-  shapes: [SQUARE], shape: SQUARE, rewarded: [] as number[],
+  shapes: [SQUARE], shape: SQUARE, rewarded: [] as number[], version: WALLET_VERSION,
 });
 let wallet = NEW_WALLET();
 let hints: Record<string, Partial<Record<HintGoal, number>>> = {}; // level key -> hints bought per goal
@@ -74,6 +83,7 @@ let tutorialDone = false;
 
 const KEYS = {
   stars: "progress-v1", wallet: "wallet-v1", hints: "hints-v1", replays: "replays-v1", tutorial: "tutorial-done-v1",
+  starTimes: "star-times-v1",
 };
 
 async function read<T>(key: string, fallback: T): Promise<T> {
@@ -89,20 +99,58 @@ const write = (key: string, value: unknown) => void Preferences.set({ key, value
 
 export async function loadProgress() {
   let saved: Partial<ReturnType<typeof NEW_WALLET>>;
-  [stars, saved, hints, replays, tutorialDone] = await Promise.all([
+  [stars, saved, hints, replays, tutorialDone, starTimes] = await Promise.all([
     read(KEYS.stars, {}),
     read(KEYS.wallet, {}),
     read(KEYS.hints, {}),
     read(KEYS.replays, {}),
     read(KEYS.tutorial, false),
+    read(KEYS.starTimes, {}),
   ]);
-  wallet = { ...NEW_WALLET(), ...saved }; // (a wallet saved before skins existed has none)
+  // (a wallet saved before skins existed has none; one saved before versions is version 1)
+  wallet = { ...NEW_WALLET(), ...saved, version: saved.version ?? 1 };
   // Skins and shapes taken out of the game since: gone from the wallet, and one that was on is
   // swapped for the start's (Classic, the square)
   wallet.skins = wallet.skins.filter((id) => SKINS.some((s) => s.id === id));
   wallet.shapes = wallet.shapes.filter((id) => SHAPES.some((s) => s.id === id));
   if (!wallet.skins.includes(wallet.skin)) wallet.skin = DEFAULT_SKIN;
   if (!wallet.shapes.includes(wallet.shape)) wallet.shape = SQUARE;
+  migrate();
+}
+
+// --- updates of the game: what the player has stays theirs ----------------------------------
+//
+// Rules for changing the game without players losing anything (see README, "Updating the game"):
+//   - a level is saved by its board, so a released level must stay in levels.json (the curation
+//     script keeps them); stars on a level that leaves stay saved, but don't count
+//   - saved data in an older format is converted once, here (migrate)
+
+// Version 1 saved a bought group of levels by its place in the tier ("difficulty:index"). These
+// were the groups of that version, by place: their minMoves.
+const V1_GRADES: Record<number, number[]> = {
+  1: [1], 2: [2], 3: [3], 4: [4], 5: [3, 4], 6: [3, 4, 5], 7: [2, 3, 4, 5, 6], 8: [3, 4, 5, 6, 7],
+  9: [2, 3, 4, 5, 6, 7, 8], 10: [2, 3, 4, 5, 6, 7, 8, 9], 11: [2, 3, 4, 5, 6, 7, 8, 9], 12: [4, 5, 6, 7, 8],
+};
+
+function migrate() {
+  if (wallet.version >= WALLET_VERSION) return;
+  if (wallet.version === 1) {
+    // Bought groups: by place -> by minMoves
+    wallet.grades = wallet.grades.map((g) => {
+      const [difficulty, index] = g.split(":").map(Number);
+      const minMoves = V1_GRADES[difficulty]?.[index];
+      return minMoves === undefined ? g : `${difficulty}/${minMoves}`;
+    });
+  } else if (wallet.version === 2) {
+    // Version 2 also wrote every stage and group that was open into these lists, to keep them
+    // open (and opened stages by all the stars saved, also on levels no longer in the game). That
+    // can't be told apart from what was bought, so both lists start over: what is open now follows
+    // from the stars alone.
+    wallet.unlocked = [];
+    wallet.grades = [];
+  }
+  wallet.version = WALLET_VERSION;
+  write(KEYS.wallet, wallet);
 }
 
 export async function resetProgress() {
@@ -110,6 +158,7 @@ export async function resetProgress() {
   wallet = NEW_WALLET();
   hints = {};
   replays = {};
+  starTimes = {};
   tutorialDone = false;
   await Promise.all(Object.values(KEYS).map((key) => Preferences.remove({ key })));
 }
@@ -147,7 +196,9 @@ export function award(level: Level, earned: number): number {
   const fresh = earned & ~before;
   if (fresh) {
     stars[level.key] = before | earned;
+    starTimes[level.key] = Date.now();
     write(KEYS.stars, stars);
+    write(KEYS.starTimes, starTimes);
   }
   return fresh;
 }
@@ -187,16 +238,21 @@ function spend(amount: number): boolean {
   return true;
 }
 
-// How many more stars (in all) must be earned to open this tier (0 = open)
+// How many more stars must be earned in the tiers before to open this tier (0 = open)
 export function starsToUnlock(tier: Tier): number {
   const i = TIERS.indexOf(tier);
   if (i <= 0 || wallet.unlocked.includes(tier.difficulty)) return 0;
-  return Math.max(0, unlockStars(i) - totalStars());
+  const earned = TIERS.slice(0, i).reduce((n, t) => n + tierStars(t), 0);
+  return Math.max(0, unlockStars(i) - earned);
 }
+
+// A group of levels as saved in the wallet: by its minMoves, which stays the same when the
+// levels are curated again (its place in the tier may not)
+const gradeKey = (tier: Tier, grade: number) => `${tier.difficulty}/${tier.grades[grade][0].minMoves}`;
 
 // How many more stars must be earned in the group before to open this group of a tier (0 = open)
 export function starsToUnlockGrade(tier: Tier, grade: number): number {
-  if (grade <= 0 || wallet.grades.includes(`${tier.difficulty}:${grade}`)) return 0;
+  if (grade <= 0 || wallet.grades.includes(gradeKey(tier, grade))) return 0;
   const before = tier.grades[grade - 1];
   const earned = before.reduce((n, l) => n + countStars(starsOf(l)), 0);
   return Math.max(0, Math.min(UNLOCK_GRADE_STARS, 3 * before.length) - earned);
@@ -209,7 +265,7 @@ export const canBuyGrade = (tier: Tier, grade: number) =>
 // Open the next group of levels with coins; false when it isn't next in line or coins are short
 export function buyGrade(tier: Tier, grade: number): boolean {
   if (!canBuyGrade(tier, grade) || !spend(GRADE_UNLOCK_COST)) return false;
-  wallet.grades.push(`${tier.difficulty}:${grade}`);
+  wallet.grades.push(gradeKey(tier, grade));
   write(KEYS.wallet, wallet);
   return true;
 }
@@ -236,7 +292,7 @@ export const ownsAll = () =>
 export function buyUnlockAll(): boolean {
   if (ownsAll() || !spend(UNLOCK_ALL_COST)) return false;
   wallet.unlocked = TIERS.map((t) => t.difficulty);
-  wallet.grades = TIERS.flatMap((t) => t.grades.map((_, g) => `${t.difficulty}:${g}`).slice(1));
+  wallet.grades = TIERS.flatMap((t) => t.grades.map((_, g) => gradeKey(t, g)).slice(1));
   wallet.skins = SKINS.map((s) => s.id);
   wallet.shapes = SHAPES.map((s) => s.id);
   write(KEYS.wallet, wallet);

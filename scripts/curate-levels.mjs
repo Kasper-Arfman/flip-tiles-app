@@ -1,9 +1,15 @@
 ﻿// Curates the levels: picks, from all 2^25 boards, the ones that make good puzzles, sorts them into
 // difficulty tiers, and writes src/levels/levels.json.
 //
-//   npm run curate                  4 levels per grade (the default: one row of 4 in the app),
-//                                   more in tiers with few grades: at least 24 per tier
-//   npm run curate -- 8             8 levels per grade
+//   npm run curate                  keeps the levels already released (see RELEASED below) and
+//                                   picks new ones only where there is room
+//   npm run curate -- --fresh       picks every level anew (players lose what they earned on
+//                                   levels that are left out: only before a first release)
+//
+// How many levels per grade (the levels between two divider lines in the app), from Gamma on:
+//   1 grade: 16;  2 grades: 8 + 8;  3 grades: 8 + 8 + 8;  4 or more: 4 per grade
+// so a stage has 16 to 32 levels. A grade with fewer boards than its share is left out (it would
+// be a short row on its own), and the shares are worked out again for the grades left.
 //
 // A tier is the length of the flips-only solution (minFlips: the second star, the hardest one),
 // and within a tier the levels are graded by minMoves: fewer moves is easier.
@@ -44,7 +50,7 @@ import { gunzipSync } from "node:zlib";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const PER_GRADE = Number(process.argv[2] ?? 4);
+const FRESH = process.argv.includes("--fresh");
 const SEED = 1; // change it to pick other levels from the same tiers
 const MIN_DIFFICULTY = 2; // (the tutorial, difficulty 1, is made by hand: see TUTORIAL)
 const STRICT_AFTER = 4; // tiers past Delta (4 flips) need minMoves < minFlips (rule e)
@@ -144,6 +150,7 @@ const transform = (s, perm) => {
 // The group's representative: the smallest number among its rotations, mirror images and their
 // color inverses (always in the first half)
 const isRepresentative = (s) => SYMMETRIES.every((perm) => half(transform(s, perm)) >= s);
+const representative = (s) => Math.min(...SYMMETRIES.map((perm) => half(transform(s, perm))));
 
 const popcount = (s) => {
   let n = 0;
@@ -164,6 +171,37 @@ function random(seed) {
     t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
     return ((t ^ (t >>> 14)) >>> 0) / 2 ** 32;
   };
+}
+
+const fromBoardString = (board) => {
+  const bits = board.replace(/\s/g, "");
+  let s = 0;
+  for (let k = 0; k < N; k++) if (bits[k] === "1") s |= 1 << k;
+  return s >>> 0;
+};
+
+// The board a written level ends on after its fewest-moves solution (0 or ALL)
+const endsOn = (level) => {
+  let t = fromBoardString(level.board);
+  for (const k of level.solutionMoves.flips) t ^= MASKS[k];
+  for (const k of level.solutionMoves.forces) t ^= 1 << k;
+  return t;
+};
+
+// --- the levels already released ----------------------------------------------------------
+// Players' stars, hints and replays are saved by the board (see src/progress.ts). A level that
+// leaves the game takes them along, so the levels in the current levels.json are kept: by their
+// group's representative -> the level exactly as it is written there (the board as shown, its
+// solutions). In each grade they are picked before any new board, and shown just as before.
+const RELEASED = new Map();
+if (!FRESH) {
+  try {
+    for (const tier of JSON.parse(readFileSync(OUT, "utf8")).tiers) {
+      for (const level of tier.levels) RELEASED.set(representative(fromBoardString(level.board)), level);
+    }
+  } catch {
+    // (no levels.json yet: nothing released)
+  }
 }
 
 // --- the curation ---------------------------------------------------------------------------
@@ -245,14 +283,14 @@ tiers.set(BETA, beta.map((s) => {
 // and the same number is picked from each grade at random (a grade with fewer boards gives all it
 // has). Most boards have a middling minMoves, so this way the easiest and hardest grades get as
 // many levels as the others. The levels are then ordered by minMoves.
-// How many per grade: PER_GRADE (a row of 4 in the app), or more in rows of 4 for a tier with
-// few grades, so that every tier has at least MIN_PER_TIER levels (the easy tiers have few
-// grades: minMoves must stay below minFlips).
+// How many per grade (perGrade): see the top of this file. A stage has 16 to 32 levels.
+// The levels already released (RELEASED) come first in their grade, so they stay as long as the
+// grade still has room for them; new boards fill up what is left.
 // Each tier has its own random generator (seeded with SEED and its difficulty), so adding or
 // removing a tier doesn't change the levels picked for the others.
-const MIN_PER_TIER = 24;
-const EASY_TIER = 4; // tiers up to this many flips are a short start: 8 levels
-const MIN_PER_EASY_TIER = 8;
+const MIN_PER_TIER = 16;
+const MAX_PER_TIER = 32;
+const perGrade = (grades) => (grades === 1 ? 16 : grades <= 3 ? 8 : 4);
 
 function pickGraded(all, rand, difficulty) {
   const groups = new Map(); // minMoves -> boards
@@ -260,21 +298,29 @@ function pickGraded(all, rand, difficulty) {
     if (!groups.has(board.minMoves)) groups.set(board.minMoves, []);
     groups.get(board.minMoves).push(board);
   }
-  const least = difficulty <= EASY_TIER ? MIN_PER_EASY_TIER : MIN_PER_TIER;
-  const perGrade = Math.max(PER_GRADE, 4 * Math.ceil(least / (4 * groups.size)));
-  return [...groups.keys()].sort((x, y) => x - y).flatMap((grade) => {
+  // Leave out the grades with fewer boards than their share, until all left can fill theirs
+  let grades = [...groups.keys()].sort((x, y) => x - y);
+  for (let left; (left = grades.filter((g) => groups.get(g).length >= perGrade(grades.length))).length < grades.length;) {
+    grades = left;
+  }
+  const share = perGrade(grades.length);
+  if (grades.length * share < MIN_PER_TIER || grades.length * share > MAX_PER_TIER) {
+    throw new Error(`Difficulty ${difficulty} would get ${grades.length * share} levels, not ${MIN_PER_TIER} to ${MAX_PER_TIER}`);
+  }
+  return grades.flatMap((grade) => {
     const group = groups.get(grade);
     for (let i = group.length - 1; i > 0; i--) {
       const j = Math.floor(rand() * (i + 1));
       [group[i], group[j]] = [group[j], group[i]];
     }
-    return group.slice(0, perGrade).sort((x, y) => x.state - y.state);
+    const released = group.filter((b) => RELEASED.has(b.state));
+    const fresh = group.filter((b) => !RELEASED.has(b.state));
+    return [...released, ...fresh].slice(0, share).sort((x, y) => x.state - y.state);
   });
 }
 
 const output = {
   _comment: "Made by scripts/curate-levels.mjs (npm run curate). Don't edit by hand: run the script.",
-  perGrade: PER_GRADE,
   seed: SEED,
   tiers: [...tiers.keys()].sort((x, y) => x - y).map((difficulty) => {
     const all = tiers.get(difficulty);
@@ -289,13 +335,18 @@ const output = {
     // or mirrored at random, and in each grade half the levels end on one color and half on the
     // other (the color the fewest-moves solution ends on), in random order, by swapping the
     // colors where needed: the player can't guess the color to aim for. This changes nothing
-    // about solving it: the same moves, turned along.
+    // about solving it: the same moves, turned along. A released level stays as it was shown
+    // (its saved replays are moves on that board); the new ones even out the colors around it.
     const orient = random(SEED * 7919 + difficulty);
+    const releasedOf = (b) => (handMade ? undefined : RELEASED.get(b.state));
     const endsOnOne = []; // per picked level: should its fewest-moves solution end on color 1?
     for (const grade of new Set(picked.map((b) => b.minMoves))) {
-      const at = picked.flatMap((b, i) => (b.minMoves === grade ? [i] : []));
-      const wants = at.map((_, j) => (j < at.length / 2 ? true : false));
-      if (at.length % 2 && orient() < 0.5) wants[Math.floor(at.length / 2)] = true; // odd: either way
+      const inGrade = picked.flatMap((b, i) => (b.minMoves === grade ? [i] : []));
+      const at = inGrade.filter((i) => !releasedOf(picked[i]));
+      const keptOnOne = inGrade.filter((i) => releasedOf(picked[i]) && endsOn(releasedOf(picked[i])) === ALL).length;
+      const ones = Math.min(at.length, Math.max(0, Math.floor(inGrade.length / 2) - keptOnOne));
+      const wants = at.map((_, j) => j < ones);
+      if ((inGrade.length % 2) && ones < at.length && orient() < 0.5) wants[ones] = true; // odd: either way
       for (let j = wants.length - 1; j > 0; j--) {
         const r = Math.floor(orient() * (j + 1));
         [wants[j], wants[r]] = [wants[r], wants[j]];
@@ -306,7 +357,17 @@ const output = {
       difficulty,
       available: all.length,
       grades,
-      levels: picked.map(({ state, minMoves, minFlips, shown: fixed }, i) => {
+      levels: picked.map((board, i) => {
+        const { state, minMoves, minFlips, shown: fixed } = board;
+        const id = `${difficulty}-${String(i + 1).padStart(2, "0")}`;
+        const kept = releasedOf(board);
+        if (kept) {
+          if (kept.minMoves !== minMoves || kept.minFlips !== minFlips) {
+            throw new Error(`Released level ${kept.board} has other numbers now: ${minMoves} moves, ${minFlips} flips`);
+          }
+          const { board: shown, solutionFlips, solutionMoves } = kept;
+          return { id, board: shown, minMoves, minFlips, solutionFlips, solutionMoves };
+        }
         // The two solutions the hints show: flips only (second star), and fewest moves (third)
         const flipsOnly = solutionOf(fewestForcesTable, state);
         const fewest = solutionOf(fewestMovesTable, state);
@@ -337,7 +398,7 @@ const output = {
           throw new Error(`The turned solutions of board ${state} don't solve it`);
         }
         return {
-          id: `${difficulty}-${String(i + 1).padStart(2, "0")}`,
+          id,
           board: toBoardString(shown),
           minMoves,
           minFlips,
@@ -370,4 +431,12 @@ for (const tier of output.tiers) {
     console.log(`      ${moves.padStart(2)} moves: ${fmt(available)} available, ${String(picked).padStart(2)} picked`);
   }
 }
+// Released levels that are no longer in the game: players lose what they earned on them (it stays
+// saved, and comes back if the level does)
+const written = new Set(output.tiers.flatMap((t) => t.levels.map((l) => representative(fromBoardString(l.board)))));
+const dropped = [...RELEASED.entries()].filter(([s]) => !written.has(s)).map(([, level]) => level.id);
+console.log(FRESH
+  ? "\n--fresh: every level picked anew"
+  : `\nReleased levels kept: ${RELEASED.size - dropped.length} of ${RELEASED.size}` +
+    (dropped.length ? `\n  LEFT OUT (players lose their stars on these): ${dropped.join(", ")}` : ""));
 console.log(`\nWrote ${tiers.size} tiers to ${OUT} in ${((Date.now() - started) / 1000).toFixed(1)}s`);

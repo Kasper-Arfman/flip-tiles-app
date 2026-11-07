@@ -161,6 +161,26 @@ Good to know:
 - It needs internet to open (there is no offline cache yet); progress is stored on the phone.
 - It needs a recent iPhone system (iOS 16.4 or newer) for all the colors to show right.
 
+### Updating the game without players losing progress
+
+A player's progress lives on their phone (see *Saving* below), and an update only replaces the
+app's files, so the progress itself survives every update. What can still make it *look* lost is
+the new version no longer recognising it. Rules to keep:
+
+1. **Never replace released levels.** Stars, hints and replays are saved by the level's board.
+   A level that disappears takes them along. `npm run curate` now keeps every level that is in
+   `levels.json` and prints any it had to leave out; read that line before you release.
+   (`--fresh` throws them all away: only before a first release.)
+2. **Locked or open is never saved.** It is worked out every time from the stars on the levels
+   in the game now, in the stages above (or the group before); only coin purchases are saved.
+   So stars on levels that left the game, or stars further on, never open anything.
+3. **Old saved data is converted.** The wallet has a `version`; when the format changes, raise
+   `WALLET_VERSION` in `progress.ts` and convert the old data in `migrate`.
+4. **Keep the address.** Storage belongs to the site's address: friends must keep using the same
+   `something.netlify.app` (update it from the site's *Deploys* page, never with a new drop).
+5. Test an update the way a friend gets it: play the *old* build, then load the new one in the
+   same browser, and check the stars are still there.
+
 **Release check.** Before handing out a new version, the whole game was played through on the
 built app (`npm run preview`), as a phone with touch (taps, and holds to force), in Chrome's
 engine and in WebKit (Safari's engine), and the browser was closed and opened again to check
@@ -182,7 +202,7 @@ board logic in `src/game/flipTiles.ts`.
 | `npm run sync` | build, then copy `dist/` and plugins into `android/` and `ios/` |
 | `npm run android` | sync, then open Android Studio |
 | `npm run ios` | sync, then open Xcode (Mac only) |
-| `npm run curate` | pick the levels and write `src/levels/levels.json` (`npm run curate -- 10` for 10 per grade) |
+| `npm run curate` | pick the levels and write `src/levels/levels.json`, keeping the levels already released (`npm run curate -- --fresh` picks all anew: only before a first release) |
 
 The scripts are defined in `package.json`. `cap` is the Capacitor command line; run it directly
 with `npx cap ...` (e.g. `npx cap doctor` checks your Capacitor setup).
@@ -195,6 +215,7 @@ with `npx cap ...` (e.g. `npx cap doctor` checks your Capacitor setup).
 | `src/main.ts` | starts the app: loads the stars, shows the screen the address asks for |
 | `src/nav.ts` | the screens' addresses (`#/tier/4`, `#/level/4/7`) and going back |
 | `src/skins.ts` | the skins (tile color pairs) and shapes (tile outlines) sold in the shop, and putting them on |
+| `src/sw.js` | the service worker: saves the app's files on the device, so the web app plays offline (its file list is written in by `vite.config.ts` on every build) |
 | `src/dev.ts` | `DEV_MODE`: shows what players must not see yet (set it to `false` for a release) |
 | `src/progress.ts` | what the player has, saved on the device: stars, coins, hints, best solutions; which tiers are open |
 | `src/screens/` | one file per screen (home, tier, level, how to play), shared pieces in `ui.ts`, and the home screen's background art in `homeArt.ts` |
@@ -239,9 +260,11 @@ Each level can earn three stars:
 
 The difficulty (the tier, or stage) is minFlips: the flips-only star is the hard one, so a
 level whose flips-only solution is longer is harder. Within a stage, levels are graded by
-minMoves (fewer moves first), 4 per grade, or more (in rows of 4) in a stage with few grades,
-so that every stage has at least 24 levels (`MIN_PER_TIER` in the script); the easy stages (3
-and 4 flips) have 8. The first stage, α Alpha, is a tutorial made by hand (`TUTORIAL`): the
+minMoves (fewer moves first); a grade is the row of levels between two divider lines. From γ
+Gamma on, every stage has 16 to 32 levels: a stage with 1 grade has 16, with 2 or 3 grades 8 per
+grade, with 4 or more grades 4 per grade (`perGrade` in the script). A grade with fewer boards
+than its share is left out (it happens twice: one 2-move board at 11 flips, one 4-move board at
+12 flips). The first stage, α Alpha, is a tutorial made by hand (`TUTORIAL`): the
 two puzzles of How to play (a plus in the middle, 1 flip; a single odd tile in the middle, 1
 force) and the one other single-tile board that flips alone can also clear (a tile diagonally
 next to the middle). β Beta (2 flips) is made by hand too (`BETA`): the random 2-flip boards
@@ -250,8 +273,16 @@ were too trivial, so it has 4 chosen ones, each given by its two flips as (row, 
 are the same puzzle, so each is kept only once; it is shown turned or mirrored at random, and in
 each grade half the levels end on each color, so the color to aim for can't be guessed.
 
-The script picks 5 levels per grade, at random within the grade (a grade with fewer boards
-gives all it has). Most boards have a middling minFlips, so a plain random pick per tier would
+Alpha 2 and 3 (single tiles) take 8 and 11 flips for the flips-only star, far more than their
+stage: the level screen marks that goal **Expert** with a red tag (`expertFlips` in
+`levels.ts`: any level whose minFlips is above its stage's difficulty).
+
+**Released levels stay.** The script first reads the current `levels.json` and keeps every level
+in it, exactly as it is shown, as long as its grade still has room; new boards only fill up the
+rest. At the end it lists any released level it had to leave out: players lose the stars they
+earned there (see [Updating the game](#updating-the-game-without-players-losing-progress)).
+
+The script picks the levels at random within each grade. Most boards have a middling minFlips, so a plain random pick per tier would
 hardly include the easiest and hardest grades; picking per grade gives every grade the same
 share. The levels are sorted by minFlips; in the app, a thin line in the level grid separates
 the grades. The random picks use a fixed seed per tier, so every run picks the same levels, and
@@ -260,15 +291,20 @@ grade has and how many were picked.
 
 Result of the current run:
 
-| Difficulty (minMoves) | Unique levels available | Grades (minFlips) | Picked |
+| Stage (minFlips) | Unique levels available | Grades (minMoves) | Levels |
 |---|---|---|---|
-| 3 | 439 | 5–11 | 35 |
-| 4 | 5,144 | 5–12 | 36 (12 flips: only 1 board) |
-| 5 | 38,492 | 6–12 | 35 |
-| 6 | 157,823 | 7–12 | 30 |
-| 7 | 214,823 | 8–12 | 25 |
-| 8 | 33,055 | 9–12 | 20 |
-| 9 | 21 | 10–11 | 9 (11 flips: only 4 boards) |
+| α Alpha (1) | made by hand | 1 | 3 |
+| β Beta (2) | made by hand | 2 | 4 |
+| γ Gamma (3) | 318 | 3 | 16 |
+| δ Delta (4) | 1,660 | 4 | 16 |
+| ε Epsilon (5) | 87 | 3–4 | 16 (8 + 8) |
+| ζ Zeta (6) | 2,176 | 3–5 | 24 (8 + 8 + 8) |
+| η Eta (7) | 25,454 | 2–6 | 20 |
+| θ Theta (8) | 108,323 | 3–7 | 20 |
+| ι Iota (9) | 166,473 | 2–8 | 28 |
+| κ Kappa (10) | 121,222 | 2–9 | 32 |
+| λ Lambda (11) | 24,458 | 3–9 | 28 |
+| μ Mu (12) | 1,625 | 5–8 | 16 |
 
 No board needs more than 9 moves when forces are allowed. The script reads its numbers from the
 solution tables; a sample of the levels was also checked with a separate brute-force solver.
@@ -286,7 +322,8 @@ solution tables; a sample of the levels was also checked with a separate brute-f
 - **Saving.** Stars, coins, opened difficulties, bought hints and each level's best solution are
   saved with the Capacitor [Preferences](https://capacitorjs.com/docs/apis/preferences) plugin
   (`src/progress.ts`). Everything about a level is stored by its board, so it stays with the level
-  when the levels are curated again.
+  when the levels are curated again (as long as the level stays: the curation keeps released
+  levels). Reset progress also puts the start's look (Classic, the square) back on.
 - **A stage on the home screen.** Its card has a progress bar of the stars earned, blue while
   under way. With every star earned the stage is complete: the bar turns gold, the card gets a
   gold trim and a crown with "Complete", and a sheen of light sweeps over it now and then
@@ -296,14 +333,16 @@ solution tables; a sample of the levels was also checked with a separate brute-f
   the coin pouch, which counts up (`payStageRewards` in `progress.ts`, `flyCoins` in `home.ts`;
   the wallet remembers which stages were paid, so each pays once). After a stage's last level
   otherwise, the button under the stars says *Menu* and leads home.
-- **Unlocking.** A difficulty opens when enough stars are earned in all, counted over every
-  stage (Beta at 5, Gamma at 20, Delta at 35, and so on, 15 more each: `FIRST_UNLOCK_STARS` and
-  `UNLOCK_STARS_STEP` in `progress.ts`), or right away for 100 coins (`UNLOCK_COST`). Within a difficulty, the levels
-  come in groups (a grade: the levels with the same minFlips, usually 5); the first group is
-  open, and each next one opens when 10 stars are earned in the group before it
-  (`UNLOCK_GRADE_STARS`; all its stars when it has fewer). The divider line above a locked group
-  says how many stars are still needed, and the locked group next in line can be unlocked for 50
-  coins (`GRADE_UNLOCK_COST`).
+- **Unlocking.** A stage opens when 70% of all the stars of the stages before it are earned
+  (`UNLOCK_SHARE` in `progress.ts`, rounded up: Beta needs 7 of Alpha's 9, Gamma 15 of the 21 of
+  Alpha and Beta, ...), so the cost grows with the game; or right away for 100 coins
+  (`UNLOCK_COST`). Within a stage, the levels come in groups (a grade: the levels with the same
+  minMoves); the first group is open, and each next one opens when 10 stars are earned in the
+  group before it (`UNLOCK_GRADE_STARS`; all its stars when it has fewer). The divider line above
+  a locked group says how many stars are still needed, and the locked group next in line can be
+  unlocked for 50 coins (`GRADE_UNLOCK_COST`). Locked or open is not saved: it follows from the
+  stars every time (only coin purchases are saved), so only stars on levels that are in the game
+  count.
 - **First time: the tutorial.** The app opens a new player in level α 1 (a gold plus on green):
   a hand over the middle tile shows a tap, with "Tap to flip" under it, on the board. Solved, the
   only button is *Next level*, to α 2 (one green tile in gold), where the hand shows a tap and
@@ -480,6 +519,28 @@ Notes added as the project goes along: what was learned, problems hit, and how t
 - **2026-11-06**: Nine dark skins (near-black with a strong color), checkerboard previews in the
   shop, outlined hint marks. Learned: an element cut out with `clip-path` can't get a shadow or
   outline (the cut removes it too); drawing the shape as a small SVG picture instead can.
+- **2026-11-07**: The web app now plays offline. Installed to the home screen from Netlify it
+  didn't: an installed web app is still a website, and asks the server for its files every time
+  it opens. Learned: a manifest makes a web app *installable*, a **service worker** makes it work
+  *offline*. It is a small script (`src/sw.js`) the browser keeps next to the site: on the first
+  visit it saves the app's files on the device (the Cache Storage), after that it answers every
+  request from there. The build writes the list of files and a version into it (a little Vite
+  plugin in `vite.config.ts`, after the build: the file names have hashes that change every
+  build), so a new deploy gives a new service worker, which swaps in the new files on the next
+  visit online. `main.ts` registers it, on the web only (not in the native apps, which have their
+  files already, and not in `npm run dev`). Tested by opening the built app, stopping the server,
+  and opening it again: it still started. Nothing to set up on Netlify.
+- **2026-11-07**: Friends lost their progress with every update. The cause was not the storage
+  but the levels: progress is saved per board, and re-running the curation with new rules had
+  replaced 139 of the 153 first levels, so their stars belonged to boards no longer in the game.
+  Fixed for the future: the curation keeps released levels, and the saved data has a version
+  with a one-time conversion (`migrate`). (A first try also *saved* every stage once it was open,
+  and opened stages by every saved star: that unlocked everything for players with many stars on
+  removed levels. Now locked or open is always worked out from the stars on the current levels,
+  and only coin purchases are saved.) Learned: once players have saved data, the data's *meaning* (which
+  board, which group, which rule) is part of the app's contract; change it only with a migration.
+  Also: stages now cost 70% of the stars before them, 16 to 32 levels per stage from Gamma on,
+  an Expert tag on Alpha 2 and 3's flips star, and the reset puts the start's look back on at once.
 - **2026-11-06**: Made the game installable as a web app (for an iPhone without a Mac), and the
   replay only shows the two star solutions, locked until earned; tapping the next tile steps
   forward. Learned: a *progressive web app* needs little more than a manifest, icons and a few

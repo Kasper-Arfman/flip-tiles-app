@@ -2,9 +2,10 @@
 // progress. A tier that is still locked says what opens it: more stars in all, or coins.
 import { TIERS, totalLevels } from "../levels/levels";
 import {
-  STAGE_REWARD, UNLOCK_COST, buyTier, coins, maxStars, payStageRewards, resetProgress, starsToUnlock, tierSolved,
-  tierStars, totalStars,
+  STAGE_REWARD, UNLOCK_COST, activeLook, buyTier, coins, maxStars, payStageRewards, resetProgress, starsToUnlock,
+  tierSolved, tierStars, totalStars,
 } from "../progress";
+import { applySkin } from "../skins";
 import { homeArt } from "./homeArt";
 import { LOCK, coin, difficultyMarks, plural, screen, stageTitle, star } from "./ui";
 
@@ -41,7 +42,7 @@ export function homeScreen(rerender: () => void) {
     if (missing) {
       return `<li><div class="tier-card locked">
         ${head}
-        <span class="tier-meta">${LOCK} Earn ${plural(missing, "more star")} to open</span>
+        <span class="tier-meta">${LOCK} Earn ${plural(missing, "more star")} in the stages above to open</span>
         <button type="button" class="unlock-button" data-difficulty="${tier.difficulty}"
           ${coins() < UNLOCK_COST ? "disabled" : ""}>Unlock for ${coin()} ${UNLOCK_COST}</button>
       </div></li>`;
@@ -122,6 +123,7 @@ export function homeScreen(rerender: () => void) {
   element.querySelector(".reset-progress")!.addEventListener("click", async () => {
     if (!confirm("Remove all your stars, coins, hints and solutions, and start over?")) return;
     await resetProgress();
+    applySkin(activeLook()); // back to the start's look (Classic, the square)
     rerender();
   });
   return element;

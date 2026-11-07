@@ -1,5 +1,6 @@
 // The app: loads what the player has (and puts on their skin), then shows the screen the address (after the #) asks for, and
 // a new one each time it changes. See nav.ts for the addresses.
+import { Capacitor } from "@capacitor/core";
 import "@fontsource/lilita-one/latin-400.css"; // the title's font, inside the app (works offline)
 import "./game/flip-tiles.css";
 import "./styles.css";
@@ -54,6 +55,13 @@ app.addEventListener("click", (e) => {
 });
 
 onNavigate(render);
+// Offline play on the web: the service worker saves the app's files on the device (see sw.js).
+// Not in the native apps (their files are on the device already), nor while developing (npm run
+// dev: there would be no list of files to save).
+if ("serviceWorker" in navigator && !Capacitor.isNativePlatform() && import.meta.env.PROD) {
+  navigator.serviceWorker.register("./sw.js").catch(() => {}); // (without it, the game still works online)
+}
+
 loadProgress().then(() => {
   applySkin(activeLook());
   render();

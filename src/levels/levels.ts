@@ -13,6 +13,9 @@ export interface Level {
   grade: number; // its group in the tier, from 0: the levels with the same minMoves
   key: string; // the board's standard form: the same for all its rotations, mirror images and
   //              color swaps (stars and hints are saved by it, see progress.ts)
+  expertFlips: boolean; // its flips-only star is far harder than its stage: its solution has
+  //                       more flips than the stage's difficulty (Alpha 2 and 3: 8 and 11 flips).
+  //                       The level screen marks that goal "Expert".
 }
 
 // The standard form of a board: of the board, its rotations and mirror images, and their color
@@ -64,6 +67,7 @@ export const TIERS: Tier[] = data.tiers.map((tier, t) => {
     if (i === 0 || level.minMoves !== tier.levels[i - 1].minMoves) grades.push([]);
     const full = {
       ...level, difficulty: tier.difficulty, number: i + 1, grade: grades.length - 1, key: standardForm(level.board),
+      expertFlips: level.minFlips > tier.difficulty,
     };
     grades[grades.length - 1].push(full);
     return full;

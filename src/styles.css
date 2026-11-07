@@ -1388,6 +1388,30 @@ a.tier-card:active {
   height: 1.6rem;
 }
 
+/* A goal far harder than the rest of its stage (Alpha 2 and 3, flips only): a red "Expert" tag
+   on its top edge, and a red frame */
+.goal.expert,
+button.goal.expert:not(:disabled):hover {
+  position: relative;
+  border-color: #b4233c;
+}
+
+.expert-badge {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translate(-50%, -55%);
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: #b4233c;
+  color: #fff;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
 /* A goal this attempt can't reach any more */
 .goal.missed {
   opacity: 0.4;

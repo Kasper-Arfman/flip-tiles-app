@@ -73,7 +73,9 @@ export function levelScreen(level: Level) {
       <li class="goal" data-star="${STAR_SOLVED}">${star(earnedBefore(STAR_SOLVED))}<span>Solve it</span></li>
       <li><button type="button" class="goal" data-star="${STAR_MOVES}" data-goal="moves" aria-pressed="false">
         ${star(earnedBefore(STAR_MOVES))}<span>${goalNames.moves}</span><small>hints</small></button></li>
-      <li><button type="button" class="goal" data-star="${STAR_FLIPS}" data-goal="flips" aria-pressed="false">
+      <li><button type="button" class="goal${level.expertFlips ? " expert" : ""}" data-star="${STAR_FLIPS}"
+        data-goal="flips" aria-pressed="false"${level.expertFlips ? ` aria-description="Expert: far harder than the rest of this stage"` : ""}>
+        ${level.expertFlips ? `<span class="expert-badge">Expert</span>` : ""}
         ${star(earnedBefore(STAR_FLIPS))}<span>${goalNames.flips}</span><small>hints</small></button></li>
     </ol>
     <p class="counter" aria-live="polite"></p>
