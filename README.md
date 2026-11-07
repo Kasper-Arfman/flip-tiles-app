@@ -135,6 +135,59 @@ The native projects hold a *copy* of `dist/`. After changing web code, run `npm 
 `npm run ios` does the same with Xcode, on a Mac. On a Mac, Safari's *Develop* menu does what
 `chrome://inspect` does for Android.
 
+### Releasing to the App Store and Google Play (branch `app-store`)
+
+The store version lives on the branch `app-store`; `main` stays the simple web version for
+Netlify. The only addition is buying coins: one product, **100 coins**, at the lowest price the
+stores allow (`src/purchases.ts`, with the plugin
+[capacitor-plugin-cdv-purchase](https://github.com/j3k0/cordova-plugin-purchase)). It shows in the
+shop only inside the native apps, and only once the store has given its price.
+
+**Accounts (once).**
+- Apple: the [Apple Developer Program](https://developer.apple.com/programs/) ($99 a year). In
+  App Store Connect, sign the *Paid Apps* agreement and fill in bank and tax details, or nothing
+  can be sold.
+- Google: a [Play Console](https://play.google.com/console) account ($25 once), and a *payments
+  profile* (merchant account) under *Settings → Payments profile*.
+
+**The product (in each store).** Create it with exactly the id `coins_100`:
+- App Store Connect → your app → *In-App Purchases* → **Consumable**, id `coins_100`. Lowest
+  price: $0.29 (the lowest point on Apple's price list; the list shows each country's price).
+- Play Console → your app → *Monetize → In-app products* → create `coins_100`, activate it, and
+  pick the lowest price the console accepts (it refuses anything below the minimum).
+- 1 or 10 cents is not possible in either store.
+
+**Testing a purchase without paying (do this before any public release).** Both stores have test
+buyers whose purchases are never charged:
+- Apple: App Store Connect → *Users and Access → Sandbox* → add a test account; on the iPhone, sign
+  in to it under *Settings → App Store → Sandbox Account*. Every purchase from an app built by
+  Xcode or from **TestFlight** then goes through the sandbox: a dialog says *[Sandbox]*, nothing
+  is charged.
+- Google: Play Console → *Settings → License testing* → add your Google account; upload the app
+  to the **Internal testing** track and install it from the link. The payment sheet then offers
+  *Test card, always approves*: nothing is charged.
+- Check: the price shows, buying adds 100 coins, closing the dialog adds nothing, and the coins
+  are still there after closing and reopening the app. Only then promote it to a public release.
+
+What protects buyers (in `purchases.ts`): coins are added and saved *before* the store is told the
+purchase is done (an app that stops in between gets the purchase again at its next start), each
+purchase is credited once (by its transaction id), and *Reset progress* gives bought coins back.
+
+**Building for Android (Windows works).** `npm run android`, then in Android Studio *Build →
+Generate Signed App Bundle*: create a *keystore* (keep the file and its passwords safe and backed
+up; every update must be signed with it), and upload the `.aab` in the Play Console. Raise
+`versionCode` in `android/app/build.gradle` by one for every upload.
+
+**Building for iOS (needs a Mac, or a cloud Mac such as Codemagic).** `npm run ios`; in Xcode,
+*Signing & Capabilities*: pick your team, and **+ Capability → In-App Purchase**. Then *Product →
+Archive* and upload; it appears in TestFlight. Raise the *Build* number for every upload.
+
+**Store listings ask for:** screenshots, a short description, an age rating, and a **privacy
+policy URL**. The game keeps everything on the phone and sends nothing anywhere (the stores handle
+payments), so a short page saying so is enough; answer Google's *Data safety* form and Apple's
+*App Privacy* with "no data collected". Before building a release: `DEV_MODE = false` in
+`src/dev.ts`.
+
 ### On an iPhone without a Mac: as a web app
 
 A native iPhone app needs a Mac and the Apple Developer Program ($99/year). But the game is a
@@ -216,6 +269,7 @@ with `npx cap ...` (e.g. `npx cap doctor` checks your Capacitor setup).
 | `src/nav.ts` | the screens' addresses (`#/tier/4`, `#/level/4/7`) and going back |
 | `src/skins.ts` | the skins (tile color pairs) and shapes (tile outlines) sold in the shop, and putting them on |
 | `src/sw.js` | the service worker: saves the app's files on the device, so the web app plays offline (its file list is written in by `vite.config.ts` on every build) |
+| `src/purchases.ts` | buying 100 coins with real money, in the native apps only (branch `app-store`) |
 | `src/dev.ts` | `DEV_MODE`: shows what players must not see yet (set it to `false` for a release) |
 | `src/progress.ts` | what the player has, saved on the device: stars, coins, hints, best solutions; which tiers are open |
 | `src/screens/` | one file per screen (home, tier, level, how to play), shared pieces in `ui.ts`, and the home screen's background art in `homeArt.ts` |
@@ -561,3 +615,11 @@ Notes added as the project goes along: what was learned, problems hit, and how t
   engine of Safari on an iPhone, from Windows (`npx playwright-core install webkit`), and a
   browser profile on disk (`launchPersistentContext`) stands in for an app that is closed and
   opened again.
+- **2026-11-07**: Started the branch `app-store`: buying 100 coins in the native apps. Learned:
+  an in-app purchase has two halves: the store charges, then the app *delivers* and tells the
+  store it is done (`finish`). Until then the store keeps handing the purchase back, so deliver
+  first and finish second, and remember what was delivered (the transaction id) so nothing is
+  given twice. Both stores have free test buyers (Apple's sandbox and TestFlight, Google's
+  license testers): test there before anyone can pay. And `import()` (a dynamic import) makes
+  Vite put a library in a separate file that is only downloaded when that code runs: the web
+  version never loads the purchase plugin.

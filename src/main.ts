@@ -7,6 +7,7 @@ import "./styles.css";
 import { findLevel, findTier } from "./levels/levels";
 import { currentRoute, go, goUp, onNavigate } from "./nav";
 import { activeLook, isLevelOpen, loadProgress, starsToUnlock, tutorialStep } from "./progress";
+import { initPurchases } from "./purchases";
 import { homeScreen } from "./screens/home";
 import { howToPlayScreen } from "./screens/howToPlay";
 import { levelScreen } from "./screens/level";
@@ -65,4 +66,9 @@ if ("serviceWorker" in navigator && !Capacitor.isNativePlatform() && import.meta
 loadProgress().then(() => {
   applySkin(activeLook());
   render();
+  // Buying coins (native apps only): when coins come in, or the store's price arrives, the shop
+  // is drawn again (other screens show the coins when next opened; a level must not restart)
+  void initPurchases(() => {
+    if (currentRoute().screen === "shop") render();
+  });
 });

@@ -797,6 +797,24 @@ a.pill {
   background: var(--card);
 }
 
+/* Coins for real money (native apps only): a big coin, and a gap before the tabs */
+.coin-pack-card {
+  margin-bottom: 0.9rem;
+}
+
+.coin-pack-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 88px;
+  height: 88px;
+}
+
+.coin-pack-icon .coin {
+  width: 64px;
+  height: 64px;
+}
+
 /* Unlock all: an open padlock, gold and navy */
 .unlock-all-card .unlock-all-icon {
   flex: none;

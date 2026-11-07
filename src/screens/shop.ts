@@ -15,6 +15,7 @@ import {
   BOX_BUNDLE, BUNDLE_COST, SKIN_COST, UNLOCK_ALL_COST, activeLook, activeShape, activeSkin, buyMysteryShapes,
   buyMysterySkins, buyUnlockAll, coins, ownsAll, ownsShape, ownsSkin, shapesLeft, skinsLeft, useShape, useSkin,
 } from "../progress";
+import { COIN_PACK, buyCoinPack, coinPackPrice } from "../purchases";
 import { SHAPES, SKINS, SKIN_GROUPS, applySkin, findShape, findSkin, skinStyle, type Shape, type Skin } from "../skins";
 import { coin, screen, topbar } from "./ui";
 
@@ -74,6 +75,21 @@ const KINDS = {
     // (a shape seen in the skin in use)
     style: (id: string) => skinStyle({ skin: activeSkin(), shape: id }),
   },
+};
+
+// Coins for real money (see purchases.ts): only in the native apps, and only once the store has
+// given the price. The store itself shows its own confirmation with the price before charging.
+const coinPack = () => {
+  const price = coinPackPrice();
+  if (!price) return "";
+  return `<section class="mystery-card coin-pack-card">
+      <span class="coin-pack-icon">${coin()}</span>
+      <div class="mystery-text">
+        <h2>${COIN_PACK} coins</h2>
+        <p>Add ${COIN_PACK} coins to your pouch.</p>
+        <button type="button" class="primary buy-coins">Buy · ${price}</button>
+      </div>
+    </section>`;
 };
 
 // The tab on show: kept while the shop is drawn again (after buying or putting on), and when
@@ -170,6 +186,7 @@ export function shopScreen(rerender: () => void) {
         <span>${findShape(look.shape).name} tiles</span>
       </div>
     </section>
+    ${coinPack()}
     <div class="shop-tabs" role="tablist">
       ${tabs.map((t) => `<button type="button" role="tab" class="shop-tab" data-tab="${t.id}"
         aria-selected="${t.id === tab}">${t.label}</button>`).join("")}
@@ -182,6 +199,15 @@ export function shopScreen(rerender: () => void) {
     if (tabButton) {
       tab = tabButton.dataset.tab as Tab;
       rerender();
+      return;
+    }
+    const pack = target.closest<HTMLButtonElement>(".buy-coins");
+    if (pack) {
+      pack.disabled = true; // (one order at a time)
+      void buyCoinPack().then((result) => {
+        if (result === "error") alert("The purchase didn't go through. Nothing was charged; please try again later.");
+        rerender(); // (the coins arrive by themselves when the store approves)
+      });
       return;
     }
     if (target.closest(".buy-all")) {

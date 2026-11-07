@@ -121,7 +121,8 @@ export function homeScreen(rerender: () => void) {
   }
 
   element.querySelector(".reset-progress")!.addEventListener("click", async () => {
-    if (!confirm("Remove all your stars, coins, hints and solutions, and start over?")) return;
+    if (!confirm("Remove all your stars, coins, hints and solutions, and start over? " +
+      "(Coins you bought are given back.)")) return;
     await resetProgress();
     applySkin(activeLook()); // back to the start's look (Classic, the square)
     rerender();

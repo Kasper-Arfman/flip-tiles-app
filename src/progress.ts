@@ -70,6 +70,8 @@ const WALLET_VERSION = 3;
 const NEW_WALLET = () => ({
   coins: STARTING_COINS, unlocked: [] as number[], grades: [] as string[], skins: [DEFAULT_SKIN], skin: DEFAULT_SKIN,
   shapes: [SQUARE], shape: SQUARE, rewarded: [] as number[], version: WALLET_VERSION,
+  purchases: [] as string[], // the store transactions whose coins were added (see creditPurchase)
+  boughtCoins: 0, // all coins ever bought with real money (Reset progress gives them back)
 });
 let wallet = NEW_WALLET();
 let hints: Record<string, Partial<Record<HintGoal, number>>> = {}; // level key -> hints bought per goal
@@ -155,12 +157,16 @@ function migrate() {
 
 export async function resetProgress() {
   stars = {};
-  wallet = NEW_WALLET();
+  // Coins bought with real money are the player's: they come back, and the purchases stay
+  // known (so none is ever credited twice)
+  const { purchases, boughtCoins } = wallet;
+  wallet = { ...NEW_WALLET(), purchases, boughtCoins, coins: STARTING_COINS + boughtCoins };
   hints = {};
   replays = {};
   starTimes = {};
   tutorialDone = false;
   await Promise.all(Object.values(KEYS).map((key) => Preferences.remove({ key })));
+  write(KEYS.wallet, wallet);
 }
 
 // --- the tutorial ---------------------------------------------------------------------------
@@ -278,6 +284,17 @@ export const isLevelOpen = (tier: Tier, level: Level) =>
 export function buyTier(tier: Tier): boolean {
   if (!spend(UNLOCK_COST)) return false;
   wallet.unlocked.push(tier.difficulty);
+  write(KEYS.wallet, wallet);
+  return true;
+}
+
+// Coins bought with real money (see purchases.ts): add them once per store transaction. False
+// when this transaction was credited before (the store can hand a purchase over again).
+export function creditPurchase(transactionId: string, amount: number): boolean {
+  if (wallet.purchases.includes(transactionId)) return false;
+  wallet.purchases.push(transactionId);
+  wallet.coins += amount;
+  wallet.boughtCoins += amount;
   write(KEYS.wallet, wallet);
   return true;
 }
