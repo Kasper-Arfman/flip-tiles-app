@@ -1,0 +1,547 @@
+/* The flip tiles widget: copied from the website (astro-website/src/components/FlipTiles.astro) */
+
+/* The default button: its text in a softly rounded box, in the page's font (the browser's own is
+   smaller), so it matches the menus next to it. Navy like the Spoiler button, filling on hover.
+   :where() keeps this at zero specificity, so any component's own button styles win. */
+:where(button) {
+  padding: 0.3rem 0.9rem;
+  border: 1.5px solid #13294d;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #13294d;
+  font: inherit;
+  font-weight: 600;
+  line-height: 1.3;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+:where(button:not(:disabled):hover) {
+  background: #13294d;
+  color: #ffffff;
+}
+
+:where(button:not(:disabled):active) {
+  background: #0c1b33;
+  color: #ffffff;
+}
+
+:where(button:focus-visible) {
+  outline: 2px solid #13294d;
+  outline-offset: 2px;
+}
+
+:where(button:disabled) {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.flip-tiles {
+  --one: #e3a21a; /* gold-plated yellow: 1 (white in the code); deep enough for the gold wires */
+  --zero: #2e9e4f; /* green: 0 (black in the code) */
+  --flip-mark: #6ec6ff; /* light blue */
+  --force-mark: #e0453a; /* red */
+  --mark: 32%; /* size of the plus and of the dot, as part of the tile */
+  --mark-under-plus: 44%; /* size of the dot when a plus sits on it */
+  --flash-time: 260ms; /* how long a tile flashes before it turns over */
+  --flip-time: 260ms; /* how long a tile takes to turn over */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 1.5rem auto;
+  max-width: 400px; /* room for Scramble, Clear, Reset and Solve Step on one row */
+}
+
+.board {
+  overflow: hidden; /* the solved sheet reaches half a gap past the outer tiles */
+  position: relative; /* for the Solved! banner */
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 4px;
+  width: 100%;
+  background: #ffffff; /* white gaps between the tiles, like the page */
+  transition: background-color 0s; /* back to white at once, e.g. when going back a move */
+  user-select: none;
+  touch-action: manipulation; /* no double-tap zoom while playing */
+}
+
+.tile {
+  --flip-delay: 0ms; /* set by the script: the outer tiles of a cross flip a little later */
+  position: relative;
+  aspect-ratio: 1;
+  padding: 0;
+  border: none;
+  border-radius: 3px;
+  background: var(--zero);
+  cursor: pointer;
+  /* The color changes after the flash, halfway through the flip, when the tile is edge-on */
+  transition:
+    background-color 0s linear calc(var(--flip-delay) + var(--flash-time) + var(--flip-time) / 2),
+    transform 0.45s ease;
+  -webkit-touch-callout: none; /* no menu or magnifier on a long press (iOS) */
+  -webkit-user-select: none;
+}
+
+/* While a finger holds the tile: it shrinks, until the hold forces it */
+.tile.holding {
+  transform: scale(0.85);
+}
+
+/* A tile that changes color turns over like a card, always in the same direction: it turns
+   until it is edge-on (where its color changes), and then keeps turning, coming in from the
+   other side. At edge-on, 90 and -90 degrees look the same, so the jump can't be seen. */
+/* First a brief flash towards white, so a flipped cross lights up as a plus sign, and
+   then the tile turns over */
+.tile.flipping {
+  animation:
+    glow var(--flash-time) ease-in-out var(--flip-delay) both,
+    flip-over var(--flip-time) linear calc(var(--flip-delay) + var(--flash-time)) both;
+}
+
+@keyframes glow {
+  0%,
+  100% {
+    filter: brightness(1) saturate(1);
+  }
+  50% {
+    filter: brightness(1.6) saturate(0.6);
+  }
+}
+
+@keyframes flip-over {
+  0% {
+    transform: perspective(200px) rotateY(0deg);
+    animation-timing-function: ease-in;
+  }
+  50% {
+    transform: perspective(200px) rotateY(-90deg) scale(0.9);
+    animation-timing-function: step-end;
+  }
+  50.01% {
+    transform: perspective(200px) rotateY(90deg) scale(0.9);
+    animation-timing-function: ease-out;
+  }
+  100% {
+    transform: perspective(200px) rotateY(0deg);
+  }
+}
+
+/* When a move solves the board: once the tiles have turned over (--solved-delay, set by the
+   script), a flash of light sweeps over them (--wave-delay per tile, from the markup), and
+   each tile stays lit after its flash. Then Solved! appears. */
+.flip-tiles {
+  --light-time: 500ms; /* how long one tile's flash takes */
+  --settle-time: 600ms; /* a wire, after its signal, cools from over-bright to faint */
+  --stamp-delay: calc(var(--solved-delay, 0ms) + var(--wave-length) + var(--light-time) / 2); /* as the last tile flashes */
+}
+
+/* Two layers over the tile, so they don't disturb the turning over: the flash (::before) and
+   the light that stays (::after) */
+.tile::before,
+.tile::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* The flash: white, on and off */
+.tile::before {
+  background: #ffffff;
+}
+
+/* Lit: a piece of one big sheet. The layer has the tile's own color, square corners, and
+   reaches half a gap past the tile on every side, so neighbours overlap and the white lines
+   between the tiles disappear as the wave passes. */
+.tile::after {
+  inset: -3px; /* past half the gap (2px), so neighbours overlap: touching edges would leave
+                  faint anti-aliased lines */
+  border-radius: 0;
+  background: var(--sheet);
+}
+
+/* Once the wave has passed the last tile, the board behind the gaps takes the sheet's color
+   too, so not even a hairline of white can show through */
+.flip-tiles.is-solved .board {
+  background: var(--zero);
+  transition: background-color 0s linear calc(var(--solved-delay, 0ms) + var(--wave-length) + var(--light-time) / 2);
+}
+
+.flip-tiles.is-solved.all-one .board {
+  background: var(--one);
+}
+
+.tile {
+  --sheet: var(--zero);
+}
+
+.tile.one {
+  --sheet: var(--one);
+}
+
+/* The wires: golden lines over the sheet. Each lights up from its start to its end, as if a
+   signal runs through it, with a bright pulse at the front, over-bright at first, and then
+   settles into a faint steady line (like the writing on the ring in Lord of the Rings).
+   A wire starts when the light wave reaches the row where it begins. */
+.runes {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  filter: drop-shadow(0 0 2px rgba(255, 170, 60, 0.9));
+  pointer-events: none;
+}
+
+.runes polyline {
+  --wire-delay: calc(var(--solved-delay, 0ms) + var(--light-time) / 2 + var(--wire-start) * var(--wave-length));
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0;
+}
+
+.wire {
+  stroke: #fff3c4;
+  stroke-width: 0.04; /* in cells (half a tile): about 1.5px on a 400px board */
+  stroke-dasharray: 1 1; /* the whole wire (pathLength 1), then a gap as long */
+}
+
+/* The signal's front: a short bright dash that runs along the wire */
+.pulse {
+  stroke: #ffffff;
+  stroke-width: 0.09;
+  stroke-dasharray: 0.04 2;
+}
+
+
+.flip-tiles.is-solved .wire {
+  animation:
+    draw var(--wire-time) linear var(--wire-delay) both,
+    settle var(--settle-time) ease-in-out calc(var(--wire-delay) + var(--wire-time)) both;
+}
+
+.flip-tiles.is-solved .pulse {
+  animation: run var(--wire-time) linear var(--wire-delay) both;
+}
+
+/* The wire appears behind the signal: its gap (dash offset 1) slides off */
+@keyframes draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* Over-bright while the signal runs, then settling into a faint steady line */
+@keyframes settle {
+  from {
+    opacity: 0.9;
+  }
+  to {
+    opacity: 0.35;
+  }
+}
+
+/* The pulse runs from the start to the end of the wire, and goes out there */
+@keyframes run {
+  0% {
+    stroke-dashoffset: 0.04;
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: -1;
+    opacity: 0;
+  }
+}
+
+.flip-tiles.is-solved .tile::before {
+  animation: flash var(--light-time) ease-in-out calc(var(--solved-delay, 0ms) + var(--wave-delay)) both;
+}
+
+/* The light comes on at the height of the flash, and stays */
+.flip-tiles.is-solved .tile::after {
+  animation: stay-lit calc(var(--light-time) / 2) ease-out calc(var(--solved-delay, 0ms) + var(--wave-delay) + var(--light-time) / 2) both;
+}
+
+@keyframes flash {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 0.75;
+  }
+}
+
+@keyframes stay-lit {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Solved!: over the board as long as it is solved, with the lit tiles showing through (as
+   "You died" in Konijnenhokken). It fades in after the light (--stamp-delay) and vanishes at
+   once with the next move. Clicks go through to the tiles. */
+.solved {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: none; /* gone at once, e.g. when going back a move */
+}
+
+.flip-tiles.is-solved .solved {
+  opacity: 1;
+  visibility: visible;
+  transition:
+    opacity 0.25s ease-out var(--stamp-delay),
+    visibility 0s linear var(--stamp-delay);
+}
+
+/* The overlay fades in; only the text pops */
+.solved strong {
+  font-size: clamp(2.2rem, 10vw, 3.5rem);
+  line-height: 1.1;
+  letter-spacing: 0.02em;
+  /* On a green board: gold, shading gently from golden yellow to orange gold */
+  background: linear-gradient(90deg, #ffd24a, #ffc232, #fbb024);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  /* a tight dark edge for the letters, and a soft shadow, readable on the lit tiles */
+  filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.5)) drop-shadow(0 2px 6px rgba(0, 0, 0, 0.45));
+}
+
+/* On an all-gold board: green, the color of a solution, shading gently from a slightly bluish
+   green to green, all equally dark so every letter stands out from the gold */
+.flip-tiles.all-one .solved strong {
+  background-image: linear-gradient(90deg, #12905e, #16904a, #1c8c38);
+  filter: drop-shadow(0 0 1px rgba(255, 250, 225, 0.8)) drop-shadow(0 2px 6px rgba(0, 0, 0, 0.3));
+}
+
+.flip-tiles.is-solved .solved strong {
+  animation: pop 0.3s ease-out var(--stamp-delay) both;
+}
+
+@keyframes pop {
+  from {
+    transform: scale(1.3);
+  }
+  to {
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tile {
+    transition: none;
+  }
+
+  .tile.flipping {
+    animation: none;
+  }
+
+  .flip-tiles.is-solved .solved {
+    transition: none;
+  }
+
+  .flip-tiles.is-solved .solved strong {
+    animation: none;
+  }
+
+  .flip-tiles.is-solved .tile::before {
+    animation: none;
+  }
+
+  .flip-tiles.is-solved .tile::after {
+    animation: none;
+    opacity: 1;
+  }
+
+  .flip-tiles.is-solved .wire {
+    animation: none;
+    stroke-dashoffset: 0;
+    opacity: 0.35;
+  }
+
+  .flip-tiles.is-solved .pulse {
+    animation: none;
+  }
+}
+
+/* :where() in the global button style: these win, also on hover */
+.tile:hover,
+.tile:active {
+  background: var(--zero);
+  filter: brightness(1.1);
+}
+
+.tile.one,
+.tile.one:hover,
+.tile.one:active {
+  background: var(--one);
+}
+
+/* The solution marks: a blue plus = flip this tile (the shape of the cross it flips), a red
+   dot = force it. Both are --mark wide, centered on the tile. A tile that needs both shows
+   the plus on a slightly larger dot. */
+.flip-mark,
+.force-mark {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: var(--mark);
+  height: var(--mark);
+  transform: translate(-50%, -50%);
+  display: none;
+}
+
+.force-mark {
+  border-radius: 50%;
+  background: var(--force-mark);
+}
+
+.flip-mark {
+  background: var(--flip-mark);
+  /* a plus, its arms a third of its width */
+  clip-path: polygon(
+    33% 0, 67% 0, 67% 33%, 100% 33%, 100% 67%, 67% 67%,
+    67% 100%, 33% 100%, 33% 67%, 0 67%, 0 33%, 33% 33%
+  );
+}
+
+.tile.flip .flip-mark,
+.tile.force .force-mark {
+  display: block;
+}
+
+.tile.flip.force .force-mark {
+  width: var(--mark-under-plus);
+  height: var(--mark-under-plus);
+}
+
+.title {
+  margin: 0;
+  font-weight: 600;
+  text-align: center;
+}
+
+.hint {
+  margin: 0;
+  color: #666666;
+  font-size: 0.8rem;
+  text-align: center;
+}
+
+/* A device whose main pointer is a finger (no hover, coarse) gets the touch text */
+.with-touch {
+  display: none;
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .with-mouse {
+    display: none;
+  }
+
+  .with-touch {
+    display: inline;
+  }
+}
+
+.status {
+  min-height: 1.6em;
+  margin: 0;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.moves {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+/* Just wide enough for the longest count (its min-width is set in the markup), so the
+   buttons sit snugly around it and still stay put while the number changes */
+.move-number {
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Reset, when it joins this row, keeps a little distance from the back and forward buttons */
+.moves .reset {
+  margin-left: 1rem;
+}
+
+/* At the most moves in a game: the count turns red and the tiles take no more presses */
+.flip-tiles.full .move-number {
+  color: var(--force-mark);
+  font-weight: 600;
+}
+
+/* Solved: the count turns green instead (also when that took the most moves) */
+.flip-tiles.is-solved .move-number {
+  color: var(--zero);
+  font-weight: 600;
+}
+
+.flip-tiles.full .tile {
+  cursor: not-allowed;
+}
+
+.controls,
+.solver {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* One pill split in three, the chosen part filled (as in Pendulum, Konijnenhokken and the
+   digit dreamer) */
+.ranking {
+  display: inline-flex;
+  border: 2px solid #13294d;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.ranking button {
+  padding: 0.3rem 0.8rem;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: #13294d;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  white-space: nowrap; /* short labels: they fit on one line, also on a phone */
+  cursor: pointer;
+}
+
+.ranking button[aria-pressed="true"] {
+  background: #13294d;
+  color: #ffffff;
+}
+
+.ranking button:focus-visible {
+  outline: 3px solid #f89540;
+  outline-offset: -3px;
+}

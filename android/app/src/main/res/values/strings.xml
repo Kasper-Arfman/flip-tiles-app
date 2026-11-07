@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Flip Tiles</string>
+    <string name="title_activity_main">Flip Tiles</string>
+    <string name="package_name">com.kasperarfman.fliptiles</string>
+    <string name="custom_url_scheme">com.kasperarfman.fliptiles</string>
+</resources>

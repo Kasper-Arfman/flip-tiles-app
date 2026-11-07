@@ -1,0 +1,1548 @@
+﻿/* The app around the game: its screens, in one centered column, inside the safe area of the
+   phone (notch, home bar). The board itself is styled in game/flip-tiles.css. */
+:root {
+  --ink: #13294d; /* navy: text, buttons */
+  --muted: #5f6b7d;
+  --paper: #f5f4ef; /* the page */
+  --card: #ffffff;
+  --line: #e3e1d9;
+  --gold: #e3a21a; /* earned stars; the same gold as the yellow tiles */
+  --green: #2e9e4f; /* the same green as the tiles */
+  --empty-star: #c3c8d1;
+  --anthracite: #2b2f36; /* the cards on the home screen */
+  --night: #22252b; /* the background of the level grid */
+  --blush: #f4ebe3; /* the level tiles on it: off-white, a hint of pink-brown */
+  /* The tiles' two colors: the skin's (set by skins.ts; these are the Classic skin) */
+  --skin-zero: #2e9e4f;
+  --skin-one: #e3a21a;
+}
+
+/* The board takes its colors from the skin (the widget's own CSS names them --zero and --one) */
+.flip-tiles {
+  --zero: var(--skin-zero);
+  --one: var(--skin-one);
+}
+
+/* The hint marks with a dark outline, so they show on any skin's colors: the plus drawn as a
+   small picture with a dark edge (instead of the widget's cut-out shape), the dot with a ring */
+.flip-tiles .flip-mark {
+  width: calc(var(--mark) + 6%);
+  height: calc(var(--mark) + 6%);
+  clip-path: none;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M11 1.5h10v9.5h9.5v10H21v9.5H11V21H1.5V11H11z' fill='%236ec6ff' stroke='%23101820' stroke-width='2.2' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+.flip-tiles .force-mark {
+  box-shadow: 0 0 0 2px rgba(16, 24, 32, 0.8);
+}
+
+/* Solved!: in the skin's other color (a board solved to --zero gets --one, and the other way
+   round), its hue turning very slightly (5 degrees) from left to right. oklch(from ...) keeps the color's
+   lightness and saturation and only changes its hue; a web view that doesn't know it uses the
+   plain color of the line before. */
+.flip-tiles .solved strong {
+  background-image: linear-gradient(90deg, var(--one), var(--one));
+  background-image: linear-gradient(90deg,
+    oklch(from var(--one) l c calc(h - 5)), var(--one), oklch(from var(--one) l c calc(h + 5)));
+}
+
+.flip-tiles.all-one .solved strong {
+  background-image: linear-gradient(90deg, var(--zero), var(--zero));
+  background-image: linear-gradient(90deg,
+    oklch(from var(--zero) l c calc(h - 5)), var(--zero), oklch(from var(--zero) l c calc(h + 5)));
+}
+
+/* Dark places: the cards on the home screen, and the whole level grid screen.
+   Inside them the colors are redefined, so the text, lines, empty stars and difficulty marks
+   turn light without rules of their own. */
+.tier-card,
+.tier-screen {
+  --ink: #f2f3f5;
+  --muted: #aab1bc;
+  --line: #474d57;
+  --empty-star: #6c727d;
+  color: var(--ink);
+}
+
+/* The level grid screen is dark all over (the sticky top bar takes --paper as its background) */
+.tier-screen {
+  --paper: var(--night);
+}
+
+html:has(.tier-screen) {
+  background: var(--night);
+}
+
+/* ...with white level tiles in it: the light colors again */
+.level-tile {
+  --ink: #13294d;
+  --muted: #5f6b7d;
+  --empty-star: #c8b9ad; /* a warm grey, matching the blush tile */
+  color: var(--ink);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* The background on html only: a background on body too would be painted over the home
+   screen's art (which sits behind the page, see .home-art) */
+html {
+  background: var(--paper);
+}
+
+/* Nothing may stick out sideways: on a phone, the page must not be draggable left and right. The
+   page's column clips whatever would (clip, not hidden: it makes no scroll box, so the sticky top
+   bars keep working; and not on body, whose overflow the browser moves to the window). */
+main {
+  overflow-x: clip;
+}
+
+html,
+body {
+  margin: 0;
+  color: var(--ink);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  line-height: 1.5;
+  -webkit-tap-highlight-color: transparent; /* no grey flash on every tap */
+  overscroll-behavior: none; /* no rubber-band bounce of the whole page */
+}
+
+main {
+  max-width: 480px;
+  margin: 0 auto;
+  padding:
+    0
+    calc(env(safe-area-inset-right) + 16px)
+    calc(env(safe-area-inset-bottom) + 2rem)
+    calc(env(safe-area-inset-left) + 16px);
+}
+
+a {
+  color: inherit;
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+/* --- shared pieces ------------------------------------------------------------------------ */
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr; /* the title stays centered */
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 -16px 0.75rem;
+  padding: calc(env(safe-area-inset-top) + 0.5rem) 16px 0.5rem;
+  background: var(--paper);
+}
+
+.topbar h1 {
+  font-size: 1.15rem;
+  white-space: nowrap;
+}
+
+.topbar-right {
+  justify-self: end;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.up {
+  justify-self: start;
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink); /* the screen's text color: light on the dark level grid */
+}
+
+.up svg {
+  width: 1.5rem;
+  height: 1.5rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.up:not(:disabled):hover,
+.up:not(:disabled):active {
+  background: var(--line);
+  color: var(--ink);
+}
+
+.star {
+  width: 1.1em;
+  height: 1.1em;
+  flex: none;
+  fill: none;
+  stroke: var(--empty-star);
+  stroke-width: 1.6;
+  stroke-linejoin: round;
+  vertical-align: -0.15em;
+}
+
+.star.earned {
+  fill: var(--gold);
+  stroke: var(--gold);
+}
+
+.star-row {
+  display: inline-flex;
+  gap: 1px;
+}
+
+.star.small {
+  width: 0.85rem;
+  height: 0.85rem;
+}
+
+.difficulty {
+  display: inline-flex;
+  gap: 1px;
+}
+
+/* On a tier card: at the right edge, on open and locked cards alike */
+.tier-card .difficulty {
+  justify-self: end;
+}
+
+.difficulty svg {
+  width: 0.65rem;
+  height: 0.65rem;
+  fill: var(--ink);
+}
+
+.mini-board {
+  display: block;
+  width: 100%;
+  border-radius: 4px;
+}
+
+.mini-board .one {
+  fill: var(--skin-one);
+}
+
+.mini-board .zero {
+  fill: var(--skin-zero);
+}
+
+/* A link that looks like a button; and the filled, main button of a screen */
+.button {
+  display: inline-block;
+  padding: 0.5rem 1.2rem;
+  border: 1.5px solid var(--ink);
+  border-radius: 6px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.primary,
+.primary:not(:disabled):hover {
+  background: var(--ink);
+  color: #ffffff;
+}
+
+/* --- home --------------------------------------------------------------------------------- */
+
+/* The art (homeArt.ts) fills the whole screen behind everything, and stays put when the page
+   scrolls */
+.home-art {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: var(--skin-zero); /* while the picture is drawn */
+}
+
+.home-art svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.home-art .art-grain {
+  opacity: 0.22;
+  mix-blend-mode: overlay;
+}
+
+.home-screen {
+  position: relative; /* for the ? button */
+}
+
+.home-header {
+  padding: calc(env(safe-area-inset-top) + 3.2rem) 0 1.2rem;
+  text-align: center;
+}
+
+/* The game's title: each letter on a puzzle tile, in a chunky rounded game font. The tiles have
+   a cream rim and a darker bottom edge (they look thick), a shadow under them, and each leans a
+   little, as if just put down. */
+.game-title {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+  position: relative;
+  isolation: isolate; /* so the glow (z-index -1) stays behind the tiles but in front of the art */
+  margin: 0;
+  font-family: "Lilita One", system-ui, sans-serif;
+  font-weight: 400;
+  line-height: 1;
+}
+
+/* A dark glow behind the logo, so it pops out of the busy background */
+.game-title::before {
+  content: "";
+  position: absolute;
+  inset: -3rem -1rem -2.5rem; /* sideways only as far as the page's margin: to the screen's edge */
+  z-index: -1;
+  background: radial-gradient(closest-side, rgba(8, 20, 12, 0.78), rgba(8, 20, 12, 0.5) 60%, rgba(8, 20, 12, 0));
+  pointer-events: none;
+}
+
+.title-row {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.title-tile {
+  --face: var(--green);
+  --edge: #1d6e35; /* the tile's thickness, under it */
+  display: grid;
+  place-items: center;
+  width: 3.5rem;
+  height: 3.5rem;
+  border: 3px solid #fff4dc;
+  border-radius: 12px;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0) 55%), var(--face);
+  box-shadow:
+    0 5px 0 var(--edge),
+    0 12px 22px rgba(0, 0, 0, 0.5),
+    0 0 14px rgba(0, 0, 0, 0.3);
+  color: #fff8e6;
+  font-size: 2.5rem;
+  text-shadow: 0 3px 0 rgba(0, 0, 0, 0.28);
+  transform: rotate(var(--tilt, 0deg));
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.title-tile.gold {
+  --face: var(--gold);
+  --edge: #a86f05;
+}
+
+/* Every tile leans its own way */
+.title-tile:nth-child(4n + 1) { --tilt: -5deg; }
+.title-tile:nth-child(4n + 2) { --tilt: 3deg; }
+.title-tile:nth-child(4n + 3) { --tilt: -2deg; }
+.title-tile:nth-child(4n + 4) { --tilt: 4deg; }
+
+/* Opening the screen: the tiles flip in one after the other (--i: the letter's place) */
+.title-tile.flip-in {
+  animation: title-flip-in 0.5s cubic-bezier(0.3, 1.4, 0.5, 1) calc(0.08s * var(--i)) both;
+}
+
+@keyframes title-flip-in {
+  from {
+    opacity: 0;
+    transform: perspective(300px) rotateY(-100deg) rotate(var(--tilt, 0deg));
+  }
+  to {
+    opacity: 1;
+    transform: perspective(300px) rotateY(0deg) rotate(var(--tilt, 0deg));
+  }
+}
+
+/* Tapped: it turns over, like a tile of the board */
+.title-tile.flipping {
+  animation: title-flip 0.4s ease-in-out both;
+}
+
+@keyframes title-flip {
+  0% {
+    transform: perspective(300px) rotateY(0deg) rotate(var(--tilt, 0deg));
+  }
+  50% {
+    transform: perspective(300px) rotateY(90deg) rotate(var(--tilt, 0deg)) scale(0.92);
+  }
+  100% {
+    transform: perspective(300px) rotateY(0deg) rotate(var(--tilt, 0deg));
+  }
+}
+
+/* The stars and coins: two small dark pills under the title */
+.wealth {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 1.1rem;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.9rem;
+  border-radius: 999px;
+  background: rgba(34, 37, 43, 0.85);
+  color: #f2f3f5;
+  font-size: 1.05rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.coin {
+  width: 1.1em;
+  height: 1.1em;
+  flex: none;
+  vertical-align: -0.2em;
+}
+
+/* On a locked tier: open it now with coins */
+.unlock-button,
+.unlock-button:not(:disabled):hover {
+  grid-column: 1 / -1;
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-top: 0.3rem;
+  border: 1.5px solid #ffd24a;
+  border-radius: 999px;
+  background: rgba(255, 210, 74, 0.12);
+  color: #ffd24a;
+  font-size: 0.9rem;
+}
+
+.unlock-button:not(:disabled):active {
+  background: rgba(255, 210, 74, 0.3);
+  color: #ffd24a;
+}
+
+/* The round buttons in the top corners: the shop (a bag) on the left, how to play (?) on the
+   right */
+.round-button {
+  position: absolute;
+  top: calc(env(safe-area-inset-top) + 0.75rem);
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border: 3px solid #fff4dc;
+  border-radius: 50%;
+  background: var(--anthracite);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  color: #fff8e6;
+  font-family: "Lilita One", system-ui, sans-serif;
+  font-size: 1.5rem;
+  text-decoration: none;
+}
+
+.help-button {
+  right: 0;
+}
+
+.shop-button {
+  left: 0;
+}
+
+.shop-button svg {
+  width: 1.35rem;
+  height: 1.35rem;
+  fill: #fff8e6;
+  stroke: #fff8e6;
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+/* The coins pill is a link to the shop too */
+a.pill {
+  text-decoration: none;
+}
+
+/* --- the shop ------------------------------------------------------------------------------- */
+
+.shop-section {
+  margin: 0.25rem 0 0.75rem;
+  font-size: 1.05rem;
+}
+
+.skin-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.skin-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.9rem 0.8rem 0.8rem;
+  border: 2px solid var(--line);
+  border-radius: 14px;
+  background: var(--card);
+}
+
+.skin-card.in-use {
+  border-color: var(--gold);
+}
+
+.skin-card .mini-board {
+  width: 80%;
+}
+
+.skin-name {
+  font-weight: 700;
+}
+
+.skin-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  width: 100%;
+  justify-content: center;
+}
+
+.skin-action.in-use:disabled {
+  border-color: var(--gold);
+  color: #b87a00;
+  opacity: 1;
+}
+
+/* For a new player: gold, with a ring pulsing out of it, to say "start here" */
+.help-button.first-time {
+  background: var(--gold);
+  animation: help-pulse 1.8s ease-out 1.2s infinite;
+}
+
+@keyframes help-pulse {
+  0% {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3), 0 0 0 0 rgba(255, 210, 74, 0.8);
+  }
+  70%,
+  100% {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3), 0 0 0 14px rgba(255, 210, 74, 0);
+  }
+}
+
+/* Cards on the art: a shadow lifts them off it, and a faint light edge keeps them apart from a
+   dark skin's art */
+.home-screen .tier-card {
+  border-color: rgba(255, 255, 255, 0.14);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+}
+
+.home-screen .tier-card.locked {
+  opacity: 1;
+  background: rgba(43, 47, 54, 0.6); /* faded by letting the art show through, not by fading the text */
+  color: #c5cad2;
+}
+
+.tiers {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tier-card {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 0.35rem 0.5rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--anthracite);
+  border-radius: 14px;
+  background: var(--anthracite);
+  text-decoration: none;
+  transition: transform 0.1s ease;
+}
+
+a.tier-card:active {
+  transform: scale(0.98);
+}
+
+/* A stage's Greek letter, before its name: gold, in a classic serif, like a letter in a formula */
+.stage-symbol {
+  color: #ffd24a;
+  font-family: "Times New Roman", Georgia, serif;
+  font-size: 1.3em;
+  font-style: italic;
+  font-weight: 400;
+  line-height: 1;
+}
+
+/* Between the letter and the name: a small, faint dot */
+.stage-dot {
+  margin: 0 0.35em;
+  opacity: 0.45;
+  font-weight: 400;
+}
+
+.tier-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.tier-meta {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.tier-stars {
+  justify-self: end;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.progress {
+  grid-column: 1 / -1;
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(to right, var(--gold) calc(var(--done) * 100%), var(--line) 0);
+}
+
+/* Locked: faded, so the open tiers stand out */
+.tier-card.locked {
+  opacity: 0.45;
+}
+
+.tier-card.locked .tier-meta {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.lock {
+  width: 1rem;
+  height: 1rem;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+}
+
+.home-footer {
+  margin-top: 2.5rem;
+  text-align: center;
+}
+
+.reset-progress,
+.reset-progress:not(:disabled):hover {
+  border: none;
+  background: transparent;
+  color: #ffffff; /* on the art */
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+  font-size: 0.85rem;
+  font-weight: 400;
+  text-decoration: underline;
+}
+
+/* --- a tier: the level grid ----------------------------------------------------------------- */
+
+/* Always 4 levels in a row (a group of 8 is two full rows), on any phone */
+.level-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Between two grades of a tier: a thin line across the grid */
+.grade-divider {
+  grid-column: 1 / -1;
+  height: 1px;
+  margin: 4px 12px;
+  background: var(--line);
+}
+
+/* Above a locked group: the line with what opens it in the middle */
+.grade-divider.locked {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  height: auto;
+  margin: 6px 0;
+  background: none;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.grade-divider.locked::before,
+.grade-divider.locked::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+
+.grade-divider.locked span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  white-space: nowrap;
+}
+
+/* Under the line of the group next in line: the button to unlock it with coins */
+.grade-buy {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: center;
+  margin: -4px 0 4px;
+}
+
+.grade-buy .unlock-button {
+  margin-top: 0;
+}
+
+/* A level of a locked group: faded, its board in grey */
+.level-tile.locked {
+  opacity: 0.35;
+}
+
+.level-tile.locked .mini-board {
+  filter: grayscale(1);
+}
+
+.level-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 8px 6px;
+  border: 2px solid var(--blush);
+  border-radius: 12px;
+  background: var(--blush);
+  text-decoration: none;
+  transition: transform 0.1s ease;
+}
+
+.level-tile:active {
+  transform: scale(0.95);
+}
+
+/* All three stars (a level with fewer has no border) */
+.level-tile.perfect {
+  border-color: var(--gold);
+}
+
+/* Empty stars on a level tile: white inside, with the warm grey outline */
+.level-tile .star:not(.earned) {
+  fill: #ffffff;
+}
+
+.level-number {
+  font-weight: 700;
+  font-size: 0.9rem;
+  line-height: 1;
+}
+
+/* --- a level ------------------------------------------------------------------------------- */
+
+.goals {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.goal {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 0.5rem 0.3rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--card);
+  text-align: center;
+  font-size: 0.85rem;
+  font-weight: 600;
+  line-height: 1.25;
+  transition: opacity 0.2s ease;
+}
+
+.goal .star {
+  width: 1.6rem;
+  height: 1.6rem;
+}
+
+/* A goal this attempt can't reach any more */
+.goal.missed {
+  opacity: 0.4;
+}
+
+/* The goals with hints are buttons: they fill their place in the row */
+button.goal,
+button.goal:not(:disabled):hover,
+button.goal:not(:disabled):active {
+  width: 100%;
+  height: 100%;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.goal small {
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* Showing its hints: a gold frame */
+button.goal[aria-pressed="true"],
+button.goal[aria-pressed="true"]:not(:disabled):hover {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 2px var(--gold);
+  opacity: 1; /* also when missed: its hints are on the board */
+}
+
+button.goal[aria-pressed="true"] small {
+  color: #b87a00;
+}
+
+/* Under the board: what the hints show, buy one more, and replay the best solve */
+.hint-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 0.75rem;
+  margin-top: 1rem;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--card);
+}
+
+.hint-info {
+  flex: 1 1 10rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1.35;
+}
+
+.hint-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.buy-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+/* The legend of the marks, drawn like the marks on the board */
+.legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-left: 0.25rem;
+  white-space: nowrap;
+}
+
+.legend-plus,
+.legend-dot {
+  display: inline-block;
+  width: 0.75em;
+  height: 0.75em;
+  margin-left: 0.3rem;
+}
+
+.legend-plus {
+  background: #6ec6ff;
+  clip-path: polygon(33% 0, 67% 0, 67% 33%, 100% 33%, 100% 67%, 67% 67%, 67% 100%, 33% 100%, 33% 67%, 0 67%, 0 33%, 33% 33%);
+}
+
+.legend-dot {
+  border-radius: 50%;
+  background: #e0453a;
+}
+
+/* --- popups: the replay (replayDialog.ts) and Which hint? (level.ts) ---------------------------- */
+
+.app-dialog {
+  width: min(100vw - 24px, 440px);
+  max-height: calc(100dvh - 24px);
+  padding: 0; /* the box inside has the padding: a tap on the dialog itself is next to the box */
+  border: none;
+  border-radius: 18px;
+  background: var(--card);
+  color: var(--ink);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+}
+
+.app-dialog::backdrop {
+  background: rgba(15, 18, 24, 0.6);
+}
+
+.dialog-box {
+  padding: 0.75rem 1rem 1rem;
+}
+
+.dialog-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.dialog-head h2 {
+  font-size: 1.15rem;
+}
+
+.dialog-head .close,
+.dialog-head .close:not(:disabled):hover {
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink);
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+.dialog-head .close:not(:disabled):active {
+  background: var(--line);
+  color: var(--ink);
+}
+
+/* Which hint?: the two goals as big buttons, each with how many of its hints are shown */
+.hint-dialog-text {
+  margin: 0.25rem 0 0.75rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.hint-options {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.hint-option,
+.hint-option:not(:disabled):hover {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
+  padding: 0.7rem 0.9rem;
+  border: 2px solid var(--line);
+  border-radius: 12px;
+  background: var(--card);
+  color: var(--ink);
+  text-align: left;
+}
+
+.hint-option:not(:disabled):active {
+  border-color: var(--gold);
+  background: #fff6dc;
+  color: var(--ink);
+}
+
+.hint-option span {
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 400;
+}
+
+/* The tabs: one pill split in parts, the chosen one filled */
+.tabs {
+  display: flex;
+  margin-top: 0.5rem;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.tabs [role="tab"],
+.tabs [role="tab"]:not(:disabled):hover {
+  flex: 1;
+  padding: 0.35rem 0.4rem;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink);
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.tabs [role="tab"][aria-selected="true"] {
+  background: var(--ink);
+  color: #ffffff;
+}
+
+.tab-count {
+  opacity: 0.7;
+  font-weight: 400;
+}
+
+/* A tab whose star isn't earned yet: locked */
+.tabs [role="tab"]:disabled {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  opacity: 0.45;
+}
+
+.replay-board .flip-tiles {
+  margin: 0.75rem auto 0;
+}
+
+/* In a replay the tiles make no moves (replayDialog.ts stops their presses); only the tile of
+   the next move can be tapped, to step forward. No Reset or "tap to flip" either. */
+.replay-board .tile {
+  cursor: default;
+}
+
+.replay-board .tile.next-tile {
+  cursor: pointer;
+}
+
+.replay-board .reset,
+.replay-board .hint {
+  display: none;
+}
+
+.replay-caption {
+  min-height: 1.5em;
+  margin-top: 0.5rem;
+  color: var(--muted);
+  text-align: center;
+  font-size: 0.9rem;
+}
+
+/* A move on its tile: its number in a circle, blue for a flip, red for a force. A tile with
+   both has the flip on the left and the force on the right. */
+.move-badge {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: grid;
+  place-items: center;
+  width: 46%;
+  aspect-ratio: 1;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  color: #ffffff;
+  font-family: "Lilita One", system-ui, sans-serif;
+  font-size: clamp(0.9rem, 4.5vw, 1.25rem);
+  line-height: 1;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.move-badge.flip {
+  background: #1f78d1;
+}
+
+.move-badge.force {
+  background: #e0453a;
+}
+
+.two-badges .move-badge {
+  width: 40%;
+}
+
+.two-badges .move-badge.flip {
+  left: 28%;
+}
+
+.two-badges .move-badge.force {
+  left: 72%;
+}
+
+/* Made already: faded. Next: bigger, with a white ring around it */
+.move-badge.made {
+  opacity: 0.3;
+}
+
+.move-badge.next {
+  transform: translate(-50%, -50%) scale(1.15);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.9), 0 3px 8px rgba(0, 0, 0, 0.4);
+}
+
+.counter {
+  margin-top: 0.75rem;
+  color: var(--muted);
+  text-align: center;
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.level-screen .flip-tiles {
+  margin: 0.5rem auto 0;
+}
+
+/* The screen shows its own count (with flips and forces) above the board */
+.level-screen .move-number {
+  display: none;
+}
+
+/* The result: decorations over the solved board (level.ts puts this layer inside the board), shown
+   once the board's own animation, Solved! included, has played. No box: the stars drop in an arc
+   over the top of the board, a line goes under Solved!, and the buttons sit at the bottom.
+   A soft dark fade at the top and bottom keeps them readable; the middle, with Solved!, stays
+   clear. Only the buttons take taps. Its animations start when it appears: the times below
+   count from then. */
+.result {
+  position: absolute;
+  inset: 0;
+  z-index: 3; /* over the tiles, the wires and Solved! */
+  pointer-events: none;
+  text-align: center;
+  background: linear-gradient(to bottom,
+    rgba(10, 14, 20, 0.5), rgba(10, 14, 20, 0) 32%, rgba(10, 14, 20, 0) 62%, rgba(10, 14, 20, 0.6));
+  animation: fade-in 0.4s ease-out both;
+}
+
+.result[hidden] {
+  display: none;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* The stars: in an arc over the top of the board */
+.result .result-stars {
+  position: absolute;
+  top: 5%;
+  left: 0;
+  right: 0;
+  margin: 0;
+}
+
+/* Under Solved!: "in 3 moves", or "Three stars!". White with a thin dark outline and a small drop,
+   like the buttons' text, so it reads on any skin's colors (also the light ones). */
+.result-title {
+  position: absolute;
+  top: 60%;
+  left: 0;
+  right: 0;
+  width: max-content;
+  margin: 0 auto;
+  color: #ffffff;
+  font-size: 1.1rem;
+  font-weight: 700;
+  text-shadow:
+    1px 0 0 rgba(0, 0, 0, 0.75), -1px 0 0 rgba(0, 0, 0, 0.75),
+    0 1px 0 rgba(0, 0, 0, 0.75), 0 -1px 0 rgba(0, 0, 0, 0.75),
+    0 2.5px 0 rgba(0, 0, 0, 0.55);
+}
+
+/* At the bottom: the buttons */
+.result-bottom {
+  position: absolute;
+  left: 4%;
+  right: 4%;
+  bottom: 5%;
+}
+
+/* The level's three stars in an arc: the middle one bigger and higher, the outer ones tilted
+   outwards. Each sits in a socket (an empty star shape); an earned star covers its socket. */
+.result-stars {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 0.6rem;
+  margin: 0.9rem 0 0.6rem;
+}
+
+.result-star {
+  position: relative;
+  width: 3.2rem;
+  height: 3.2rem;
+}
+
+.result-star:nth-child(1) {
+  transform: rotate(-14deg);
+}
+
+.result-star:nth-child(2) {
+  width: 4.2rem;
+  height: 4.2rem;
+  margin-bottom: 0.9rem;
+}
+
+.result-star:nth-child(3) {
+  transform: rotate(14deg);
+}
+
+.result-star svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  stroke-linejoin: round;
+}
+
+/* An empty place: a see-through star, like a slot in the board */
+.result-star .socket {
+  fill: rgba(255, 255, 255, 0.22);
+  stroke: rgba(255, 255, 255, 0.6);
+}
+
+/* The gold star (its colors are in its SVG, see bigStarGold in ui.ts) */
+.result-star .gold {
+  filter: drop-shadow(0 3px 3px rgba(60, 35, 0, 0.45));
+}
+
+/* Under a star that lands, the socket goes: nothing of it shows around the star */
+.level-screen.level-complete .result-star.earned .socket {
+  animation: socket-out 0.15s linear calc(var(--delay) + 0.3s) forwards;
+}
+
+@keyframes socket-out {
+  to {
+    opacity: 0;
+  }
+}
+
+/* Each earned star (also from earlier solves) drops in, big and turning, squashes as it lands,
+   and bounces into its socket; a ring flashes and sparks fly. --delay (from the script) makes
+   the stars land one after the other, after the panel has come in. */
+.level-screen.level-complete .result-star.earned .gold {
+  animation: star-land 0.55s cubic-bezier(0.3, 0, 0.4, 1) var(--delay) both;
+}
+
+@keyframes star-land {
+  0% {
+    opacity: 0;
+    transform: translateY(-1.5rem) scale(2.6) rotate(-50deg);
+  }
+  55% {
+    opacity: 1;
+    transform: scale(0.8, 0.72) rotate(4deg); /* the landing: squashed */
+  }
+  75% {
+    transform: scale(1.14) rotate(-2deg);
+  }
+  100% {
+    transform: none;
+  }
+}
+
+/* The flash: a gold ring that widens and fades as the star lands */
+.result-star.earned::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 3px solid var(--gold);
+  border-radius: 50%;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.level-screen.level-complete .result-star.earned::after {
+  /* forwards, not both: before it starts the ring must stay hidden, not wait at its first frame */
+  animation: ring 0.5s ease-out calc(var(--delay) + 0.3s) forwards;
+}
+
+@keyframes ring {
+  from {
+    opacity: 0.9;
+    transform: scale(0.4);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.7);
+  }
+}
+
+/* The finale, when a solve gives the level its third star: once the last star has landed
+   (--finale), a gold glow swells behind the stars, they jump together, the title pops in, and
+   the panel's border turns gold */
+.result.perfect {
+  --finale: 1.85s; /* after the last star has landed */
+}
+
+.result-stars {
+  position: relative;
+}
+
+.result-star {
+  z-index: 1; /* over the glow */
+}
+
+.result.perfect .result-stars::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 15rem;
+  height: 9rem;
+  margin: -4.5rem 0 0 -7.5rem;
+  background: radial-gradient(closest-side, rgba(255, 210, 74, 0.6), rgba(255, 210, 74, 0));
+  opacity: 0;
+  pointer-events: none;
+}
+
+.level-screen.level-complete .result.perfect .result-stars::before {
+  animation: glow-swell 0.9s ease-out var(--finale) both;
+}
+
+@keyframes glow-swell {
+  from {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+  to {
+    opacity: 0.75;
+    transform: none;
+  }
+}
+
+/* The jump: after the landing (fill forwards only, so it doesn't hide the landing before) */
+.level-screen.level-complete .result.perfect .result-star.earned .gold {
+  animation:
+    star-land 0.55s cubic-bezier(0.3, 0, 0.4, 1) var(--delay) both,
+    cheer 0.45s ease-in-out calc(var(--finale) + 0.1s) forwards;
+}
+
+.level-screen.level-complete .result.perfect .result-star:nth-child(2) .gold {
+  animation-delay: var(--delay), calc(var(--finale) + 0.18s);
+}
+
+.level-screen.level-complete .result.perfect .result-star:nth-child(3) .gold {
+  animation-delay: var(--delay), calc(var(--finale) + 0.26s);
+}
+
+@keyframes cheer {
+  0%,
+  100% {
+    transform: none;
+  }
+  40% {
+    transform: translateY(-0.6rem) scale(1.12);
+  }
+  70% {
+    transform: translateY(0) scale(0.96, 1.04);
+  }
+}
+
+.level-screen.level-complete .result.perfect .result-title {
+  color: #ffd24a;
+  font-size: 1.35rem;
+  animation: title-pop 0.45s cubic-bezier(0.3, 1.6, 0.5, 1) var(--finale) both;
+}
+
+@keyframes title-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Sparks: eight small dots that fly outwards from the star's middle */
+.spark {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0.4rem;
+  height: 0.4rem;
+  margin: -0.2rem 0 0 -0.2rem;
+  border-radius: 50%;
+  background: #ffd24a;
+  box-shadow: 0 0 4px #ffe58a;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.spark:nth-child(odd) {
+  background: #ffffff;
+}
+
+.level-screen.level-complete .spark {
+  animation: spark 0.6s ease-out calc(var(--delay) + 0.3s) forwards; /* (as the ring) */
+}
+
+@keyframes spark {
+  from {
+    opacity: 1;
+    transform: rotate(var(--angle)) translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: rotate(var(--angle)) translateY(-2.8rem) scale(0.3);
+  }
+}
+
+.result-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 0.6rem;
+  margin-top: 0.5rem;
+}
+
+/* The buttons over the board: like two tiles of the skin, Retry in its first color and Next
+   level in its second, with a cream rim, a dark edge below and a shadow (the rim and shadow set a
+   button apart from the board, also when the board has its color). The text is white with a thin
+   dark outline and a small drop, like the logo's letters: the outline gives every letter its own
+   dark edge, so it reads on any color, light ones included. */
+.result-buttons button,
+.result-buttons button:not(:disabled):hover,
+.result-buttons button:not(:disabled):active {
+  padding: 0.45rem 1.1rem 0.5rem;
+  border: 2.5px solid #fff4dc;
+  border-radius: 12px;
+  background: var(--skin-zero);
+  color: #ffffff;
+  text-shadow:
+    1px 0 0 rgba(0, 0, 0, 0.75), -1px 0 0 rgba(0, 0, 0, 0.75),
+    0 1px 0 rgba(0, 0, 0, 0.75), 0 -1px 0 rgba(0, 0, 0, 0.75),
+    0 2.5px 0 rgba(0, 0, 0, 0.55);
+  font-family: "Lilita One", system-ui, sans-serif;
+  font-size: 1.05rem;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  box-shadow:
+    0 4px 0 rgba(0, 0, 0, 0.45),
+    0 8px 18px rgba(0, 0, 0, 0.4);
+  pointer-events: auto; /* (the layer itself lets taps through to the board) */
+}
+
+/* Next level: in the skin's second color */
+.result-buttons .next-level,
+.result-buttons .next-level:not(:disabled):hover,
+.result-buttons .next-level:not(:disabled):active {
+  background: var(--skin-one);
+}
+
+/* Pressed: it goes down onto its edge */
+.result-buttons button:not(:disabled):active {
+  transform: translateY(3px);
+  box-shadow:
+    0 1px 0 rgba(0, 0, 0, 0.45),
+    0 4px 10px rgba(0, 0, 0, 0.4);
+}
+
+/* --- how to play ----------------------------------------------------------------------------- */
+
+/* For a new player: why they are here first */
+.first-rules {
+  margin-bottom: 0.75rem;
+  padding: 0.6rem 0.8rem;
+  border-left: 4px solid var(--gold);
+  border-radius: 8px;
+  background: #fff6dc;
+  font-size: 0.95rem;
+}
+
+.rules h2 {
+  margin: 1.5rem 0 0.25rem;
+  font-size: 1.1rem;
+}
+
+.rules ul {
+  padding-left: 1.2rem;
+}
+
+.demo .flip-tiles {
+  max-width: 220px;
+  margin: 0.75rem auto 0;
+}
+
+.star-rules {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0.5rem 0 1rem;
+  padding: 0;
+  list-style: none;
+}
+
+.star-rules li {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+}
+
+.star-rules .star {
+  margin-top: 0.2em;
+}
+
+.rules .button {
+  display: block;
+  margin-top: 1.5rem;
+  text-align: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .result,
+  .level-screen.level-complete .result-star.earned .gold {
+    animation: none;
+  }
+
+  .level-screen.level-complete .result-star.earned .socket {
+    animation: none;
+    opacity: 0;
+  }
+
+  .level-screen.level-complete .result-star.earned::after,
+  .level-screen.level-complete .spark {
+    display: none;
+  }
+
+  .title-tile.flip-in,
+  .title-tile.flipping,
+  .help-button.first-time {
+    animation: none;
+  }
+
+  /* The finale without movement: the glow and the title are simply there */
+  .level-screen.level-complete .result.perfect .result-title,
+  .level-screen.level-complete .result.perfect .result-star.earned .gold,
+  .level-screen.level-complete .result.perfect .result-stars::before {
+    animation: none;
+  }
+
+  .level-screen.level-complete .result.perfect .result-stars::before {
+    opacity: 0.75;
+  }
+}
