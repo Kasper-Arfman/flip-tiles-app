@@ -10,7 +10,7 @@
 //   3. exactly minMoves moves (fewer is impossible)
 //
 // Hints: the goals "N moves" and "N flips" are buttons. Tapping one shows the hints bought
-// for it on the board (a hollow diamond, blue = flip that tile, red = force it); each hint costs a coin and
+// for it on the board (a hollow diamond, gold = flip that tile, red = force it); each hint costs a coin and
 // shows one more move of a solution for that goal. The order of moves doesn't matter, so the
 // marks stay right whatever moves have been made already.
 //
@@ -25,6 +25,7 @@ import {
   finishTutorial, hasRecordedSolves, hintsBought, isLevelOpen, isTierComplete, recordSolve, solutionFor, starsOf, tutorialStep,
   type HintGoal,
 } from "../progress";
+import { openDiscoveries } from "./discoveries";
 import { openReplays } from "./replayDialog";
 import { bigStarGold, bigStarSocket, coin, plural, screen, star, topbar } from "./ui";
 
@@ -67,6 +68,7 @@ export function levelScreen(level: Level) {
     ${topbar(levelName(level), guided ? undefined : tierHash, `${coin()} <span class="coin-count">${coins()}</span>`)}
     <div class="hint-bar"${guided ? " hidden" : ""}>
       <button type="button" class="replay" hidden>▶ Replay</button>
+      <button type="button" class="open-discoveries">Discoveries</button>
       <button type="button" class="buy-hint">Hint · ${coin()} ${HINT_COST}</button>
     </div>
     <ol class="goals">
@@ -236,6 +238,7 @@ export function levelScreen(level: Level) {
     replayButton.hidden = !hasRecordedSolves(level);
   };
   replayButton.addEventListener("click", () => openReplays(level));
+  element.querySelector(".open-discoveries")!.addEventListener("click", openDiscoveries);
 
   // --- the moves on the board ----------------------------------------------------------------
   let lastMoves = ""; // the widget also reports when nothing changed (e.g. new hint marks)

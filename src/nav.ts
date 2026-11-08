@@ -2,6 +2,7 @@
 //   #/                  home: the tiers
 //   #/how-to-play       the rules
 //   #/shop              the shop: skins for coins
+//   #/discoveries       the discoveries: one per completed stage
 //   #/tier/4            the levels of difficulty 4
 //   #/level/4/7         level 7 of difficulty 4
 // Going to a screen adds it to the browser's history, so the back button (in the browser, and
@@ -17,6 +18,7 @@ export type Route =
   | { screen: "home" }
   | { screen: "how-to-play" }
   | { screen: "shop" }
+  | { screen: "discoveries" }
   | { screen: "tier"; difficulty: number }
   | { screen: "level"; difficulty: number; number: number };
 
@@ -25,6 +27,7 @@ export function currentRoute(): Route {
   const [a, b] = [Number(parts[1]), Number(parts[2])];
   if (parts[0] === "how-to-play") return { screen: "how-to-play" };
   if (parts[0] === "shop") return { screen: "shop" };
+  if (parts[0] === "discoveries") return { screen: "discoveries" };
   if (parts[0] === "tier" && a) return { screen: "tier", difficulty: a };
   if (parts[0] === "level" && a && b) return { screen: "level", difficulty: a, number: b };
   return { screen: "home" };

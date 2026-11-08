@@ -39,7 +39,7 @@
 .flip-tiles {
   --one: #e3a21a; /* gold-plated yellow: 1 (white in the code); deep enough for the gold wires */
   --zero: #2e9e4f; /* green: 0 (black in the code) */
-  --flip-mark: #6ec6ff; /* light blue */
+  --flip-mark: #ffd24a; /* bright gold */
   --force-mark: #e0453a; /* red */
   --slot: 17%; /* a hint's hollow diamond, as part of the tile (before it is turned) */
   --gem: 9%; /* a move's filled diamond: it fits inside the slot */
@@ -398,13 +398,13 @@
   background: var(--one);
 }
 
-/* Diamonds on the tiles: blue for a flip, red for a force.
-   - The solution's moves (the hints, or the solver's): a hollow diamond, a slot, blue = flip
+/* Diamonds on the tiles: gold for a flip, red for a force.
+   - The solution's moves (the hints, or the solver's): a hollow diamond, a slot, gold = flip
      this tile, red = force it. A tile that needs both shows the two slots side by side,
      slightly apart.
    - The moves made so far: a small filled diamond, lit from the top left like a little gem, so
      making a hinted move fills its slot (and the player sees what to press again to undo a
-     move). A tile both flipped and forced gets one diamond in a blue and red checkerboard.
+     move). A tile both flipped and forced gets one diamond in a gold and red checkerboard.
    All of them fade out once the board is solved, for the celebration (see below).
    Each has a darker edge of its own color, so it shows on both tile colors. */
 .flip-mark,
@@ -431,7 +431,7 @@
 
 .flip-mark {
   border-color: var(--flip-mark);
-  box-shadow: 0 0 0 1px #0d3f6b, inset 0 0 0 1px #0d3f6b;
+  box-shadow: 0 0 0 1px #4f3400, inset 0 0 0 1px #4f3400;
 }
 
 .force-mark {
@@ -448,8 +448,8 @@
 }
 
 .made-flip {
-  background: linear-gradient(135deg, #dcf2ff 0%, #6ec6ff 45%, #2a86c9 100%);
-  box-shadow: 0 0 0 1px #0d3f6b;
+  background: linear-gradient(135deg, #fff3c4 0%, #ffd24a 45%, #c98a12 100%);
+  box-shadow: 0 0 0 1px #4f3400;
 }
 
 .made-force {
@@ -460,7 +460,7 @@
 /* A tile both flipped and forced: one diamond, a checkerboard of the two (four squares, which
    the turn makes into four small diamonds) */
 .tile.flipped.forced .made-flip {
-  background: conic-gradient(#6ec6ff 0 25%, #e5483b 0 50%, #6ec6ff 0 75%, #e5483b 0);
+  background: conic-gradient(#ffd24a 0 25%, #e5483b 0 50%, #ffd24a 0 75%, #e5483b 0);
   box-shadow: 0 0 0 1px #2b1b33;
 }
 
@@ -468,7 +468,7 @@
   display: none; /* (wins over the display: block below: more specific) */
 }
 
-/* A tile with both slots: the blue one a little to the left, the red one a little to the
+/* A tile with both slots: the gold one a little to the left, the red one a little to the
    right, and the moves made in their own slots */
 .tile.flip.force .flip-mark,
 .tile.flip.force:not(.forced) .made-flip {

@@ -39,9 +39,11 @@ export function howToPlayScreen() {
       <h2>Coins and hints</h2>
       <p>Stuck? Tap the goal <strong>… moves</strong> or <strong>… flips</strong> above the
         board, and buy a hint for one coin: it marks one move of a solution for that goal (a hollow
-        diamond, blue: flip that tile; red: force it. Making the move fills it in). Coins can also unlock levels and stages early.</p>
+        diamond, gold: flip that tile; red: force it. Making the move fills it in). Coins can also unlock levels and stages early.</p>
       <p>Earned the <strong>Only flips</strong> or <strong>Fewest moves</strong> star? <strong>▶ Replay</strong>
         lets you step through your solution again.</p>
+      <p>Every stage you complete earns a <strong>discovery</strong>: make a pattern, and see how to solve it
+        with flips alone, for good.</p>
       <a class="button primary start-playing" href="#/tier/${TIERS[0].difficulty}">Start playing</a>
     </div>`);
 

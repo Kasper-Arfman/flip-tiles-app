@@ -9,7 +9,7 @@
 // the levels move around, or are shown turned, mirrored or with swapped colors. Its recorded
 // solves are moves on the board as shown, so they are kept by the board itself.
 import { Preferences } from "@capacitor/preferences";
-import type { Move } from "./game/flipTiles";
+import { solveFlips, type Move } from "./game/flipTiles";
 import { TIERS, type Level, type Tier } from "./levels/levels";
 import { DEFAULT_SKIN, SHAPES, SKINS, SQUARE, type Look, type Shape, type Skin } from "./skins";
 
@@ -62,6 +62,7 @@ let stars: Record<string, number> = {}; // level key -> star bits
 // level key -> when its last new star was earned (ms since 1970). For the leaderboard to come:
 // players with the same stars rank by who got there first, also for stars earned offline.
 let starTimes: Record<string, number> = {};
+let discoveries: Record<number, number> = {}; // a stage's difficulty -> the board it discovered
 // The wallet: coins, the difficulties and groups of levels opened with coins (a group as
 // "difficulty/minMoves", see gradeKey), the skins and shapes owned and the ones in use, the
 // stages whose completion reward was paid (by difficulty), and the version of this format (see
@@ -83,7 +84,7 @@ let tutorialDone = false;
 
 const KEYS = {
   stars: "progress-v1", wallet: "wallet-v1", hints: "hints-v1", replays: "replays-v1", tutorial: "tutorial-done-v1",
-  starTimes: "star-times-v1",
+  starTimes: "star-times-v1", discoveries: "discoveries-v1",
 };
 
 async function read<T>(key: string, fallback: T): Promise<T> {
@@ -99,13 +100,14 @@ const write = (key: string, value: unknown) => void Preferences.set({ key, value
 
 export async function loadProgress() {
   let saved: Partial<ReturnType<typeof NEW_WALLET>>;
-  [stars, saved, hints, replays, tutorialDone, starTimes] = await Promise.all([
+  [stars, saved, hints, replays, tutorialDone, starTimes, discoveries] = await Promise.all([
     read(KEYS.stars, {}),
     read(KEYS.wallet, {}),
     read(KEYS.hints, {}),
     read(KEYS.replays, {}),
     read(KEYS.tutorial, false),
     read(KEYS.starTimes, {}),
+    read(KEYS.discoveries, {}),
   ]);
   // (a wallet saved before skins existed has none; one saved before versions is version 1)
   wallet = { ...NEW_WALLET(), ...saved, version: saved.version ?? 1 };
@@ -159,6 +161,7 @@ export async function resetProgress() {
   hints = {};
   replays = {};
   starTimes = {};
+  discoveries = {};
   tutorialDone = false;
   await Promise.all(Object.values(KEYS).map((key) => Preferences.remove({ key })));
 }
@@ -340,6 +343,54 @@ export function useShape(id: string) {
   if (!ownsShape(id)) return;
   wallet.shape = id;
   write(KEYS.wallet, wallet);
+}
+
+// --- discoveries (see screens/discoveries.ts) -------------------------------------------------
+
+export const DISCOVERY_RESET_COST = 50; // to clear one discovery
+export const DISCOVERY_RESET_ALL_COST = 200; // to clear them all (or less, when there are few)
+
+// How many forces from solved a stage's discovery is: Alpha 1, Beta 2, Gamma 3, ...
+export const discoveryForces = (tier: Tier) => TIERS.indexOf(tier) + 1;
+export const discoveryOf = (tier: Tier): number | undefined => discoveries[tier.difficulty];
+
+// A completed stage earns a discovery; one already made stays, also if the stage gets new levels
+export const hasDiscoverySlot = (tier: Tier) => isTierComplete(tier) || discoveryOf(tier) !== undefined;
+
+// How many discoveries are earned and not made yet (the home screen's red bubble)
+export const discoveriesToClaim = () => TIERS.filter((tier) => hasDiscoverySlot(tier) && discoveryOf(tier) === undefined).length;
+
+export const discoveredPatterns = () =>
+  TIERS.flatMap((tier) => (discoveryOf(tier) === undefined ? [] : [{ tier, board: discoveryOf(tier)! }]));
+
+// Discover a pattern; false unless the stage has earned it, it is still free, the pattern is
+// exactly the right number of forces from solved, and flips alone can solve it
+export function discover(tier: Tier, board: number): boolean {
+  const forces = Array.from({ length: 25 }, (_, k) => (board >>> k) & 1).reduce((n, bit) => n + bit, 0);
+  if (!hasDiscoverySlot(tier) || discoveryOf(tier) !== undefined || forces !== discoveryForces(tier)) return false;
+  if (!solveFlips(board)) return false;
+  discoveries[tier.difficulty] = board;
+  write(KEYS.discoveries, discoveries);
+  return true;
+}
+
+export function resetDiscovery(tier: Tier): boolean {
+  if (discoveryOf(tier) === undefined || !spend(DISCOVERY_RESET_COST)) return false;
+  delete discoveries[tier.difficulty];
+  write(KEYS.discoveries, discoveries);
+  return true;
+}
+
+// The price of clearing them all: 50 each, at most 200 (0 = there are none)
+export const discoveryResetAllCost = () =>
+  Math.min(DISCOVERY_RESET_ALL_COST, DISCOVERY_RESET_COST * discoveredPatterns().length);
+
+export function resetAllDiscoveries(): boolean {
+  const cost = discoveryResetAllCost();
+  if (cost === 0 || !spend(cost)) return false;
+  discoveries = {};
+  write(KEYS.discoveries, discoveries);
+  return true;
 }
 
 // --- hints ----------------------------------------------------------------------------------

@@ -1,7 +1,7 @@
 // The replay popup of a level: the solves that earned its flips star and its moves star (a tab
 // each; a tab is locked until that star is earned), each on a board of its own. Nothing plays by
 // itself: the board's < and > step through the moves, and so does a tap on the tile of the next
-// move. Every move is marked on its tile with its number, in a blue circle for a flip and a red
+// move. Every move is marked on its tile with its number, in a gold circle for a flip and a red
 // one for a force; the next move is highlighted, the moves made are faded.
 //
 // It is a <dialog>: shown over the screen with showModal(), closed with ×, Escape, a tap next to
