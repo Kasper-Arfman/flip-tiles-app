@@ -8,6 +8,7 @@ import { findLevel, findTier } from "./levels/levels";
 import { currentRoute, go, goUp, onNavigate } from "./nav";
 import { activeLook, isLevelOpen, loadProgress, starsToUnlock, tutorialStep } from "./progress";
 import { initPurchases } from "./purchases";
+import { codexScreen } from "./screens/codex";
 import { homeScreen } from "./screens/home";
 import { howToPlayScreen } from "./screens/howToPlay";
 import { levelScreen } from "./screens/level";
@@ -29,6 +30,7 @@ function render() {
   let next: HTMLElement;
   if (route.screen === "how-to-play") next = howToPlayScreen();
   else if (route.screen === "shop") next = shopScreen(render);
+  else if (route.screen === "codex") next = codexScreen(render);
   else if (route.screen === "home") next = homeScreen(render);
   else {
     // A tier or level that doesn't exist, or isn't open yet: back home

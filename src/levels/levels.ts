@@ -7,7 +7,9 @@ export interface Level {
   minMoves: number; // the third star: the fewest moves, flips and forces
   minFlips: number; // the second star: the fewest flips, with flips only
   solutionFlips: number[]; // a flips-only solution with minFlips flips (tiles 5r + c): its hints
-  solutionMoves: { flips: number[]; forces: number[] }; // a solution in minMoves moves: its hints
+  solutionMoves: { flips: number[]; forces: number[] }; // a solution in minMoves moves, with the
+  //                       fewest forces of all such solutions: its hints
+  maxForces: number; // the forces the player has on this level: as many as solutionMoves uses
   difficulty: number; // its tier: equal to minFlips (the flips-only star is the hard one)
   number: number; // its place in the tier, from 1
   grade: number; // its group in the tier, from 0: the levels with the same minMoves
@@ -68,6 +70,7 @@ export const TIERS: Tier[] = data.tiers.map((tier, t) => {
     const full = {
       ...level, difficulty: tier.difficulty, number: i + 1, grade: grades.length - 1, key: standardForm(level.board),
       expertFlips: level.minFlips > tier.difficulty,
+      maxForces: level.solutionMoves.forces.length,
     };
     grades[grades.length - 1].push(full);
     return full;

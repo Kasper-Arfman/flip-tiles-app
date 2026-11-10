@@ -24,6 +24,7 @@ export function howToPlayScreen() {
       <ul>
         <li>The order of the moves doesn't matter.</li>
         <li>Making the same move twice cancels it out: it doesn't count.</li>
+        <li>Forces are limited: the red diamonds above the board show how many you have left, and one empties for every force you use. A level without them is flips only.</li>
         <li>Use <strong>&lt;</strong> and <strong>&gt;</strong> to step through your moves, and Reset to start over.</li>
       </ul>
 
@@ -39,9 +40,11 @@ export function howToPlayScreen() {
       <h2>Coins and hints</h2>
       <p>Stuck? Tap the goal <strong>… moves</strong> or <strong>… flips</strong> above the
         board, and buy a hint for one coin: it marks one move of a solution for that goal (a hollow
-        diamond, blue: flip that tile; red: force it. Making the move fills it in). Coins can also unlock levels and stages early.</p>
+        diamond, gold: flip that tile; red: force it. Making the move fills it in). Coins can also unlock levels and stages early.</p>
       <p>Earned the <strong>Only flips</strong> or <strong>Fewest moves</strong> star? <strong>▶ Replay</strong>
         lets you step through your solution again.</p>
+      <p>Every stage you complete earns an entry in the <strong>Codex</strong>: make a pattern, and see how to solve it
+        with flips alone, for good.</p>
       <a class="button primary start-playing" href="#/tier/${TIERS[0].difficulty}">Start playing</a>
     </div>`);
 

@@ -270,6 +270,7 @@ with `npx cap ...` (e.g. `npx cap doctor` checks your Capacitor setup).
 | `src/skins.ts` | the skins (tile color pairs) and shapes (tile outlines) sold in the shop, and putting them on |
 | `src/sw.js` | the service worker: saves the app's files on the device, so the web app plays offline (its file list is written in by `vite.config.ts` on every build) |
 | `src/purchases.ts` | buying 100 coins with real money, in the native apps only (branch `app-store`) |
+| `src/screens/codex.ts` | the Codex screen, its pattern editor, and the popup on a level |
 | `src/dev.ts` | `DEV_MODE`: shows what players must not see yet (set it to `false` for a release) |
 | `src/progress.ts` | what the player has, saved on the device: stars, coins, hints, best solutions; which tiers are open |
 | `src/screens/` | one file per screen (home, tier, level, how to play), shared pieces in `ui.ts`, and the home screen's background art in `homeArt.ts` |
@@ -388,8 +389,9 @@ solution tables; a sample of the levels was also checked with a separate brute-f
   the wallet remembers which stages were paid, so each pays once). After a stage's last level
   otherwise, the button under the stars says *Menu* and leads home.
 - **Unlocking.** A stage opens when 70% of all the stars of the stages before it are earned
-  (`UNLOCK_SHARE` in `progress.ts`, rounded up: Beta needs 7 of Alpha's 9, Gamma 15 of the 21 of
-  Alpha and Beta, ...), so the cost grows with the game; or right away for 100 coins
+  (`UNLOCK_SHARE` in `progress.ts`, rounded up: Gamma needs 15 of the 21 of Alpha and Beta, ...),
+  so the cost grows with the game. The one exception is Beta, which opens at 5 of Alpha's 9 stars
+  (`BETA_STARS`) so new players get going quickly. Or a stage opens right away for 100 coins
   (`UNLOCK_COST`). Within a stage, the levels come in groups (a grade: the levels with the same
   minMoves); the first group is open, and each next one opens when 10 stars are earned in the
   group before it (`UNLOCK_GRADE_STARS`; all its stars when it has fewer). The divider line above
@@ -455,9 +457,9 @@ solution tables; a sample of the levels was also checked with a separate brute-f
   shades with CSS `color-mix`). The "Solved!" text is in the skin's other color (on a board
   solved to one color, the text is the other), its hue turning very slightly from left to right.
   Stars and the logo keep their gold and green.
-- **Your moves on the board.** Every move made shows on its tile: a tiny filled diamond, blue
+- **Your moves on the board.** Every move made shows on its tile: a tiny filled diamond, gold
   for a flip and red for a force (told apart by color: the shapes were too alike at this size);
-  a tile both flipped and forced gets a blue and red checkerboard diamond. Making the same move
+  a tile both flipped and forced gets a gold and red checkerboard diamond. Making the same move
   again undoes it and its mark goes away. This is in the widget (`draw` in
   `FlipTilesElement.ts`), so the replays show it too. Once solved, these marks and the hints'
   fade out after a moment (so the last move is seen filling its slot), for the celebration.
@@ -465,7 +467,7 @@ solution tables; a sample of the levels was also checked with a separate brute-f
   hints on the board, and buy the next hint for 1 coin (`HINT_COST`) with the Hint button, at
   the top right above the goals (with ▶ Replay next to it once there is a solve to watch; no
   text around them). A hint marks one move of a
-  solution for that goal: a hollow diamond (a slot), blue = flip that tile, red = force it, and
+  solution for that goal: a hollow diamond (a slot), gold = flip that tile, red = force it, and
   making the move fills the slot with its diamond. A tile that needs both gets the two slots
   side by side, slightly apart. All of these marks are in `flip-tiles.css`. The solutions are
   stored with the levels by the curation script (`solutionFlips`, `solutionMoves`), so the app
@@ -475,7 +477,7 @@ solution tables; a sample of the levels was also checked with a separate brute-f
   solve. *▶ Replay* (only there once one of them is earned) opens a popup
   (`src/screens/replayDialog.ts`) with a tab for each; a tab stays locked until its star is
   earned. Nothing plays by itself: the board's < and >, or a tap on the tile of the next move,
-  step through the moves. Each move is marked on its tile with its number, in a blue circle for a
+  step through the moves. Each move is marked on its tile with its number, in a gold circle for a
   flip and a red one for a force; the next move is highlighted, the moves made are faded.
 - **The level grid.** A level with all three stars has a gold border; others have none.
 - **Solving a level**: once the board's own solved animation has played, Solved! included
@@ -488,6 +490,25 @@ solution tables; a sample of the levels was also checked with a separate brute-f
   colors. The stars are drawn in
   detail (`bigStarGold` in `ui.ts`); the socket under a star fades out as it lands. The solve that gives a level its third star ends
   with a finale: "Three stars!" and a gold glow behind the stars.
+
+- **Limited forces**: a level gives the player as many forces as its fewest-forces solution in
+  *minMoves* moves needs (`maxForces` in `levels.ts`, which is simply the forces of `solutionMoves`:
+  0 on Beta to Delta, up to 5 later). Red diamonds above the board show them like the hearts of a game: full, and one empties per force used;
+  the widget refuses another force (`maxForces` in `FlipTilesElement.ts`) and the row shakes.
+  A moves star earned before the limit, whose recorded solve used too many forces, is taken back
+  at the next start (`enforceForceLimits` in `progress.ts`). Solves that earned only *Solve it*
+  aren't recorded, so that star can't be checked and stays.
+- **Codex** (`#/codex`: the light-bulb button on the home screen, with a red bubble counting the entries earned and not made yet). Every completed stage
+  earns one. Its pattern is at most that many forces from a solved board: Alpha 1, Beta 2, Gamma 3, ...
+  (`entryForces` in `progress.ts`). The player picks how many forces to use with − and + (the gray tiles depend on it), places them (red diamonds on top show how many are left; < and Reset take them back) and presses Discover;
+  the flips-only solution then stays visible, as gold diamonds, on this screen and in the
+  *Codex* popup on every level. That popup shows all 12 as a grid of boards with nothing but
+  their solutions (gray until made), and a pill switches between the flips-only and the fewest-moves
+  solutions (`solveMoves` in `flipTiles.ts`: gold to flip, red to force). Flips alone solve only one board in four, so tiles that can't
+  lead to a solvable pattern are gray, worked out again after every force (`tilesToForce`). The solution is calculated on the phone (`solveFlips` in
+  `flipTiles.ts`): the flips of the first row, 32 ways, decide all the others, for both solved
+  colors, and the shortest is kept. (Saved under the key `discoveries-v1`, the feature's old name: renaming a saved key would lose what players made.) One entry can be cleared for 50 coins, all of them for 50
+  each up to 200 in all. Only a completed stage earns a new one.
 
 **Adding a plugin** (as was done for Preferences): `npm install @capacitor/<name>`, then
 `npm run sync` so the native projects get its native half. In the browser, most plugins fall
@@ -623,3 +644,6 @@ Notes added as the project goes along: what was learned, problems hit, and how t
   license testers): test there before anyone can pay. And `import()` (a dynamic import) makes
   Vite put a library in a separate file that is only downloaded when that code runs: the web
   version never loads the purchase plugin.
+- **2026-11-09**: Each level got a limited number of forces. Learned: when a number follows from
+  data you already have (the forces of the stored solution), derive it instead of storing it
+  again, so the limit and the hints can never disagree.

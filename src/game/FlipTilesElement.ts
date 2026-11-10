@@ -16,7 +16,7 @@ export interface FlipTilesChange {
 // What a page can do with the widget once it is on the page (the app's level screen uses these
 // for hints and replays)
 export interface FlipTilesControls {
-  setMarks(moves: Move[]): void; // show these moves on the board: a hollow diamond, blue = flip, red = force
+  setMarks(moves: Move[]): void; // show these moves on the board: a hollow diamond, gold = flip, red = force
   playMove(move: Move): void; // make a move, as if the tile was pressed
   resetGame(): void; // back to the start board
   setHistory(moves: Move[]): void; // these moves as the game's history, at its start (step with < >)
@@ -90,7 +90,7 @@ class FlipTiles extends HTMLElement implements FlipTilesControls {
       const marked = showing ? moves : pageMarks;
       const flips = new Set(marked?.filter((m) => m.kind === "flip").map((m) => m.tile));
       const forces = new Set(marked?.filter((m) => m.kind === "force").map((m) => m.tile));
-      // The moves made so far, marked on their tiles (a blue diamond = flipped, a red one = forced, like the hints),
+      // The moves made so far, marked on their tiles (a gold diamond = flipped, a red one = forced, like the hints),
       // so the player sees what to press again to undo one
       const made = steps.slice(1, at + 1);
       const madeFlips = new Set(made.filter((m) => m.kind === "flip").map((m) => m.tile));
@@ -161,14 +161,22 @@ class FlipTiles extends HTMLElement implements FlipTilesControls {
 
     // Press a tile: flip its cross, or force only that tile
     const allowForce = this.dataset.allowForce !== "false";
+    // (Returns whether the move was made.)
+    const maxForces = Number(this.dataset.maxForces ?? Infinity);
     const press = (k: number, force: boolean) => {
-      if (force && !allowForce) return; // flips only in this game
+      if (force && !allowForce) return false; // flips only in this game
       const move: Move = { kind: force ? "force" : "flip", tile: k };
       // The most moves in a game: go back or start over first (or take one of them back)
-      if (full() && !isRepeat(move)) return;
+      if (full() && !isRepeat(move)) return false;
+      // All forces in use: take one back first (forcing that tile again is allowed). Tell the page.
+      if (force && !isRepeat(move) && steps.slice(1, at + 1).filter((s) => s.kind === "force").length >= maxForces) {
+        this.dispatchEvent(new CustomEvent("flip-tiles-no-forces-left"));
+        return false;
+      }
       state = apply(state, move);
       record(move);
       draw(k);
+      return true;
     };
 
     // With a mouse: click flips, right click or shift click forces. On a touch screen: a tap
@@ -191,8 +199,7 @@ class FlipTiles extends HTMLElement implements FlipTilesControls {
         holdTimer = window.setTimeout(() => {
           cancelHold();
           heldDown = true;
-          press(k, true);
-          navigator.vibrate?.(30); // a small buzz, where phones support it
+          if (press(k, true)) navigator.vibrate?.(30); // a small buzz, where phones support it
         }, HOLD_MS);
       });
       tile.addEventListener("pointermove", (e) => {

@@ -3,14 +3,14 @@
 //
 // The board is the flip tiles widget (src/game). After every move it sends a "flip-tiles-change"
 // event with the moves on the board; making a move twice cancels it, so these are the moves that
-// count. From them this screen shows the count, dims the goals this attempt can no longer reach,
+// count. From them this screen shows the progress on each goal, the forces left, dims the goals this attempt can no longer reach,
 // and when the board is solved, works out the stars:
 //   1. solved
 //   2. only flips, and exactly minFlips of them (fewer is impossible)
 //   3. exactly minMoves moves (fewer is impossible)
 //
 // Hints: the goals "N moves" and "N flips" are buttons. Tapping one shows the hints bought
-// for it on the board (a hollow diamond, blue = flip that tile, red = force it); each hint costs a coin and
+// for it on the board (a hollow diamond, gold = flip that tile, red = force it); each hint costs a coin and
 // shows one more move of a solution for that goal. The order of moves doesn't matter, so the
 // marks stay right whatever moves have been made already.
 //
@@ -25,6 +25,7 @@ import {
   finishTutorial, hasRecordedSolves, hintsBought, isLevelOpen, isTierComplete, recordSolve, solutionFor, starsOf, tutorialStep,
   type HintGoal,
 } from "../progress";
+import { openCodex } from "./codex";
 import { openReplays } from "./replayDialog";
 import { bigStarGold, bigStarSocket, coin, plural, screen, star, topbar } from "./ui";
 
@@ -67,18 +68,22 @@ export function levelScreen(level: Level) {
     ${topbar(levelName(level), guided ? undefined : tierHash, `${coin()} <span class="coin-count">${coins()}</span>`)}
     <div class="hint-bar"${guided ? " hidden" : ""}>
       <button type="button" class="replay" hidden>▶ Replay</button>
+      <button type="button" class="open-codex">Codex</button>
       <button type="button" class="buy-hint">Hint · ${coin()} ${HINT_COST}</button>
     </div>
     <ol class="goals">
       <li class="goal" data-star="${STAR_SOLVED}">${star(earnedBefore(STAR_SOLVED))}<span>Solve it</span></li>
       <li><button type="button" class="goal" data-star="${STAR_MOVES}" data-goal="moves" aria-pressed="false">
-        ${star(earnedBefore(STAR_MOVES))}<span>${goalNames.moves}</span><small>hints</small></button></li>
+        ${star(earnedBefore(STAR_MOVES))}<span>${goalNames.moves}</span><small class="goal-progress">(0/${level.minMoves})</small></button></li>
       <li><button type="button" class="goal${level.expertFlips ? " expert" : ""}" data-star="${STAR_FLIPS}"
         data-goal="flips" aria-pressed="false"${level.expertFlips ? ` aria-description="Expert: far harder than the rest of this stage"` : ""}>
         ${level.expertFlips ? `<span class="expert-badge">Expert</span>` : ""}
-        ${star(earnedBefore(STAR_FLIPS))}<span>${goalNames.flips}</span><small>hints</small></button></li>
+        ${star(earnedBefore(STAR_FLIPS))}<span>${goalNames.flips}</span><small class="goal-progress">(0/${level.minFlips})</small></button></li>
     </ol>
-    <p class="counter" aria-live="polite"></p>
+    <p class="available-forces" role="img">Available forces:
+      ${level.maxForces > 0
+        ? `<span class="force-slots">${Array.from({ length: level.maxForces }, () => `<i class="force-slot filled"></i>`).join("")}</span>`
+        : "none"}</p>
     <div class="board-slot"></div>
     <div class="result" hidden aria-live="polite">
       <div class="result-stars" role="img"></div>
@@ -96,10 +101,21 @@ export function levelScreen(level: Level) {
     newGame: false,
     start: level.board,
     maxMoves: 50, // every tile flipped and forced once: no real limit
+    allowForce: level.maxForces > 0,
+    maxForces: level.maxForces,
   }) as HTMLElement & FlipTilesControls;
   element.querySelector(".board-slot")!.append(widget);
 
-  const counter = element.querySelector<HTMLElement>(".counter")!;
+  // The forces left work like the hearts of a game: all full at the start, one empties per force
+  // used, and they shake when the player tries to force with none left
+  const forceRow = element.querySelector<HTMLElement>(".available-forces")!;
+  const forceSlots = [...forceRow.querySelectorAll<HTMLElement>(".force-slot")];
+  widget.addEventListener("flip-tiles-no-forces-left", () => {
+    forceRow.classList.remove("denied");
+    void forceRow.offsetWidth; // (restart the shake, also when it is still running)
+    forceRow.classList.add("denied");
+  });
+
   // The result: a layer of decorations over the solved board, so it goes inside the board
   const result = element.querySelector<HTMLElement>(".result")!;
   widget.querySelector(".board")!.append(result);
@@ -148,6 +164,8 @@ export function levelScreen(level: Level) {
     result.hidden = true;
   };
   const goals = [...element.querySelectorAll<HTMLElement>(".goal")];
+  const progressMoves = element.querySelector<HTMLElement>('[data-goal="moves"] .goal-progress')!;
+  const progressFlips = element.querySelector<HTMLElement>('[data-goal="flips"] .goal-progress')!;
   const goalButtons = [...element.querySelectorAll<HTMLButtonElement>("button.goal")];
   const buyButton = element.querySelector<HTMLButtonElement>(".buy-hint")!;
   const replayButton = element.querySelector<HTMLButtonElement>(".replay")!;
@@ -236,6 +254,7 @@ export function levelScreen(level: Level) {
     replayButton.hidden = !hasRecordedSolves(level);
   };
   replayButton.addEventListener("click", () => openReplays(level));
+  element.querySelector(".open-codex")!.addEventListener("click", openCodex);
 
   // --- the moves on the board ----------------------------------------------------------------
   let lastMoves = ""; // the widget also reports when nothing changed (e.g. new hint marks)
@@ -246,7 +265,10 @@ export function levelScreen(level: Level) {
 
     const forces = moves.filter((m) => m.kind === "force").length;
     const flips = moves.length - forces;
-    counter.textContent = `${plural(moves.length, "move")}: ${plural(flips, "flip")}, ${plural(forces, "force")}`;
+    forceSlots.forEach((slot, i) => slot.classList.toggle("filled", i < level.maxForces - forces));
+    forceRow.setAttribute("aria-label", `Available forces: ${level.maxForces - forces} of ${level.maxForces}`);
+    progressMoves.textContent = `(${moves.length}/${level.minMoves})`;
+    progressFlips.textContent = `(${flips}/${level.minFlips})`;
     if (finger) finger.hidden = moves.length > 0; // (the finger has done its job once a move is made)
 
     // Goals this attempt can't reach any more (a goal already earned stays lit)

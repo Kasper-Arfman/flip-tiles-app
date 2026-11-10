@@ -2,7 +2,7 @@
 // progress. A tier that is still locked says what opens it: more stars in all, or coins.
 import { TIERS, totalLevels } from "../levels/levels";
 import {
-  STAGE_REWARD, UNLOCK_COST, activeLook, buyTier, coins, maxStars, payStageRewards, resetProgress, starsToUnlock,
+  STAGE_REWARD, UNLOCK_COST, activeLook, buyTier, coins, entriesToClaim, maxStars, payStageRewards, resetProgress, starsToUnlock,
   tierSolved, tierStars, totalStars,
 } from "../progress";
 import { applySkin } from "../skins";
@@ -22,12 +22,17 @@ const titleTiles = (word: string, first: number) =>
 const BAG = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8h14l-1.2 12H6.2z" />` +
   `<path d="M9 10V6.5a3 3 0 0 1 6 0V10" fill="none" /></svg>`;
 
+// The Codex button: a light bulb
+const BULB = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a6.5 6.5 0 0 0-3.8 11.8c.8.6 1.3 1.4 1.3 2.2h5c0-.8.5-1.6 1.3-2.2A6.5 6.5 0 0 0 12 3z" />` +
+  `<path d="M10 20.5h4" fill="none" /></svg>`;
+
 // A completed stage's crown
 const CROWN = `<svg class="crown" viewBox="0 0 24 24" aria-hidden="true">` +
   `<path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z" /></svg>`;
 
 export function homeScreen(rerender: () => void) {
   const total = totalStars();
+  const toClaim = entriesToClaim();
   // Stages just completed: their reward is paid now, and the pouch shows the coins from before
   // until the coins have flown in (see flyCoins)
   const rewarded = payStageRewards();
@@ -64,6 +69,8 @@ export function homeScreen(rerender: () => void) {
   const element = screen("home-screen", `
     <div class="home-art">${homeArt()}</div>
     <a class="round-button shop-button" href="#/shop" aria-label="Shop">${BAG}</a>
+    <a class="round-button codex-button" href="#/codex"
+      aria-label="Codex${toClaim ? `: ${toClaim} to claim` : ""}">${BULB}${toClaim ? `<span class="notification-bubble" aria-hidden="true">${toClaim}</span>` : ""}</a>
     <a class="round-button help-button${total === 0 ? " first-time" : ""}" href="#/how-to-play" aria-label="How to play">?</a>
     <header class="home-header">
       <h1 class="game-title" aria-label="Flip Tiles">
@@ -121,7 +128,7 @@ export function homeScreen(rerender: () => void) {
   }
 
   element.querySelector(".reset-progress")!.addEventListener("click", async () => {
-    if (!confirm("Remove all your stars, coins, hints and solutions, and start over? " +
+    if (!confirm("Remove all your stars, coins, hints, solutions and Codex entries, and start over? " +
       "(Coins you bought are given back.)")) return;
     await resetProgress();
     applySkin(activeLook()); // back to the start's look (Classic, the square)
