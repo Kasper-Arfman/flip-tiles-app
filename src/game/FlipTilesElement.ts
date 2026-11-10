@@ -161,14 +161,22 @@ class FlipTiles extends HTMLElement implements FlipTilesControls {
 
     // Press a tile: flip its cross, or force only that tile
     const allowForce = this.dataset.allowForce !== "false";
+    // (Returns whether the move was made.)
+    const maxForces = Number(this.dataset.maxForces ?? Infinity);
     const press = (k: number, force: boolean) => {
-      if (force && !allowForce) return; // flips only in this game
+      if (force && !allowForce) return false; // flips only in this game
       const move: Move = { kind: force ? "force" : "flip", tile: k };
       // The most moves in a game: go back or start over first (or take one of them back)
-      if (full() && !isRepeat(move)) return;
+      if (full() && !isRepeat(move)) return false;
+      // All forces in use: take one back first (forcing that tile again is allowed). Tell the page.
+      if (force && !isRepeat(move) && steps.slice(1, at + 1).filter((s) => s.kind === "force").length >= maxForces) {
+        this.dispatchEvent(new CustomEvent("flip-tiles-no-forces-left"));
+        return false;
+      }
       state = apply(state, move);
       record(move);
       draw(k);
+      return true;
     };
 
     // With a mouse: click flips, right click or shift click forces. On a touch screen: a tap
@@ -191,8 +199,7 @@ class FlipTiles extends HTMLElement implements FlipTilesControls {
         holdTimer = window.setTimeout(() => {
           cancelHold();
           heldDown = true;
-          press(k, true);
-          navigator.vibrate?.(30); // a small buzz, where phones support it
+          if (press(k, true)) navigator.vibrate?.(30); // a small buzz, where phones support it
         }, HOLD_MS);
       });
       tile.addEventListener("pointermove", (e) => {

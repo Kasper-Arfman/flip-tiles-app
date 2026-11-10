@@ -12,6 +12,7 @@
 //   maxMoves   the most moves in one game (default 10)
 //   newGame    false = no Scramble or Clear, only Reset (default true)
 //   allowForce false = flips only (default true)
+//   maxForces  the most forces at a time in one game (default: no limit)
 //   title      a short title above the board
 import "./FlipTilesElement";
 import { N } from "./flipTiles";
@@ -22,6 +23,7 @@ export interface FlipTilesOptions {
   maxMoves?: number;
   newGame?: boolean;
   allowForce?: boolean;
+  maxForces?: number;
   title?: string;
 }
 
@@ -108,7 +110,7 @@ const escape = (text: string) =>
   text.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
 
 export function createFlipTiles(options: FlipTilesOptions = {}): HTMLElement {
-  const { solver = true, start, maxMoves = 10, newGame = true, allowForce = true, title } = options;
+  const { solver = true, start, maxMoves = 10, newGame = true, allowForce = true, maxForces, title } = options;
   if (!Number.isInteger(maxMoves) || maxMoves < 1) {
     throw new Error(`FlipTiles: maxMoves=${maxMoves} must be a whole number of at least 1`);
   }
@@ -159,6 +161,7 @@ export function createFlipTiles(options: FlipTilesOptions = {}): HTMLElement {
   if (startState !== undefined) element.dataset.start = String(startState);
   element.dataset.maxMoves = String(maxMoves);
   element.dataset.allowForce = String(allowForce);
+  if (maxForces !== undefined) element.dataset.maxForces = String(maxForces);
   element.innerHTML = `
     ${title ? `<p class="title">${escape(title)}</p>` : ""}
     ${solverHtml}

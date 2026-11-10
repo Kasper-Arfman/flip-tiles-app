@@ -21,12 +21,16 @@ export const ALL_STARS = STAR_SOLVED | STAR_FLIPS | STAR_MOVES;
 
 // A tier opens when the player has earned UNLOCK_SHARE of all the stars of the tiers before it
 // (rounded up), or when it is bought with coins. Alpha is always open. So the cost grows with the
-// game: Beta needs 7 of Alpha's 9 stars, Gamma 15 of the 21 of Alpha and Beta, and so on.
-export const UNLOCK_SHARE = 0.7;
+// game: Gamma needs 15 of the 21 stars of Alpha and Beta, and so on. The exception is Beta, which
+// opens sooner (BETA_STARS of Alpha's 9) to get new players going.
+export const UNLOCK_SHARE = 0.8;
+export const BETA_STARS = 5;
 
 // The stars a tier needs, earned in the tiers before it (by its place in the list: 0 = Alpha)
 export const unlockStars = (i: number) =>
-  Math.ceil(UNLOCK_SHARE * TIERS.slice(0, Math.max(0, i)).reduce((n, t) => n + maxStars(t), 0) - 1e-9);
+  i === 1
+    ? BETA_STARS
+    : Math.ceil(UNLOCK_SHARE * TIERS.slice(0, Math.max(0, i)).reduce((n, t) => n + maxStars(t), 0) - 1e-9);
 
 // Whether a tier is open is worked out anew every time, from the stars on the levels in the game
 // now: only the stars of the tiers before it count (not stars further on, nor stars on levels
@@ -62,7 +66,7 @@ let stars: Record<string, number> = {}; // level key -> star bits
 // level key -> when its last new star was earned (ms since 1970). For the leaderboard to come:
 // players with the same stars rank by who got there first, also for stars earned offline.
 let starTimes: Record<string, number> = {};
-let discoveries: Record<number, number> = {}; // a stage's difficulty -> the board it discovered
+let entries: Record<number, number> = {}; // a stage's difficulty -> the board it discovered
 // The wallet: coins, the difficulties and groups of levels opened with coins (a group as
 // "difficulty/minMoves", see gradeKey), the skins and shapes owned and the ones in use, the
 // stages whose completion reward was paid (by difficulty), and the version of this format (see
@@ -84,7 +88,7 @@ let tutorialDone = false;
 
 const KEYS = {
   stars: "progress-v1", wallet: "wallet-v1", hints: "hints-v1", replays: "replays-v1", tutorial: "tutorial-done-v1",
-  starTimes: "star-times-v1", discoveries: "discoveries-v1",
+  starTimes: "star-times-v1", entries: "discoveries-v1" /* (the Codex; the old name stays, so saved entries are kept) */,
 };
 
 async function read<T>(key: string, fallback: T): Promise<T> {
@@ -100,14 +104,14 @@ const write = (key: string, value: unknown) => void Preferences.set({ key, value
 
 export async function loadProgress() {
   let saved: Partial<ReturnType<typeof NEW_WALLET>>;
-  [stars, saved, hints, replays, tutorialDone, starTimes, discoveries] = await Promise.all([
+  [stars, saved, hints, replays, tutorialDone, starTimes, entries] = await Promise.all([
     read(KEYS.stars, {}),
     read(KEYS.wallet, {}),
     read(KEYS.hints, {}),
     read(KEYS.replays, {}),
     read(KEYS.tutorial, false),
     read(KEYS.starTimes, {}),
-    read(KEYS.discoveries, {}),
+    read(KEYS.entries, {}),
   ]);
   // (a wallet saved before skins existed has none; one saved before versions is version 1)
   wallet = { ...NEW_WALLET(), ...saved, version: saved.version ?? 1 };
@@ -118,6 +122,7 @@ export async function loadProgress() {
   if (!wallet.skins.includes(wallet.skin)) wallet.skin = DEFAULT_SKIN;
   if (!wallet.shapes.includes(wallet.shape)) wallet.shape = SQUARE;
   migrate();
+  enforceForceLimits();
 }
 
 // --- updates of the game: what the player has stays theirs ----------------------------------
@@ -155,13 +160,33 @@ function migrate() {
   write(KEYS.wallet, wallet);
 }
 
+// Levels got a limit on forces after players had already solved them. A moves star whose recorded
+// solve used more forces than the level now gives is taken back, with that recording, so the level
+// can be earned again within the limit. Only the moves star can be checked: it and the flips star
+// are the only solves recorded, and a flips-only solve has no forces. Safe to run at every start:
+// a solve made since the limit can't break it.
+function enforceForceLimits() {
+  let changed = false;
+  for (const level of TIERS.flatMap((tier) => tier.levels)) {
+    const solve = recorded(level.board).moves;
+    if (!Array.isArray(solve) || !(starsOf(level) & STAR_MOVES)) continue;
+    if (solve.filter((move) => move & 32).length <= level.maxForces) continue;
+    stars[level.key] &= ~STAR_MOVES;
+    delete replays[level.board].moves;
+    changed = true;
+  }
+  if (!changed) return;
+  write(KEYS.stars, stars);
+  write(KEYS.replays, replays);
+}
+
 export async function resetProgress() {
   stars = {};
   wallet = NEW_WALLET();
   hints = {};
   replays = {};
   starTimes = {};
-  discoveries = {};
+  entries = {};
   tutorialDone = false;
   await Promise.all(Object.values(KEYS).map((key) => Preferences.remove({ key })));
 }
@@ -345,51 +370,51 @@ export function useShape(id: string) {
   write(KEYS.wallet, wallet);
 }
 
-// --- discoveries (see screens/discoveries.ts) -------------------------------------------------
+// --- the Codex (see screens/codex.ts) -------------------------------------------------
 
-export const DISCOVERY_RESET_COST = 50; // to clear one discovery
-export const DISCOVERY_RESET_ALL_COST = 200; // to clear them all (or less, when there are few)
+export const ENTRY_RESET_COST = 50; // to clear one entry
+export const ENTRY_RESET_ALL_COST = 200; // to clear them all (or less, when there are few)
 
-// How many forces from solved a stage's discovery is: Alpha 1, Beta 2, Gamma 3, ...
-export const discoveryForces = (tier: Tier) => TIERS.indexOf(tier) + 1;
-export const discoveryOf = (tier: Tier): number | undefined => discoveries[tier.difficulty];
+// How many forces from solved a stage's entry can be, at most: Alpha 1, Beta 2, Gamma 3, ...
+export const entryForces = (tier: Tier) => TIERS.indexOf(tier) + 1;
+export const entryOf = (tier: Tier): number | undefined => entries[tier.difficulty];
 
-// A completed stage earns a discovery; one already made stays, also if the stage gets new levels
-export const hasDiscoverySlot = (tier: Tier) => isTierComplete(tier) || discoveryOf(tier) !== undefined;
+// A completed stage earns an entry; one already made stays, also if the stage gets new levels
+export const hasEntrySlot = (tier: Tier) => isTierComplete(tier) || entryOf(tier) !== undefined;
 
-// How many discoveries are earned and not made yet (the home screen's red bubble)
-export const discoveriesToClaim = () => TIERS.filter((tier) => hasDiscoverySlot(tier) && discoveryOf(tier) === undefined).length;
+// How many entries are earned and not made yet (the home screen's red bubble)
+export const entriesToClaim = () => TIERS.filter((tier) => hasEntrySlot(tier) && entryOf(tier) === undefined).length;
 
 export const discoveredPatterns = () =>
-  TIERS.flatMap((tier) => (discoveryOf(tier) === undefined ? [] : [{ tier, board: discoveryOf(tier)! }]));
+  TIERS.flatMap((tier) => (entryOf(tier) === undefined ? [] : [{ tier, board: entryOf(tier)! }]));
 
 // Discover a pattern; false unless the stage has earned it, it is still free, the pattern is
-// exactly the right number of forces from solved, and flips alone can solve it
+// at least 1 and at most the stage's number of forces from solved, and flips alone can solve it
 export function discover(tier: Tier, board: number): boolean {
   const forces = Array.from({ length: 25 }, (_, k) => (board >>> k) & 1).reduce((n, bit) => n + bit, 0);
-  if (!hasDiscoverySlot(tier) || discoveryOf(tier) !== undefined || forces !== discoveryForces(tier)) return false;
+  if (!hasEntrySlot(tier) || entryOf(tier) !== undefined || forces < 1 || forces > entryForces(tier)) return false;
   if (!solveFlips(board)) return false;
-  discoveries[tier.difficulty] = board;
-  write(KEYS.discoveries, discoveries);
+  entries[tier.difficulty] = board;
+  write(KEYS.entries, entries);
   return true;
 }
 
-export function resetDiscovery(tier: Tier): boolean {
-  if (discoveryOf(tier) === undefined || !spend(DISCOVERY_RESET_COST)) return false;
-  delete discoveries[tier.difficulty];
-  write(KEYS.discoveries, discoveries);
+export function resetEntry(tier: Tier): boolean {
+  if (entryOf(tier) === undefined || !spend(ENTRY_RESET_COST)) return false;
+  delete entries[tier.difficulty];
+  write(KEYS.entries, entries);
   return true;
 }
 
 // The price of clearing them all: 50 each, at most 200 (0 = there are none)
-export const discoveryResetAllCost = () =>
-  Math.min(DISCOVERY_RESET_ALL_COST, DISCOVERY_RESET_COST * discoveredPatterns().length);
+export const entryResetAllCost = () =>
+  Math.min(ENTRY_RESET_ALL_COST, ENTRY_RESET_COST * discoveredPatterns().length);
 
-export function resetAllDiscoveries(): boolean {
-  const cost = discoveryResetAllCost();
+export function resetAllEntries(): boolean {
+  const cost = entryResetAllCost();
   if (cost === 0 || !spend(cost)) return false;
-  discoveries = {};
-  write(KEYS.discoveries, discoveries);
+  entries = {};
+  write(KEYS.entries, entries);
   return true;
 }
 

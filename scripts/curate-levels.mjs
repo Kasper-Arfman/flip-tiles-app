@@ -38,7 +38,8 @@
 //
 // Each level also gets the two solutions that its hints show (tiles are numbered 5r + c):
 //   solutionFlips   the flips of a flips-only solution with minFlips flips
-//   solutionMoves   { flips, forces } of a solution with minMoves moves
+//   solutionMoves   { flips, forces } of a solution with minMoves moves, with the fewest forces
+//                   of all such solutions: its number of forces is the level's limit
 //
 // Where the numbers come from: the two solution tables in public/flip-tiles/ (see CLAUDE.md).
 // Following fewest_moves from a board gives a solution with the fewest moves. Following
@@ -186,6 +187,40 @@ const endsOn = (level) => {
   for (const k of level.solutionMoves.flips) t ^= MASKS[k];
   for (const k of level.solutionMoves.forces) t ^= 1 << k;
   return t;
+};
+
+// Of all the solutions in minMoves moves, one with the fewest forces (`current` if none has fewer)
+const fewerForces = (board, minMoves, current) => {
+  const count = (s) => {
+    let n = 0;
+    for (; s; s &= s - 1) n++;
+    return n;
+  };
+  const wrongTiles = (s) => Math.min(count(s), N - count(s));
+  let least = current.forces.length;
+  let bestFlips;
+  const chosen = [];
+  const visit = (state, from) => {
+    const wrong = wrongTiles(state);
+    if (chosen.length + wrong === minMoves && wrong < least) {
+      least = wrong;
+      bestFlips = [...chosen];
+    }
+    for (let k = from; k < N; k++) {
+      const next = state ^ MASKS[k];
+      if (chosen.length + 1 + Math.ceil(wrongTiles(next) / 5) > minMoves) continue;
+      chosen.push(k);
+      visit(next, k + 1);
+      chosen.pop();
+    }
+  };
+  visit(board, 0);
+  if (!bestFlips) return current;
+  let state = board;
+  for (const k of bestFlips) state ^= MASKS[k];
+  const target = count(state) * 2 <= N ? 0 : ALL;
+  const forces = Array.from({ length: N }, (_, k) => k).filter((k) => ((state ^ target) >>> k) & 1);
+  return { flips: bestFlips, forces };
 };
 
 // --- the levels already released ----------------------------------------------------------
@@ -365,12 +400,13 @@ const output = {
           if (kept.minMoves !== minMoves || kept.minFlips !== minFlips) {
             throw new Error(`Released level ${kept.board} has other numbers now: ${minMoves} moves, ${minFlips} flips`);
           }
-          const { board: shown, solutionFlips, solutionMoves } = kept;
+          const { board: shown, solutionFlips } = kept;
+          const solutionMoves = fewerForces(fromBoardString(shown), minMoves, kept.solutionMoves);
           return { id, board: shown, minMoves, minFlips, solutionFlips, solutionMoves };
         }
         // The two solutions the hints show: flips only (second star), and fewest moves (third)
         const flipsOnly = solutionOf(fewestForcesTable, state);
-        const fewest = solutionOf(fewestMovesTable, state);
+        const fewest = fewerForces(state, minMoves, solutionOf(fewestMovesTable, state));
         if (flipsOnly.forces.length || flipsOnly.flips.length !== minFlips ||
             fewest.flips.length + fewest.forces.length !== minMoves) {
           throw new Error(`The solutions of board ${state} don't match its minFlips and minMoves`);

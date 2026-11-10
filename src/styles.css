@@ -1442,7 +1442,6 @@ button.goal[aria-pressed="true"],
 button.goal[aria-pressed="true"]:not(:disabled):hover {
   border-color: var(--gold);
   box-shadow: 0 0 0 2px var(--gold);
-  opacity: 1; /* also when missed: its hints are on the board */
 }
 
 button.goal[aria-pressed="true"] small {
@@ -1459,6 +1458,13 @@ button.goal[aria-pressed="true"] small {
   margin-bottom: 0.6rem;
 }
 
+/* Compact, so all three stay on one row on a narrow phone */
+.hint-bar button {
+  padding-inline: 0.6rem;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
 .hint-bar[hidden] {
   display: none; /* (in the tutorial) */
 }
@@ -1469,12 +1475,12 @@ button.goal[aria-pressed="true"] small {
   gap: 0.3rem;
 }
 
-/* --- discoveries (discoveries.ts) ------------------------------------------------------------- */
-.discoveries-button {
+/* --- the Codex (codex.ts) ------------------------------------------------------------- */
+.codex-button {
   left: 3.25rem;
 }
 
-.discoveries-button svg {
+.codex-button svg {
   width: 1.45rem;
   height: 1.45rem;
   fill: #fff8e6;
@@ -1484,7 +1490,7 @@ button.goal[aria-pressed="true"] small {
   stroke-linejoin: round;
 }
 
-/* Discoveries to claim: a red notification bubble on the button's top right */
+/* Codex to claim: a red notification bubble on the button's top right */
 .notification-bubble {
   position: absolute;
   top: -0.35rem;
@@ -1505,13 +1511,13 @@ button.goal[aria-pressed="true"] small {
   line-height: 1;
 }
 
-.discoveries-intro {
+.codex-intro {
   margin: 0 0 1rem;
   color: var(--muted);
   text-align: center;
 }
 
-.discovery-cards {
+.entry-cards {
   display: grid;
   gap: 0.6rem;
   margin: 0;
@@ -1519,7 +1525,7 @@ button.goal[aria-pressed="true"] small {
   list-style: none;
 }
 
-.discovery-card {
+.entry-card {
   display: flex;
   align-items: center;
   gap: 0.9rem;
@@ -1529,12 +1535,12 @@ button.goal[aria-pressed="true"] small {
   background: var(--card);
 }
 
-.discovery-card.ready {
+.entry-card.ready {
   border: 2px solid var(--gold);
 }
 
 /* Ready to claim: the stage's name on the left, Discover on the right, in one row */
-.discovery-card.ready > div {
+.entry-card.ready > div {
   display: flex;
   flex: 1;
   align-items: center;
@@ -1542,32 +1548,47 @@ button.goal[aria-pressed="true"] small {
   gap: 0.6rem;
 }
 
-.discovery-card.locked {
-  opacity: 0.65;
+.entry-card.locked {
+  border: 2px dashed var(--line);
+  color: var(--muted);
 }
 
-.discovery-card h2 {
+.entry-card.locked h2 {
+  color: var(--muted);
+}
+
+.entry-card .entry-board.empty {
+  width: 3.6rem;
+  padding: 3px;
+  gap: 1px;
+}
+
+.entry-card .entry-question {
+  font-size: 1.5rem;
+}
+
+.entry-card h2 {
   margin: 0;
   font-size: 1.05rem;
 }
 
-.discovery-card p {
+.entry-card p {
   margin: 0.1rem 0 0.4rem;
   color: var(--muted);
   font-size: 0.85rem;
 }
 
-.discovery-card .lock {
+.entry-card .lock {
   width: 0.9em;
   height: 0.9em;
 }
 
-.reset-all-discoveries {
+.reset-all-entries {
   display: block;
   margin: 0 auto 0.8rem;
 }
 
-.discovery-board {
+.entry-board {
   display: grid;
   flex: none;
   grid-template-columns: repeat(5, 1fr);
@@ -1575,19 +1596,19 @@ button.goal[aria-pressed="true"] small {
   width: 7.5rem;
 }
 
-.discovery-board span {
+.entry-board span {
   position: relative;
   aspect-ratio: 1;
   border-radius: 3px;
   background: var(--skin-zero);
 }
 
-.discovery-board span.one {
+.entry-board span.one {
   background: var(--skin-one);
 }
 
 /* A flip of the solution: the same gold diamond as a flip hint */
-.discovery-mark {
+.entry-mark {
   position: absolute;
   top: 50%;
   left: 50%;
@@ -1601,50 +1622,89 @@ button.goal[aria-pressed="true"] small {
 }
 
 /* A force of a min-moves solution: the same red diamond as a force hint */
-.discovery-mark.force {
+.entry-mark.force {
   border-color: #e0453a;
   box-shadow: 0 0 0 1px #5c0f0b, inset 0 0 0 1px #5c0f0b;
 }
 
 /* A tile with a flip and a force: side by side */
-.discovery-mark.both {
+.entry-mark.both {
   left: 30%;
 }
 
-.discovery-mark.force.both {
+.entry-mark.force.both {
   left: 70%;
 }
 
-/* The popup on a level: every discovery, 3 across and 4 down */
-.discovery-all {
+/* The popup on a level: every entry, 3 across and 4 down */
+.entry-all {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 0.7rem;
 }
 
-.discovery-all .discovery-board {
+.entry-all .entry-board {
   gap: 2px;
   width: 100%;
 }
 
-.discovery-all .discovery-mark {
+.entry-all .entry-mark {
   width: 56%;
   height: 56%;
   border-width: 1.5px;
 }
 
-.discovery-all .discovery-mark.both {
+.entry-all .entry-mark.both {
   left: 25%;
   width: 32%;
   height: 32%;
 }
 
-.discovery-all .discovery-mark.force.both {
+.entry-all .entry-mark.force.both {
   left: 75%;
 }
 
-.discovery-board.empty span {
-  background: #d9d6cf;
+/* Not discovered yet: the look of a skin not found yet */
+.entry-board.empty,
+.entry-all .entry-board.empty {
+  position: relative;
+  padding: 5px;
+  border: 2px dashed #c9c7bf;
+  border-radius: 10px;
+  box-sizing: border-box;
+}
+
+.entry-board.empty span {
+  background: #c9c7bf;
+  opacity: 0.6;
+}
+
+.entry-board.empty span.one {
+  background: #dedcd4;
+}
+
+.entry-question {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  font-family: "Lilita One", system-ui, sans-serif;
+  font-size: 2.2rem;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.entry-all button.entry-unknown,
+.entry-all button.entry-unknown:not(:disabled):hover,
+.entry-all button.entry-unknown:not(:disabled):active {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  transform: none;
 }
 
 /* The one switch: two halves of a pill, the chosen one dark */
@@ -1675,7 +1735,7 @@ button.goal[aria-pressed="true"] small {
   color: #fff8e6;
 }
 
-.discovery-grid {
+.entry-grid {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   gap: 5px;
@@ -1683,15 +1743,15 @@ button.goal[aria-pressed="true"] small {
   margin: 0 auto;
 }
 
-.discovery-grid button.discovery-tile:disabled {
+.entry-grid button.entry-tile:disabled {
   opacity: 1;
   background: #d9d6cf;
   cursor: default;
 }
 
-.discovery-grid button.discovery-tile,
-.discovery-grid button.discovery-tile:not(:disabled):hover,
-.discovery-grid button.discovery-tile:not(:disabled):active {
+.entry-grid button.entry-tile,
+.entry-grid button.entry-tile:not(:disabled):hover,
+.entry-grid button.entry-tile:not(:disabled):active {
   position: relative;
   aspect-ratio: 1;
   padding: 0;
@@ -1702,9 +1762,9 @@ button.goal[aria-pressed="true"] small {
   transform: none;
 }
 
-.discovery-grid button.discovery-tile.one,
-.discovery-grid button.discovery-tile.one:not(:disabled):hover,
-.discovery-grid button.discovery-tile.one:not(:disabled):active {
+.entry-grid button.entry-tile.one,
+.entry-grid button.entry-tile.one:not(:disabled):hover,
+.entry-grid button.entry-tile.one:not(:disabled):active {
   background: var(--skin-one);
 }
 
@@ -1712,13 +1772,44 @@ button.goal[aria-pressed="true"] small {
 .force-slots {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  padding: 5px;
+  gap: 7px;
+  box-sizing: border-box;
+  padding: 4px;
+}
+
+.entry-editor .force-slots {
+  width: min(100%, 17rem); /* (as wide as the board, to line up with it) */
+  margin: 1.85rem auto 0.3rem; /* (under the ×) */
+}
+
+/* A shake when the player tries to force with none left */
+.available-forces.denied .force-slots {
+  animation: forces-denied 0.3s;
+}
+
+@keyframes forces-denied {
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+
+/* The × up in the corner, so the whole row is free for the forces (12 fit on the narrowest phone) */
+.entry-editor .dialog-box {
+  position: relative;
+}
+
+.entry-editor .dialog-head {
+  display: block;
+}
+
+.entry-editor .dialog-head .close {
+  position: absolute;
+  top: 0.75rem; /* (the same distance from the corner as in the other popups) */
+  right: 1rem;
 }
 
 .force-slot {
-  width: 14px;
-  height: 14px;
+  width: 13px;
+  height: 13px;
   border: 2px solid #e0453a;
   border-radius: 2px;
   box-sizing: border-box;
@@ -1747,14 +1838,25 @@ button.goal[aria-pressed="true"] small {
   display: none;
 }
 
-.discovery-controls {
+/* How many forces to use (the number is on Discover): on the right of the row */
+.force-stepper {
+  display: flex;
+  gap: 0.6rem;
+  margin-left: auto;
+}
+
+.force-stepper[hidden] {
+  display: none;
+}
+
+.entry-controls {
   display: flex;
   justify-content: center;
   gap: 0.6rem;
   margin: 0.8rem 0;
 }
 
-.discovery-editor .discover {
+.entry-editor .discover {
   display: block;
   margin: 0 auto;
 }
@@ -1965,12 +2067,16 @@ button.goal[aria-pressed="true"] small {
   box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.9), 0 3px 8px rgba(0, 0, 0, 0.4);
 }
 
-.counter {
+/* Above the board: "Available forces:" and the diamonds */
+.available-forces {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 1.6rem;
   margin-top: 0.75rem;
   color: var(--muted);
-  text-align: center;
   font-size: 0.9rem;
-  font-variant-numeric: tabular-nums;
 }
 
 .level-screen .flip-tiles {
