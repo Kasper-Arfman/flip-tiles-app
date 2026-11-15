@@ -8,3 +8,10 @@ android/.gradle/
 android/local.properties
 ios/App/Pods/
 ios/App/build/
+
+# Test output (npm run test:e2e)
+test-results/
+playwright-report/
+
+# IDE settings (Android Studio / IntelliJ)
+.idea/

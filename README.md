@@ -102,6 +102,9 @@ quick check of touch and screen size, but it is still a browser, not the app.
 
 ### 4. On the Android emulator
 
+(New to Android Studio? [Readme_Android.md](Readme_Android.md) explains it step by step: setup,
+the emulator, your own phone, debugging, and what to test before a release.)
+
 ```sh
 npm run android   # build + sync + open the android/ project in Android Studio
 ```
@@ -138,10 +141,22 @@ The native projects hold a *copy* of `dist/`. After changing web code, run `npm 
 ### Releasing to the App Store and Google Play (branch `app-store`)
 
 The store version lives on the branch `app-store`; `main` stays the simple web version for
-Netlify. The only addition is buying coins: one product, **100 coins**, at the lowest price the
-stores allow (`src/purchases.ts`, with the plugin
-[capacitor-plugin-cdv-purchase](https://github.com/j3k0/cordova-plugin-purchase)). It shows in the
-shop only inside the native apps, and only once the store has given its price.
+Netlify. What it adds: buying coins (one product, **100 coins for 0.99**: `src/purchases.ts`,
+with the plugin [capacitor-plugin-cdv-purchase](https://github.com/j3k0/cordova-plugin-purchase)),
+the app icons and splash screen, version numbers, a privacy policy, a debug screen, and the
+automated tests. The coin pack shows in the shop only inside the native apps, and only once the
+store has given its price.
+
+**The road to a release, in order.**
+
+1. **Test build** (now): `TEST_BUILD = true` in `src/dev.ts`. The coin pack is free and shown
+   everywhere, also in the browser, so everything around it can be tested without a store: the
+   coins arrive, they stay after a restart, *Reset progress* gives them back. Hand this build to
+   testers (Internal testing on Google Play, TestFlight on iOS).
+2. **Store purchases**: set the product up in both stores (below), set `TEST_BUILD = false`, and
+   test a real purchase with the stores' test accounts (below: nothing is charged).
+3. **Release**: fill in the contact address in `public/privacy.html`, raise the version, commit,
+   and `npm run release` (it refuses a test build, see *Releasing* below). Then build and upload.
 
 **Accounts (once).**
 - Apple: the [Apple Developer Program](https://developer.apple.com/programs/) ($99 a year). In
@@ -151,11 +166,13 @@ shop only inside the native apps, and only once the store has given its price.
   profile* (merchant account) under *Settings → Payments profile*.
 
 **The product (in each store).** Create it with exactly the id `coins_100`:
-- App Store Connect → your app → *In-App Purchases* → **Consumable**, id `coins_100`. Lowest
-  price: $0.29 (the lowest point on Apple's price list; the list shows each country's price).
-- Play Console → your app → *Monetize → In-app products* → create `coins_100`, activate it, and
-  pick the lowest price the console accepts (it refuses anything below the minimum).
-- 1 or 10 cents is not possible in either store.
+- App Store Connect → your app → *In-App Purchases* → **Consumable**, id `coins_100`, price
+  **$0.99** (a point on Apple's price list; it shows each country's own price, e.g. €0.99).
+- Play Console → your app → *Monetize → In-app products* → create `coins_100`, price **$0.99**
+  (the console fills in the other countries; check them), and activate it.
+- The price is set only there, never in the code: the shop shows what the store says, in the
+  player's own currency. The stores keep about 15% (both have a lower fee for small developers:
+  Apple's *Small Business Program* and Google's 15% tier; Apple's must be applied for).
 
 **Testing a purchase without paying (do this before any public release).** Both stores have test
 buyers whose purchases are never charged:
@@ -173,20 +190,87 @@ What protects buyers (in `purchases.ts`): coins are added and saved *before* the
 purchase is done (an app that stops in between gets the purchase again at its next start), each
 purchase is credited once (by its transaction id), and *Reset progress* gives bought coins back.
 
-**Building for Android (Windows works).** `npm run android`, then in Android Studio *Build →
-Generate Signed App Bundle*: create a *keystore* (keep the file and its passwords safe and backed
-up; every update must be signed with it), and upload the `.aab` in the Play Console. Raise
-`versionCode` in `android/app/build.gradle` by one for every upload.
+**Version numbers.** One place: `"version"` in `package.json` (now `1.0.0`). `npm run sync` (and
+so `npm run android`, `npm run ios`, `npm run release`) writes it into both native projects
+(`scripts/sync-version.mjs`): the version players see (`1.0.0`) and the build number the stores
+compare (`10000`: 10000 x major + 100 x minor + patch). Both stores refuse an upload whose
+build number isn't higher than the last, so raise the version before every upload:
+`npm version patch` (1.0.0 → 1.0.1; `minor` and `major` for bigger steps). It shows at the
+bottom of the home screen.
+
+**Releasing.** `npm run release` runs, in order: the release check (`scripts/release-check.mjs`:
+stops when `TEST_BUILD` or `DEV_MODE` is on, the privacy policy has no contact yet, or anything
+isn't committed), then all the tests (`npm run check`), then the build and the copy into the
+native projects. Only when it passes, build and upload as below.
+
+**Building for Android (Windows works).** `npm run android` opens Android Studio. There, *Build →
+Generate Signed App Bundle*: create a *keystore* the first time (keep the file and its passwords
+safe and backed up, outside the project: every update must be signed with the same one), and
+upload the `.aab` in the Play Console, first to *Internal testing*.
 
 **Building for iOS (needs a Mac, or a cloud Mac such as Codemagic).** `npm run ios`; in Xcode,
 *Signing & Capabilities*: pick your team, and **+ Capability → In-App Purchase**. Then *Product →
-Archive* and upload; it appears in TestFlight. Raise the *Build* number for every upload.
+Archive* and upload; it appears in TestFlight.
+
+**App icon and splash screen.** Made from `public/icon.svg` by `npm run icons`
+(`scripts/make-icons.mjs`): it draws the pictures into `assets/`, then `@capacitor/assets` makes
+every size both platforms need. On Android the icon is *adaptive*: the phone cuts it to its own
+shape (circle, squircle), so the tiles sit in the middle with room around them. Run it again
+after changing the icon.
 
 **Store listings ask for:** screenshots, a short description, an age rating, and a **privacy
-policy URL**. The game keeps everything on the phone and sends nothing anywhere (the stores handle
-payments), so a short page saying so is enough; answer Google's *Data safety* form and Apple's
-*App Privacy* with "no data collected". Before building a release: `DEV_MODE = false` in
-`src/dev.ts`.
+policy URL**. The policy is `public/privacy.html`, so it is online at
+`https://<your site>.netlify.app/privacy.html` once this branch's build is on Netlify (or put
+the file on any website). The game keeps everything on the phone and sends nothing anywhere
+(the stores handle payments): answer Google's *Data safety* form and Apple's *App Privacy* with
+"no data collected".
+
+**A leaderboard (not built yet).** The game plays fully offline and needs no server or database
+of its own. A leaderboard would be the first thing that does, and only for players who opt in.
+Two ways:
+- *The platforms' own*: Game Center (iOS) and Google Play Games (Android). No server to run, and
+  players sign in with the account they already have; but two separate boards (iPhone players
+  never meet Android players), and each needs its own setup and plugin.
+- *An own small backend* (for example a Supabase or Firebase table, or a Netlify Function): one
+  board for everyone, the player picks a name when opting in, and only their name, star count
+  and the time they reached it are sent (`star-times-v1` is already saved for that). Then the
+  privacy policy and the stores' privacy forms must say so, and scores sent by the app can be
+  faked, so the board needs some checking.
+
+### Testing before an update
+
+Three layers, from fast to real. Run the first two before every commit you hand out; they need
+nothing but this computer.
+
+1. **`npm test`**: the unit tests (`tests/`, with [Vitest](https://vitest.dev)), under a
+   second. They check the puzzle logic and solvers (`game.test.ts`), that every level is solved
+   by its stored solutions in the right number of moves (`levels.test.ts`), and what the player
+   keeps (`progress.test.ts`): stars, unlocking (Beta at 5 stars, then 80%), coins and stage
+   rewards, purchases credited once and given back by *Reset progress*, saves from older versions
+   converted, the moves star taken back when a solve used too many forces, the Codex, replays,
+   and copying a save. Each test starts the app on a save of its choosing, with the phone's
+   storage replaced by one in memory (`tests/setup.ts`). `npm run test:watch` reruns them on
+   every change.
+2. **`npm run test:e2e`**: the smoke tests (`e2e/`, with [Playwright](https://playwright.dev)):
+   the built game in Microsoft Edge at phone size, played as a player would. A new player plays
+   the tutorial and keeps the stars after a reload; every screen opens; forces run out; the
+   coin pack works (test builds); the debug screen's checks pass; and the web version plays
+   offline. Any error on the page fails the test. When one fails, it names a `trace.zip`:
+   `npx playwright show-trace <that file>` replays the test step by step.
+   `npm run check` runs the type check, both kinds of tests, in one go.
+3. **On phones**: Internal testing (Google Play) and TestFlight (iOS), with a test build, then
+   with real store purchases (above). Things only a phone can show: touch, the store, the
+   back button, closing the app in the middle of a purchase.
+
+**The debug screen.** Tap the version at the bottom of the home screen 5 times. It shows which
+build this is (version, git commit, build time: a `*` after the commit means it was built with
+uncommitted changes), what is saved, what the store answered (price, errors), and the log: the
+last 200 errors and events, kept on the phone (`src/log.ts`), such as a purchase coming in or an
+old save converted. *Run the checks* checks every level and the saving on that phone. A tester
+with a problem can *Copy log* and *Copy save* and send them to you; in a test build, *Load
+save* puts their save on your phone, to see what they see. Nothing is sent anywhere by itself:
+there is no crash reporting service. Crashes of the app itself (not its web page) also appear in
+the Play Console (*Android vitals*) and in Xcode's *Organizer* for TestFlight builds.
 
 ### On an iPhone without a Mac: as a web app
 
@@ -211,7 +295,7 @@ Good to know:
 - An update is just putting a new build online; the app picks it up the next time it is opened
   (fully closed and reopened).
 - Android phones can do the same from Chrome (*Add to Home screen*).
-- It needs internet to open (there is no offline cache yet); progress is stored on the phone.
+- After the first visit it plays offline (`src/sw.js`); progress is stored on the phone.
 - It needs a recent iPhone system (iOS 16.4 or newer) for all the colors to show right.
 
 ### Updating the game without players losing progress
@@ -241,8 +325,8 @@ that stars, coins, skin, hints, replays and the first-time rules were all still 
 
 ### Automated tests
 
-None yet. A natural first step: unit tests (with [Vitest](https://vitest.dev)) for the move and
-board logic in `src/game/flipTiles.ts`.
+See *Testing before an update* above: `npm test` (unit tests) and `npm run test:e2e` (the built
+game in a browser), or both with `npm run check`.
 
 ## Commands
 
@@ -252,9 +336,15 @@ board logic in `src/game/flipTiles.ts`.
 | `npm run dev` | dev server with live reload, also reachable from your phone |
 | `npm run build` | type check, then build into `dist/` |
 | `npm run preview` | serve the built `dist/` |
-| `npm run sync` | build, then copy `dist/` and plugins into `android/` and `ios/` |
+| `npm test` | the unit tests (`tests/`), once; `npm run test:watch` keeps rerunning them |
+| `npm run test:e2e` | the smoke tests (`e2e/`): the built game in Edge |
+| `npm run check` | type check, unit tests and smoke tests: run before handing out a version |
+| `npm run sync` | write the version into the native projects, build, then copy `dist/` and plugins into `android/` and `ios/` |
 | `npm run android` | sync, then open Android Studio |
 | `npm run ios` | sync, then open Xcode (Mac only) |
+| `npm run release` | the release check, `check`, then `sync`: refuses a test build or uncommitted changes |
+| `npm run icons` | make the app icons and splash screens from `public/icon.svg` |
+| `npm version patch` | raise the version (1.0.0 → 1.0.1) before an upload to the stores |
 | `npm run curate` | pick the levels and write `src/levels/levels.json`, keeping the levels already released (`npm run curate -- --fresh` picks all anew: only before a first release) |
 
 The scripts are defined in `package.json`. `cap` is the Capacitor command line; run it directly
@@ -271,7 +361,14 @@ with `npx cap ...` (e.g. `npx cap doctor` checks your Capacitor setup).
 | `src/sw.js` | the service worker: saves the app's files on the device, so the web app plays offline (its file list is written in by `vite.config.ts` on every build) |
 | `src/purchases.ts` | buying 100 coins with real money, in the native apps only (branch `app-store`) |
 | `src/screens/codex.ts` | the Codex screen, its pattern editor, and the popup on a level |
-| `src/dev.ts` | `DEV_MODE`: shows what players must not see yet (set it to `false` for a release) |
+| `src/dev.ts` | `DEV_MODE` (shows what players must not see yet) and `TEST_BUILD` (free coin pack, test tools): both `false` for a release |
+| `src/screens/debug.ts` | the debug screen (tap the version on the home screen 5 times) |
+| `src/log.ts` | the log on the device: the last errors and events, shown on the debug screen |
+| `src/selfCheck.ts` | the level checks, run by the unit tests and on a phone from the debug screen |
+| `tests/`, `e2e/` | the unit tests (Vitest) and the smoke tests (Playwright, settings in `playwright.config.ts`) |
+| `scripts/sync-version.mjs`, `scripts/release-check.mjs`, `scripts/make-icons.mjs` | the version into the native projects; the check before a release; the app icons |
+| `assets/` | the icon and splash pictures the native ones are made from (by `npm run icons`) |
+| `public/privacy.html` | the privacy policy the stores ask for |
 | `src/progress.ts` | what the player has, saved on the device: stars, coins, hints, best solutions; which tiers are open |
 | `src/screens/` | one file per screen (home, tier, level, how to play), shared pieces in `ui.ts`, and the home screen's background art in `homeArt.ts` |
 | `src/styles.css` | the look of the screens |
@@ -388,8 +485,8 @@ solution tables; a sample of the levels was also checked with a separate brute-f
   the coin pouch, which counts up (`payStageRewards` in `progress.ts`, `flyCoins` in `home.ts`;
   the wallet remembers which stages were paid, so each pays once). After a stage's last level
   otherwise, the button under the stars says *Menu* and leads home.
-- **Unlocking.** A stage opens when 70% of all the stars of the stages before it are earned
-  (`UNLOCK_SHARE` in `progress.ts`, rounded up: Gamma needs 15 of the 21 of Alpha and Beta, ...),
+- **Unlocking.** A stage opens when 80% of all the stars of the stages before it are earned
+  (`UNLOCK_SHARE` in `progress.ts`, rounded up: Gamma needs 17 of the 21 of Alpha and Beta, ...),
   so the cost grows with the game. The one exception is Beta, which opens at 5 of Alpha's 9 stars
   (`BETA_STARS`) so new players get going quickly. Or a stage opens right away for 100 coins
   (`UNLOCK_COST`). Within a stage, the levels come in groups (a grade: the levels with the same
@@ -647,3 +744,10 @@ Notes added as the project goes along: what was learned, problems hit, and how t
 - **2026-11-09**: Each level got a limited number of forces. Learned: when a number follows from
   data you already have (the forces of the stored solution), derive it instead of storing it
   again, so the limit and the hints can never disagree.
+- **2026-11-10**: Made the `app-store` branch ready for testers: a free test coin pack
+  (`TEST_BUILD`), app icons, version numbers, a privacy policy, a debug screen, unit tests and
+  smoke tests. Learned: test the tests, by breaking the code on purpose and checking that a test
+  fails (it did, for Beta's 5 stars and for a purchase credited twice). And the smoke test for
+  offline play found a real bug: a server can answer with `Vary: Origin`, and the service worker's
+  saved copy of the script then didn't match the browser's request, so the web app didn't open
+  offline. `ignoreVary` in `src/sw.js` fixed it.

@@ -27,8 +27,11 @@ self.addEventListener("fetch", (event) => {
   if (request.method !== "GET" || new URL(request.url).origin !== location.origin) return;
   event.respondWith(
     caches.open(CACHE).then(async (cache) => {
-      // (the app's addresses differ only after the #, which never reaches here; ?query ignored)
-      const saved = await cache.match(request, { ignoreSearch: true });
+      // (the app's addresses differ only after the #, which never reaches here; ?query ignored.
+      // ignoreVary: a server can answer with "Vary: Origin", and a module script is asked for
+      // with an Origin header that the saving at install didn't send: without it, the app's
+      // script and styles aren't found offline. Only the app's own files are saved here.)
+      const saved = await cache.match(request, { ignoreSearch: true, ignoreVary: true });
       if (saved) return saved;
       if (request.mode === "navigate") {
         const page = await cache.match("./index.html");

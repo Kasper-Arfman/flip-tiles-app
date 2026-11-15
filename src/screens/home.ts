@@ -5,6 +5,8 @@ import {
   STAGE_REWARD, UNLOCK_COST, activeLook, buyTier, coins, entriesToClaim, maxStars, payStageRewards, resetProgress, starsToUnlock,
   tierSolved, tierStars, totalStars,
 } from "../progress";
+import { TEST_BUILD } from "../dev";
+import { go } from "../nav";
 import { applySkin } from "../skins";
 import { homeArt } from "./homeArt";
 import { LOCK, coin, difficultyMarks, plural, screen, stageTitle, star } from "./ui";
@@ -86,6 +88,7 @@ export function homeScreen(rerender: () => void) {
     <ul class="tiers">${cards}</ul>
     <footer class="home-footer">
       <button type="button" class="reset-progress">Reset progress</button>
+      <button type="button" class="app-version">Version ${__APP_VERSION__}${TEST_BUILD ? " (test)" : ""}</button>
     </footer>`);
 
   // Tap a letter of the title: its tile flips over to the other color (just for fun)
@@ -126,6 +129,16 @@ export function homeScreen(rerender: () => void) {
       });
     }, 900);
   }
+
+  // The version: tapped 5 times in a row (within 2 seconds of each other), the debug screen
+  let taps = 0;
+  let lastTap = 0;
+  element.querySelector(".app-version")!.addEventListener("click", () => {
+    const now = Date.now();
+    taps = now - lastTap < 2000 ? taps + 1 : 1;
+    lastTap = now;
+    if (taps >= 5) go("#/debug");
+  });
 
   element.querySelector(".reset-progress")!.addEventListener("click", async () => {
     if (!confirm("Remove all your stars, coins, hints, solutions and Codex entries, and start over? " +

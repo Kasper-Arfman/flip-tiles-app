@@ -10,7 +10,7 @@
 // any time; one not owned yet is a gray card with a question mark (its name and look are the
 // surprise; while building the game, DEV_MODE shows them). The Extras tab is gone once there is
 // nothing left in it.
-import { DEV_MODE } from "../dev";
+import { DEV_MODE, TEST_BUILD } from "../dev";
 import {
   BOX_BUNDLE, BUNDLE_COST, SKIN_COST, UNLOCK_ALL_COST, activeLook, activeShape, activeSkin, buyMysteryShapes,
   buyMysterySkins, buyUnlockAll, coins, ownsAll, ownsShape, ownsSkin, shapesLeft, skinsLeft, useShape, useSkin,
@@ -79,6 +79,7 @@ const KINDS = {
 
 // Coins for real money (see purchases.ts): only in the native apps, and only once the store has
 // given the price. The store itself shows its own confirmation with the price before charging.
+// (A test build: everywhere, free; see TEST_BUILD in dev.ts.)
 const coinPack = () => {
   const price = coinPackPrice();
   if (!price) return "";
@@ -86,7 +87,7 @@ const coinPack = () => {
       <span class="coin-pack-icon">${coin()}</span>
       <div class="mystery-text">
         <h2>${COIN_PACK} coins</h2>
-        <p>Add ${COIN_PACK} coins to your pouch.</p>
+        <p>${TEST_BUILD ? "Test version: no payment, the coins are added at once." : `Add ${COIN_PACK} coins to your pouch.`}</p>
         <button type="button" class="primary buy-coins">Buy · ${price}</button>
       </div>
     </section>`;

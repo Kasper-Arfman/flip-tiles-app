@@ -1,3 +1,5 @@
+/// <reference types="vitest/config" />
+import { execSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join, relative, sep } from "node:path";
@@ -38,9 +40,31 @@ function offline(): Plugin {
   };
 }
 
+// Which build this is, shown at the bottom of the home screen and on the debug screen: the
+// version from package.json, and the git commit and time of the build (a "*" after the commit:
+// built with changes that weren't committed)
+const git = (command: string) => {
+  try {
+    return execSync(`git ${command}`, { stdio: ["ignore", "pipe", "ignore"] }).toString().trim();
+  } catch {
+    return "";
+  }
+};
+const commit = (git("rev-parse --short HEAD") || "no-git") + (git("status --porcelain") ? "*" : "");
+const version = JSON.parse(readFileSync("package.json", "utf8")).version;
+
 export default defineConfig({
   // Relative paths in the build: the game then works from any folder of a website (e.g.
   // example.com/flip-tiles/), and inside the native apps
   base: "./",
   plugins: [offline()],
+  define: {
+    __APP_VERSION__: JSON.stringify(version),
+    __BUILD__: JSON.stringify(`${commit}, ${new Date().toISOString().slice(0, 16).replace("T", " ")} UTC`),
+  },
+  // Unit tests (npm test): the files in tests/, without a browser
+  test: {
+    include: ["tests/**/*.test.ts"],
+    setupFiles: ["tests/setup.ts"],
+  },
 });

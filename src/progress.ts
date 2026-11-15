@@ -11,6 +11,7 @@
 import { Preferences } from "@capacitor/preferences";
 import { solveFlips, type Move } from "./game/flipTiles";
 import { TIERS, type Level, type Tier } from "./levels/levels";
+import { log } from "./log";
 import { DEFAULT_SKIN, SHAPES, SKINS, SQUARE, type Look, type Shape, type Skin } from "./skins";
 
 export const STAR_SOLVED = 1; // solved, in any number of moves
@@ -115,8 +116,10 @@ export async function loadProgress() {
     read(KEYS.starTimes, {}),
     read(KEYS.entries, {}),
   ]);
-  // (a wallet saved before skins existed has none; one saved before versions is version 1)
-  wallet = { ...NEW_WALLET(), ...saved, version: saved.version ?? 1 };
+  // (a wallet saved before skins existed has none; one saved before versions is version 1; a new
+  // player has none saved: the newest version)
+  const isNew = Object.keys(saved).length === 0;
+  wallet = { ...NEW_WALLET(), ...saved, version: saved.version ?? (isNew ? WALLET_VERSION : 1) };
   // Skins and shapes taken out of the game since: gone from the wallet, and one that was on is
   // swapped for the start's (Classic, the square)
   wallet.skins = wallet.skins.filter((id) => SKINS.some((s) => s.id === id));
@@ -143,6 +146,7 @@ const V1_GRADES: Record<number, number[]> = {
 
 function migrate() {
   if (wallet.version >= WALLET_VERSION) return;
+  log("info", `Saved wallet converted from version ${wallet.version} to ${WALLET_VERSION}`);
   if (wallet.version === 1) {
     // Bought groups: by place -> by minMoves
     wallet.grades = wallet.grades.map((g) => {
@@ -168,16 +172,17 @@ function migrate() {
 // are the only solves recorded, and a flips-only solve has no forces. Safe to run at every start:
 // a solve made since the limit can't break it.
 function enforceForceLimits() {
-  let changed = false;
+  const taken: string[] = [];
   for (const level of TIERS.flatMap((tier) => tier.levels)) {
     const solve = recorded(level.board).moves;
     if (!Array.isArray(solve) || !(starsOf(level) & STAR_MOVES)) continue;
     if (solve.filter((move) => move & 32).length <= level.maxForces) continue;
     stars[level.key] &= ~STAR_MOVES;
     delete replays[level.board].moves;
-    changed = true;
+    taken.push(level.id);
   }
-  if (!changed) return;
+  if (!taken.length) return;
+  log("info", `Moves star taken back (too many forces): ${taken.join(", ")}`);
   write(KEYS.stars, stars);
   write(KEYS.replays, replays);
 }
@@ -196,6 +201,48 @@ export async function resetProgress() {
   await Promise.all(Object.values(KEYS).map((key) => Preferences.remove({ key })));
   write(KEYS.wallet, wallet);
 }
+
+// --- the debug screen (see screens/debug.ts) -------------------------------------------------
+
+// Everything saved, as one piece of text (to copy off a phone, or to load on another one)
+export async function exportSave(): Promise<string> {
+  const saved: Record<string, unknown> = {};
+  for (const key of Object.values(KEYS)) {
+    const { value } = await Preferences.get({ key });
+    if (value !== null) saved[key] = JSON.parse(value);
+  }
+  return JSON.stringify({ game: "flip-tiles", exported: new Date().toISOString(), saved });
+}
+
+// Load what exportSave gave (replacing everything saved now), then start from it as the app does
+export async function importSave(text: string) {
+  const parsed = JSON.parse(text);
+  if (parsed?.game !== "flip-tiles" || typeof parsed.saved !== "object") throw new Error("This isn't a Flip Tiles save");
+  await Promise.all(Object.values(KEYS).map((key) => Preferences.remove({ key })));
+  await Promise.all(Object.entries(parsed.saved as Record<string, unknown>)
+    .filter(([key]) => (Object.values(KEYS) as string[]).includes(key))
+    .map(([key, value]) => Preferences.set({ key, value: JSON.stringify(value) })));
+  await loadProgress();
+}
+
+// Test builds only (the debug screen): coins for nothing, not counted as bought
+export function giveTestCoins(amount: number) {
+  wallet.coins += amount;
+  write(KEYS.wallet, wallet);
+}
+
+// A short account of what is saved
+export const saveSummary = () => ({
+  coins: wallet.coins,
+  boughtCoins: wallet.boughtCoins,
+  purchases: wallet.purchases.length,
+  stars: `${totalStars()} of ${TIERS.reduce((n, t) => n + maxStars(t), 0)}`,
+  levelsWithStars: Object.keys(stars).length,
+  replays: Object.keys(replays).length,
+  codexEntries: Object.keys(entries).length,
+  walletVersion: wallet.version,
+  tutorialDone,
+});
 
 // --- the tutorial ---------------------------------------------------------------------------
 

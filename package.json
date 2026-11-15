@@ -1,21 +1,31 @@
 {
   "name": "flip-tiles-app",
   "private": true,
-  "version": "0.1.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite --host",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "check": "tsc --noEmit && vitest run && playwright test",
     "curate": "node scripts/curate-levels.mjs",
-    "sync": "npm run build && cap sync",
+    "icons": "node scripts/make-icons.mjs",
+    "sync": "node scripts/sync-version.mjs && npm run build && cap sync",
     "android": "npm run sync && cap open android",
-    "ios": "npm run sync && cap open ios"
+    "ios": "npm run sync && cap open ios",
+    "release-check": "node scripts/release-check.mjs",
+    "release": "npm run release-check && npm run check && npm run sync"
   },
   "devDependencies": {
+    "@capacitor/assets": "^4.0.0",
     "@capacitor/cli": "^8.6.0",
+    "@playwright/test": "^1.65.0",
     "typescript": "^7.0.2",
-    "vite": "^8.3.6"
+    "vite": "^8.3.6",
+    "vitest": "^5.1.0"
   },
   "dependencies": {
     "@capacitor/android": "^8.6.0",

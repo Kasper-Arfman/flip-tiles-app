@@ -1271,6 +1271,77 @@ a.tier-card:active {
   text-decoration: underline;
 }
 
+/* The version, under Reset progress: small and quiet (tapped 5 times: the debug screen) */
+.app-version,
+.app-version:not(:disabled):hover {
+  display: block;
+  margin: 0.25rem auto 0;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.7); /* on the art */
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+  font-size: 0.75rem;
+  font-weight: 400;
+}
+
+/* --- the debug screen ----------------------------------------------------------------------- */
+
+.debug {
+  display: grid;
+  gap: 1rem;
+}
+
+.debug section {
+  padding: 0.75rem 1rem;
+  border-radius: 14px;
+  background: var(--card);
+}
+
+.debug h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.05rem;
+}
+
+.debug-table {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 0.2rem 0.75rem;
+  margin: 0 0 0.6rem;
+  font-size: 0.85rem;
+}
+
+.debug-table dt {
+  color: var(--muted);
+}
+
+.debug-table dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.debug button {
+  margin: 0.25rem 0.4rem 0.25rem 0;
+}
+
+.debug-log {
+  max-height: 16rem;
+  margin: 0 0 0.5rem;
+  overflow: auto;
+  font-size: 0.7rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.debug textarea {
+  box-sizing: border-box;
+  width: 100%;
+  font: 0.75rem monospace;
+}
+
+.check-result.bad {
+  color: #c0392b;
+}
+
 /* --- a tier: the level grid ----------------------------------------------------------------- */
 
 /* Always 4 levels in a row (a group of 8 is two full rows), on any phone */

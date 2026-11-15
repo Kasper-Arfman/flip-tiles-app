@@ -1,6 +1,8 @@
 // Small pieces of markup that the screens share. They return HTML text: a screen puts them
 // together into its innerHTML.
 
+import { STAR_FLIPS, STAR_MOVES, STAR_SOLVED } from "../progress";
+
 const STAR_PATH = "M12 2.6l2.85 6.05 6.6.8-4.86 4.57 1.24 6.55L12 17.33l-5.83 3.24 1.24-6.55L2.55 9.45l6.6-.8z";
 
 // A coin: gold, with a rim, and the plus of a flip on it
@@ -51,9 +53,10 @@ export const star = (earned: boolean, extra = "") =>
   `<svg class="star${earned ? " earned" : ""}${extra ? ` ${extra}` : ""}" viewBox="0 0 24 24" aria-hidden="true">` +
   `<path d="${STAR_PATH}" /></svg>`;
 
-// The three stars of a level, from its bits (see progress.ts)
+// The three stars of a level, from its bits (see progress.ts), in the order of the level screen:
+// solved, fewest moves, fewest flips
 export const starRow = (bits: number, extra = "") =>
-  `<span class="star-row">${[1, 2, 4].map((s) => star((bits & s) !== 0, extra)).join("")}</span>`;
+  `<span class="star-row">${[STAR_SOLVED, STAR_MOVES, STAR_FLIPS].map((s) => star((bits & s) !== 0, extra)).join("")}</span>`;
 
 // A stage's title: its Greek letter, a small dot, then its name ("α · Alpha")
 export const stageTitle = (tier: { symbol: string; name: string }) =>
