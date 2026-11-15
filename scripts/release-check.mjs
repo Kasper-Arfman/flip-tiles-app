@@ -14,6 +14,9 @@ if (!/export const DEV_MODE = false;/.test(dev)) problems.push("src/dev.ts: DEV_
 if (readFileSync("public/privacy.html", "utf8").includes("CONTACT_EMAIL_HERE")) {
   problems.push("public/privacy.html: fill in the contact address (CONTACT_EMAIL_HERE)");
 }
+if (readFileSync("src/ranked/online.ts", "utf8").includes("YOUR-SITE")) {
+  problems.push("src/ranked/online.ts: set SERVER_URL to the Netlify site (the apps send leaderboard games there)");
+}
 const version = JSON.parse(readFileSync("package.json", "utf8")).version;
 if (!/^\d+\.\d+\.\d+$/.test(version)) problems.push(`package.json: version "${version}" must be like 1.2.3`);
 try {

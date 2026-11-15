@@ -24,7 +24,9 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   const request = event.request;
-  if (request.method !== "GET" || new URL(request.url).origin !== location.origin) return;
+  const url = new URL(request.url);
+  // (the leaderboards' server, /api/...: always the network, never saved)
+  if (request.method !== "GET" || url.origin !== location.origin || url.pathname.includes("/api/")) return;
   event.respondWith(
     caches.open(CACHE).then(async (cache) => {
       // (the app's addresses differ only after the #, which never reaches here; ?query ignored.

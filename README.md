@@ -225,17 +225,32 @@ the file on any website). The game keeps everything on the phone and sends nothi
 (the stores handle payments): answer Google's *Data safety* form and Apple's *App Privacy* with
 "no data collected".
 
-**A leaderboard (not built yet).** The game plays fully offline and needs no server or database
-of its own. A leaderboard would be the first thing that does, and only for players who opt in.
-Two ways:
-- *The platforms' own*: Game Center (iOS) and Google Play Games (Android). No server to run, and
-  players sign in with the account they already have; but two separate boards (iPhone players
-  never meet Android players), and each needs its own setup and plugin.
-- *An own small backend* (for example a Supabase or Firebase table, or a Netlify Function): one
-  board for everyone, the player picks a name when opting in, and only their name, star count
-  and the time they reached it are sent (`star-times-v1` is already saved for that). Then the
-  privacy policy and the stores' privacy forms must say so, and scores sent by the app can be
-  faked, so the board needs some checking.
+**The online leaderboards** (ranked mode, branch `ranked`): see *Ranked mode* under *How the app
+works*. They are the one part of the game that talks to a server, and only for players who join:
+the stores' privacy forms must then say "name and game results, for leaderboards, optional".
+
+### Ranked mode: putting the leaderboards online
+
+Ranked mode plays fully offline; only the online leaderboards need the server, a **Netlify
+Function** (`netlify/functions/ranked.mts`, logic in `netlify/leaderboard.ts`) that keeps its data
+in **Netlify Blobs**, Netlify's own storage. No database or other account is needed.
+
+A function can't go online by dragging `dist/` onto Netlify Drop: the site must be deployed with
+the Netlify command line (or from git). Once:
+
+1. `npx netlify login` (opens the browser), then `npx netlify link` and pick your existing site.
+2. `npx netlify deploy --prod`: builds the game (`netlify.toml` says how) and puts the site and the
+   function online. Use this for every update from now on, instead of Drop.
+3. In `src/ranked/online.ts`, set `SERVER_URL` to the site's address
+   (`https://<your site>.netlify.app`): the apps send their games there (the web version uses its
+   own address). `npm run release-check` refuses a release until this is set.
+4. Check it: open `https://<your site>.netlify.app/api/ranked/leaderboard?board=overall` in a
+   browser. It should answer `{"board":"overall","entries":[],...}`.
+
+Netlify's free plan includes functions and Blobs; a small game stays far inside its limits. The
+leaderboards are worked out from all players' data at most every 30 seconds; with many thousands
+of players that would need a smarter store (the function is written so the storage can be
+swapped: `KeyValueStore`).
 
 ### Testing before an update
 
@@ -363,6 +378,9 @@ with `npx cap ...` (e.g. `npx cap doctor` checks your Capacitor setup).
 | `src/screens/codex.ts` | the Codex screen, its pattern editor, and the popup on a level |
 | `src/dev.ts` | `DEV_MODE` (shows what players must not see yet) and `TEST_BUILD` (free coin pack, test tools): both `false` for a release |
 | `src/screens/debug.ts` | the debug screen (tap the version on the home screen 5 times) |
+| `src/ranked/` | ranked mode: the puzzles (`puzzles.ts`), the rules shared with the server (`rules.ts`), the games on the device (`ranked.ts`), sending them (`online.ts`) |
+| `src/screens/ranked.ts` | ranked mode's screens: the lobby, a game, the leaderboards |
+| `netlify/`, `netlify.toml` | the online leaderboards' server: a Netlify Function and its logic (`leaderboard.ts`) |
 | `src/log.ts` | the log on the device: the last errors and events, shown on the debug screen |
 | `src/selfCheck.ts` | the level checks, run by the unit tests and on a phone from the debug screen |
 | `tests/`, `e2e/` | the unit tests (Vitest) and the smoke tests (Playwright, settings in `playwright.config.ts`) |
@@ -462,6 +480,34 @@ No board needs more than 9 moves when forces are allowed. The script reads its n
 solution tables; a sample of the levels was also checked with a separate brute-force solver.
 
 ## How the app works
+
+- **Ranked mode** (`src/ranked/`, screens in `src/screens/ranked.ts`, `#/ranked`). The player
+  picks a mode (*Fewest moves* or *Flips only*) and a difficulty (the number of moves of the
+  solution: 2 to 8, or 2 to 12 flips), and gets a random puzzle made on the spot
+  (`puzzles.ts`: random moves on a solved board, kept only when the solvers confirm it can't be
+  done in fewer). The rules, in `rules.ts`, are shared with the server:
+  - a stopwatch runs from the moment the puzzle appears; 5 minutes, or it's a loss;
+  - for 4 minutes only a solve in exactly the difficulty counts; after that more flips count too;
+    the forces are limited as on the levels;
+  - no hints; the Codex stays open (the clock keeps running);
+  - the rank on a leaderboard is the average time of all games, a loss counting as 5:00, from 5
+    games on; the overall leaderboard adds up points per leaderboard (difficulty x 100 x the share
+    of the 5 minutes left on average), so harder and faster ranks higher.
+
+  **No cheating by leaving** (`ranked.ts`): the game is saved as *active* before the puzzle is
+  shown. Leaving its screen (back arrow, Android's back button) asks first and then counts as a
+  loss; an active game found when the app starts (it was closed, crashed or reloaded) is a loss,
+  and the lobby says so. The clock is the wall clock, so it runs on in the background, and within
+  a run of the app the steady clock (`performance.now`) keeps setting the phone's clock back from
+  taking time off.
+
+  **Offline and online**: games are saved on the device, and the lobby's record works offline.
+  A player who joins the leaderboards (a name; duplicates allowed) has their games sent with a
+  random device id (`online.ts`), at once or when the connection is back. The server
+  (`netlify/leaderboard.ts`) checks every game again: the puzzle has the stated difficulty, a win
+  is a real solve by the rules, not faster than a human can tap. It can't check the time itself:
+  a tampered app could send made-up times, the limit of a game that plays offline. Device ids are
+  stored only as a hash and never shown; *Leave the leaderboards* deletes the player's data.
 
 - **Screens.** Each screen has an address after the `#` in the URL: `#/` (home), `#/how-to-play`,
   `#/tier/4`, `#/level/4/7`. When the address changes, `main.ts` builds that screen. Because
@@ -751,3 +797,10 @@ Notes added as the project goes along: what was learned, problems hit, and how t
   offline play found a real bug: a server can answer with `Vary: Origin`, and the service worker's
   saved copy of the script then didn't match the browser's request, so the web app didn't open
   offline. `ignoreVary` in `src/sw.js` fixed it.
+- **2026-11-15**: Ranked mode, on the branch `ranked`: random puzzles against the clock, and
+  online leaderboards on a Netlify Function. Learned: share the rules between the game and the
+  server (one file, `src/ranked/rules.ts`), so they can't disagree. A smoke test with the page's
+  clock fast-forwarded (`page.clock`) found a real bug the other tests missed: the first tick of
+  the stopwatch ran before the screen was on the page, took that for "the screen is gone" and
+  stopped the clock for good. And Vitest can fail with "failed to find the runner" when the
+  folder's drive letter is written in lower case (`c:\`): run it from `C:\`.

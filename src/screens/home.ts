@@ -9,6 +9,7 @@ import { TEST_BUILD } from "../dev";
 import { go } from "../nav";
 import { applySkin } from "../skins";
 import { homeArt } from "./homeArt";
+import { STOPWATCH } from "./ranked";
 import { LOCK, coin, difficultyMarks, plural, screen, stageTitle, star } from "./ui";
 
 // The game's title: every letter on a tile of the puzzle, green and gold in turn (`first` is
@@ -85,7 +86,13 @@ export function homeScreen(rerender: () => void) {
           <span class="coin-total">${shownCoins}</span></a>
       </p>
     </header>
-    <ul class="tiers">${cards}</ul>
+    <ul class="tiers">
+      <li><a class="tier-card ranked-entry" href="#/ranked">
+        <span class="tier-title">${STOPWATCH} Ranked</span>
+        <span class="tier-meta">Random puzzles against the clock, and the leaderboards</span>
+      </a></li>
+      ${cards}
+    </ul>
     <footer class="home-footer">
       <button type="button" class="reset-progress">Reset progress</button>
       <button type="button" class="app-version">Version ${__APP_VERSION__}${TEST_BUILD ? " (test)" : ""}</button>

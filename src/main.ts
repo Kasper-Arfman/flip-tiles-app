@@ -7,11 +7,14 @@ import { currentRoute, go, goUp, onNavigate } from "./nav";
 import { log, startLog } from "./log";
 import { activeLook, isLevelOpen, loadProgress, starsToUnlock, tutorialStep } from "./progress";
 import { initPurchases } from "./purchases";
+import { startSending } from "./ranked/online";
+import { activeGame, loadRanked, loseGame } from "./ranked/ranked";
 import { codexScreen } from "./screens/codex";
 import { debugScreen } from "./screens/debug";
 import { homeScreen } from "./screens/home";
 import { howToPlayScreen } from "./screens/howToPlay";
 import { levelScreen } from "./screens/level";
+import { rankedLeaderboard, rankedLobby, rankedPlay } from "./screens/ranked";
 import { shopScreen } from "./screens/shop";
 import { tierScreen } from "./screens/tier";
 import { applySkin } from "./skins";
@@ -20,7 +23,18 @@ const app = document.querySelector<HTMLElement>("#app")!;
 
 function render() {
   const route = currentRoute();
-  
+
+  // A ranked game on, and the player went elsewhere (the back arrow, Android's back button, a
+  // link): that ends the game as a loss, so ask first; staying goes back to the game, whose
+  // clock has kept running
+  if (activeGame() && route.screen !== "ranked-play") {
+    if (!confirm("Leave this ranked game? It counts as a loss (5:00).")) {
+      go("#/ranked/play", true);
+      return;
+    }
+    loseGame("left the game");
+  }
+
   // A new player plays the tutorial first (the debug screen is always reachable)
   const step = tutorialStep();
   if (step && route.screen !== "debug" && !(route.screen === "level" && route.difficulty === step.difficulty && route.number === step.number)) {
@@ -33,6 +47,9 @@ function render() {
   else if (route.screen === "shop") next = shopScreen(render);
   else if (route.screen === "codex") next = codexScreen(render);
   else if (route.screen === "debug") next = debugScreen(render);
+  else if (route.screen === "ranked") next = rankedLobby(render);
+  else if (route.screen === "ranked-play") next = rankedPlay(render);
+  else if (route.screen === "ranked-leaderboard") next = rankedLeaderboard(render);
   else if (route.screen === "home") next = homeScreen(render);
   else {
     // A tier or level that doesn't exist, or isn't unlocked yet: back home
@@ -69,7 +86,7 @@ if ("serviceWorker" in navigator && !Capacitor.isNativePlatform() && import.meta
 }
 
 // The log first (it catches errors from here on), then what the player has
-startLog().then(loadProgress).then(() => {
+startLog().then(loadProgress).then(loadRanked).then(() => {
   log("info", `Started: version ${__APP_VERSION__} (${__BUILD__}), ${Capacitor.getPlatform()}`);
   applySkin(activeLook());
   render();
@@ -78,4 +95,5 @@ startLog().then(loadProgress).then(() => {
   void initPurchases(() => {
     if (currentRoute().screen === "shop") render();
   });
+  startSending(); // (ranked games waiting for the online leaderboard)
 });

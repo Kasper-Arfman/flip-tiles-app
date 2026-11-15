@@ -2773,3 +2773,282 @@ button.goal[aria-pressed="true"] small {
     opacity: 0.75;
   }
 }
+
+/* --- ranked mode (screens/ranked.ts) --------------------------------------------------------- */
+
+/* The home screen's entry: a card like a stage's, with a stopwatch */
+.ranked-entry .tier-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.stopwatch {
+  width: 1.25rem;
+  height: 1.25rem;
+  stroke: #ffd24a;
+}
+
+.ranked-screen {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.ranked-card {
+  padding: 0.85rem 1rem;
+  border-radius: 14px;
+  background: var(--card);
+}
+
+.ranked-card h2 {
+  margin: 0 0 0.6rem;
+  font-size: 1.05rem;
+}
+
+.ranked-card p {
+  margin: 0 0 0.6rem;
+}
+
+.ranked-label,
+.board-note {
+  margin: 0.4rem 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.ranked-notice {
+  margin: 0;
+  padding: 0.6rem 0.9rem;
+  border-radius: 10px;
+  background: #fdf0d5;
+  color: #6b4a06;
+  font-size: 0.9rem;
+}
+
+/* The difficulties: a row of round number buttons, the chosen one filled */
+.difficulty-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.difficulty-picker button,
+.difficulty-picker button:not(:disabled):hover {
+  width: 2.4rem;
+  height: 2.4rem;
+  padding: 0;
+  border-radius: 50%;
+  font-variant-numeric: tabular-nums;
+}
+
+.difficulty-picker button[aria-checked="true"] {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: #ffffff;
+}
+
+.ranked-stats {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.25rem 1rem;
+  margin: 0;
+}
+
+.ranked-stats dt {
+  color: var(--muted);
+}
+
+.ranked-stats dd {
+  margin: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.play-ranked {
+  padding: 0.8rem;
+  font-size: 1.1rem;
+}
+
+.ranked-rules {
+  font-size: 0.9rem;
+}
+
+.ranked-rules summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.ranked-rules ul {
+  margin: 0.5rem 0 0;
+  padding-left: 1.2rem;
+}
+
+.leaderboards-link {
+  justify-self: center;
+  font-weight: 600;
+}
+
+/* A game: the clock big over the board */
+.ranked-clock {
+  margin-top: 0.5rem;
+  text-align: center;
+  font-size: 2.4rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The last minute: the clock turns red */
+.ranked-play.relaxed .ranked-clock {
+  color: #c0392b;
+}
+
+.ranked-phase,
+.ranked-progress {
+  margin: 0.2rem 0 0;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.ranked-progress .count.over {
+  color: #c0392b;
+  font-weight: 700;
+}
+
+.ranked-play.too-many .ranked-phase {
+  color: #c0392b;
+  font-weight: 600;
+}
+
+/* Solved with too many moves (before 4:00): no Solved! on the board, it doesn't count */
+.ranked-play.too-many .flip-tiles .solved {
+  display: none;
+}
+
+.ranked-play .hint-bar {
+  margin-top: 0.75rem;
+}
+
+/* The game's end over the board: the time big, a line under it, the buttons at the bottom */
+.ranked-result .result-title {
+  top: 22%;
+  font-size: 2.2rem;
+}
+
+.ranked-result .result-detail {
+  position: absolute;
+  top: 40%;
+  left: 6%;
+  right: 6%;
+  margin: 0;
+  color: #ffffff;
+  font-weight: 600;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+}
+
+.ranked-result .result-buttons {
+  position: absolute;
+  left: 4%;
+  right: 4%;
+  bottom: 6%;
+}
+
+.ranked-result .result-buttons .primary {
+  background: var(--skin-one);
+}
+
+/* The game is over: the board takes no more moves */
+.ranked-play.ranked-over .flip-tiles .tile {
+  pointer-events: none;
+}
+
+/* The leaderboards */
+.join-form {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.join-form input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font: inherit;
+}
+
+.join-card button {
+  margin: 0.2rem 0.4rem 0.2rem 0;
+}
+
+.board-choice {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-weight: 600;
+}
+
+.board-choice select {
+  flex: 1;
+  min-width: 0;
+  padding: 0.45rem;
+  border-radius: 10px;
+  font: inherit;
+}
+
+.leaderboard-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--card);
+}
+
+.leaderboard-list.mine {
+  margin-top: 0.5rem;
+}
+
+.leaderboard-list li {
+  display: grid;
+  grid-template-columns: 2.2rem minmax(0, 1fr) auto auto;
+  gap: 0.6rem;
+  align-items: baseline;
+  padding: 0.55rem 0.9rem;
+  border-top: 1px solid var(--line);
+  font-variant-numeric: tabular-nums;
+}
+
+.leaderboard-list li:first-child {
+  border-top: none;
+}
+
+.leaderboard-list li.me {
+  background: #fdf0d5;
+  color: #13294d;
+  font-weight: 700;
+}
+
+.leaderboard-list .rank {
+  color: var(--muted);
+}
+
+.leaderboard-list .name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.leaderboard-list .games {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+/* (the home card's description under its title; Give up gone once the game is over) */
+.ranked-entry .tier-meta {
+  grid-column: 1 / -1;
+}
+
+.ranked-play.ranked-over .give-up {
+  visibility: hidden;
+}
