@@ -9,11 +9,11 @@ import { ALL_WHITE, MASKS, N, isSolved, solveFlips, solveMoves } from "../game/f
 export type RankedMode = "flips" | "moves";
 export const RANKED_MODES: RankedMode[] = ["moves", "flips"];
 
-// The difficulties a player can choose, per mode (a board needs at most 15 flips; 9 moves
-// already makes very rare boards)
+// The difficulties a player can choose, per mode: from 4 (fewer is over too quickly); at most 12
+// flips and 8 moves (harder boards are so rare that making one takes too long)
 export const DIFFICULTIES: Record<RankedMode, number[]> = {
-  flips: [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
-  moves: [2, 3, 4, 5, 6, 7, 8],
+  flips: [4, 5, 6, 7, 8, 9, 10, 11, 12],
+  moves: [4, 5, 6, 7, 8],
 };
 
 export interface RankedPuzzle {

@@ -6,8 +6,13 @@ import { getStore } from "@netlify/blobs";
 import type { Config } from "@netlify/functions";
 import { handle, type KeyValueStore } from "../leaderboard";
 
+// The live site keeps the real leaderboards. A test deploy (`npx netlify deploy` without --prod)
+// gets its own store, so test games never reach them: Netlify gives every such deploy an address
+// with "--" in it (<id>--fliptilespuzzle.netlify.app), the live site's address has none.
+export const storeName = (url: string) => (new URL(url).hostname.includes("--") ? "ranked-test" : "ranked");
+
 export default async (request: Request) => {
-  const blobs = getStore("ranked");
+  const blobs = getStore(storeName(request.url));
   const store: KeyValueStore = {
     get: (key) => blobs.get(key, { type: "text" }),
     set: async (key, value) => void (await blobs.set(key, value)),

@@ -439,8 +439,13 @@ export function useShape(id: string) {
 export const ENTRY_RESET_COST = 50; // to clear one entry
 export const ENTRY_RESET_ALL_COST = 200; // to clear them all (or less, when there are few)
 
-// How many forces from solved a stage's entry can be, at most: Alpha 1, Beta 2, Gamma 3, ...
-export const entryForces = (tier: Tier) => TIERS.indexOf(tier) + 1;
+// How many forces from solved a stage's entry can be, at most: Alpha 1, the last three stages 3,
+// every other stage 2. (An entry made earlier with more stays as it is.)
+export function entryForces(tier: Tier): number {
+  const i = TIERS.indexOf(tier);
+  if (i === 0) return 1;
+  return i >= TIERS.length - 3 ? 3 : 2;
+}
 export const entryOf = (tier: Tier): number | undefined => entries[tier.difficulty];
 
 // A completed stage earns an entry; one already made stays, also if the stage gets new levels

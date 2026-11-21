@@ -14,7 +14,7 @@
 import { Preferences } from "@capacitor/preferences";
 import { log } from "../log";
 import { makePuzzle, type RankedMode, type RankedPuzzle } from "./puzzles";
-import { TIME_LIMIT, acceptsSolve, statsOf, type GameRecord } from "./rules";
+import { NAME_MAX, TIME_LIMIT, acceptsSolve, statsOf, type GameRecord } from "./rules";
 
 const KEY = "ranked-v1";
 
@@ -29,6 +29,7 @@ interface Saved {
   joined: boolean; // the player chose to be on the online leaderboard
   games: GameRecord[];
   uploaded: string[]; // the ids of the games the server has
+  refused: string[]; // the ids of games the server refused: not in the score here either
   active: ActiveGame | null;
   choice: { mode: RankedMode; difficulty: number }; // last chosen in the lobby
   cutOff: number; // games lost by leaving or closing the app, not yet told to the player
@@ -40,8 +41,8 @@ const randomId = () =>
     : Array.from({ length: 4 }, () => Math.random().toString(36).slice(2, 10)).join("-");
 
 const fresh = (): Saved => ({
-  deviceId: randomId(), name: "", joined: false, games: [], uploaded: [], active: null,
-  choice: { mode: "moves", difficulty: 3 }, cutOff: 0,
+  deviceId: randomId(), name: "", joined: false, games: [], uploaded: [], refused: [], active: null,
+  choice: { mode: "moves", difficulty: 4 }, cutOff: 0,
 });
 let saved = fresh();
 // The steady clock at the moment the active game started in this run of the app
@@ -123,7 +124,9 @@ export const rankedChanged = new Set<() => void>();
 // --- what the player sees ------------------------------------------------------------------
 
 export const lastChoice = () => saved.choice;
-export const myStats = () => statsOf(saved.games);
+// The score here is worked out exactly as the server does, from the same games (the ones it
+// refused left out), so the score in the lobby and on the leaderboard are the same
+export const myStats = () => statsOf(saved.games.filter((g) => !saved.refused.includes(g.id)));
 export const games = (): readonly GameRecord[] => saved.games;
 export const lastGame = (): GameRecord | undefined => saved.games[saved.games.length - 1];
 
@@ -144,21 +147,15 @@ export const playerName = () => saved.name;
 export const hasJoined = () => saved.joined;
 
 export function join(name: string) {
-  saved.name = name.trim().slice(0, 20);
+  saved.name = name.trim().slice(0, NAME_MAX);
   saved.joined = saved.name.length > 0;
-  save();
-}
-
-// Leave the leaderboard: from now on nothing is sent (online.ts also asks the server to forget)
-export function leave() {
-  saved.joined = false;
-  saved.uploaded = [];
   save();
 }
 
 export const pendingGames = () => saved.games.filter((g) => !saved.uploaded.includes(g.id));
 
-export function markUploaded(ids: string[]) {
-  saved.uploaded = [...new Set([...saved.uploaded, ...ids])];
+export function markUploaded(ids: string[], refused: string[] = []) {
+  saved.uploaded = [...new Set([...saved.uploaded, ...ids, ...refused])];
+  saved.refused = [...new Set([...saved.refused, ...refused])];
   save();
 }

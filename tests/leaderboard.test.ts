@@ -1,10 +1,13 @@
 // The online leaderboards' server (netlify/leaderboard.ts), with a Map as its storage: what
 // it accepts, how it ranks, and that a device id never leaks.
 import { beforeEach, describe, expect, it } from "vitest";
-import { cleanName, forgetCache, handle, type KeyValueStore } from "../netlify/leaderboard";
+import { PETER_NAME, cleanName, forgetCache, handle, type KeyValueStore } from "../netlify/leaderboard";
+import { storeName } from "../netlify/functions/ranked.mts";
 import { solveFlips } from "../src/game/flipTiles";
 import { fewestForcesSolution, makePuzzle, type RankedMode } from "../src/ranked/puzzles";
-import { FORCE, MIN_GAMES, TIME_LIMIT, type GameRecord } from "../src/ranked/rules";
+import { FORCE, SCORE_WEIGHT, TIME_LIMIT, type GameRecord } from "../src/ranked/rules";
+
+const MANY = 5; // games per player in most tests
 
 function memoryStore(): KeyValueStore & { data: Map<string, string> } {
   const data = new Map<string, string>();
@@ -48,8 +51,8 @@ describe("the leaderboard server", () => {
   });
 
   it("keeps real games once, and refuses made-up ones", async () => {
-    const real = game("moves", 3, 20_000);
-    const fake = { ...game("moves", 3, 20_000), moves: [] }; // (a "win" without a solve)
+    const real = game("moves", 4, 20_000);
+    const fake = { ...game("moves", 4, 20_000), moves: [] }; // (a "win" without a solve)
     const result = await post(store, { deviceId: "device-aaaa", name: "Ann", games: [real, fake] });
     expect(result.accepted).toEqual([real.id]);
     expect(result.rejected).toEqual([{ id: fake.id, reason: "not a solve by the rules" }]);
@@ -59,40 +62,87 @@ describe("the leaderboard server", () => {
     expect(stored.games.length).toBe(1);
   });
 
-  it("ranks by average time once a player has enough games; same names are fine", async () => {
-    await post(store, { deviceId: "device-slow", name: "Sam", games: games(MIN_GAMES, "moves", 3, 90_000) });
-    await post(store, { deviceId: "device-fast", name: "Sam", games: games(MIN_GAMES, "moves", 3, 30_000) });
-    await post(store, { deviceId: "device-new1", name: "Newbie", games: games(MIN_GAMES - 1, "moves", 3, 10_000) });
-    const lb = await board(store, "moves-3", "device-slow");
-    expect(lb.entries.map((e: { name: string; value: number }) => [e.name, e.value])).toEqual([["Sam", 30_000], ["Sam", 90_000]]);
+  it("ranks by score from the first game; one great game doesn't beat many good ones; same names are fine", async () => {
+    await post(store, { deviceId: "device-slow", name: "Sam", games: games(20, "moves", 4, 90_000) });
+    await post(store, { deviceId: "device-fast", name: "Sam", games: games(20, "moves", 4, 30_000) });
+    await post(store, { deviceId: "device-new1", name: "Newbie", games: games(1, "moves", 4, 10_000) });
+    const lb = await board(store, "moves-4", "device-slow");
+    expect(lb.entries.map((e: { name: string }) => e.name)).toEqual(["Sam", "Sam", "Newbie", PETER_NAME]);
     expect(lb.entries[1].me).toBe(true);
     expect(lb.me.rank).toBe(2);
-    expect(lb.players).toBe(2);
+    expect(lb.players).toBe(4);
   });
 
-  it("a loss counts as 5:00 in the average", async () => {
-    const list = [...games(MIN_GAMES - 1, "flips", 4, 60_000), game("flips", 4, 0, false)];
+  it("the score starts at 5:00 and moves 1/15 towards each game; a loss counts as 5:00", async () => {
+    // (in the order played: the times as sent)
+    const list = [game("flips", 4, 60_000), game("flips", 4, 0, false), game("flips", 4, 120_000)];
+    list.forEach((g, i) => (g.playedAt = Date.now() - 1000 * (3 - i)));
     await post(store, { deviceId: "device-loss", name: "Lou", games: list });
-    const lb = await board(store, "flips-4");
-    expect(lb.entries[0].value).toBe(((MIN_GAMES - 1) * 60_000 + TIME_LIMIT) / MIN_GAMES);
+    let expected = TIME_LIMIT;
+    for (const t of [60_000, TIME_LIMIT, 120_000]) expected = (1 - SCORE_WEIGHT) * expected + SCORE_WEIGHT * t;
+    expect((await board(store, "flips-4")).entries[0].value).toBeCloseTo(expected, 6);
   });
 
-  it("the overall leaderboard adds up the boards: harder and faster ranks higher", async () => {
-    await post(store, { deviceId: "device-easy", name: "Easy", games: games(MIN_GAMES, "moves", 2, 10_000) });
-    await post(store, { deviceId: "device-hard", name: "Hard", games: games(MIN_GAMES, "flips", 8, 60_000) });
+  it("overall: more leaderboards first, then the average place, then the average score", async () => {
+    // moves-4: Ann 1st, Bob 2nd, Cy 3rd. flips-5: Ann 1st, Cy 2nd. moves-5: only Cy, 1st.
+    await post(store, { deviceId: "device-ann", name: "Ann", games: [...games(MANY, "moves", 4, 20_000), ...games(MANY, "flips", 5, 50_000)] });
+    await post(store, { deviceId: "device-bob", name: "Bob", games: games(MANY, "moves", 4, 30_000) });
+    await post(store, { deviceId: "device-cy", name: "Cy", games: [...games(MANY, "moves", 4, 40_000), ...games(MANY, "flips", 5, 60_000), ...games(MANY, "moves", 5, 90_000)] });
+    const lb = await board(store, "overall", "device-cy");
+    // Cy is on 3 leaderboards (average place 2), Ann on 2 (1), Bob on 1 (2): Cy, Ann, Bob
+    expect(lb.entries.map((e: { name: string; value: number }) => [e.name, e.value])).toEqual([["Cy", 2], ["Ann", 1], ["Bob", 2], [PETER_NAME, 3]]);
+    expect(lb.me).toMatchObject({ rank: 1, name: "Cy" });
+  });
+
+  it("overall: the best on one leaderboard ranks below someone who plays many", async () => {
+    // Ace: the fastest on moves-4 only. Allround: slower there, but also on 5 more leaderboards
+    await post(store, { deviceId: "device-ace", name: "Ace", games: games(MANY, "moves", 4, 5_000) });
+    await post(store, { deviceId: "device-all", name: "Allround", games: [
+      ...games(2, "moves", 4, 200_000), // (6 leaderboards: moves-4, and flips 4 to 8)
+      ...[4, 5, 6, 7, 8].flatMap((d) => games(2, "flips", d, 200_000)),
+    ] });
     const lb = await board(store, "overall");
-    expect(lb.entries.map((e: { name: string }) => e.name)).toEqual(["Hard", "Easy"]);
+    expect(lb.entries.map((e: { name: string }) => e.name)).toEqual(["Allround", "Ace", PETER_NAME]);
   });
 
-  it("never shows a device id, and forgets a player who leaves", async () => {
-    await post(store, { deviceId: "secret-device-id", name: "Zed", games: games(MIN_GAMES, "moves", 2, 10_000) });
-    const response = await handle(new Request(`${URL_BASE}/leaderboard?board=moves-2`), store);
+  it("overall: a tie on average place goes to the lowest average score", async () => {
+    await post(store, { deviceId: "device-slow", name: "Slow", games: [...games(MANY, "moves", 4, 20_000), ...games(MANY, "flips", 5, 90_000)] });
+    await post(store, { deviceId: "device-quick", name: "Quick", games: [...games(MANY, "moves", 4, 30_000), ...games(MANY, "flips", 5, 50_000)] });
+    // Both 1.5 on average; Quick's average score (games of 30 and 50 s) beats Slow's (20 and 90 s)
+    const lb = await board(store, "overall");
+    expect(lb.entries.map((e: { name: string }) => e.name)).toEqual(["Quick", "Slow", PETER_NAME]);
+  });
+
+  it("never shows a device id; there is no way to remove a player", async () => {
+    await post(store, { deviceId: "secret-device-id", name: "Zed", games: games(MANY, "moves", 4, 10_000) });
+    const response = await handle(new Request(`${URL_BASE}/leaderboard?board=moves-4`), store);
     expect(await response.clone().text()).not.toContain("secret-device-id");
     expect(response.headers.get("access-control-allow-origin")).toBe("*");
     expect([...store.data.keys()].join()).not.toContain("secret-device-id");
-    await handle(new Request(`${URL_BASE}/player`, { method: "DELETE", body: JSON.stringify({ deviceId: "secret-device-id" }) }), store);
-    expect(store.data.size).toBe(0);
-    expect((await board(store, "moves-2")).entries).toEqual([]);
+    const remove = await handle(new Request(`${URL_BASE}/player`, { method: "DELETE", body: JSON.stringify({ deviceId: "secret-device-id" }) }), store);
+    expect(remove.status).toBe(404);
+    expect((await board(store, "moves-4")).entries.length).toBe(2); // (Zed and Peter)
+  });
+
+  it("test deploys (an address with --) keep their games apart from the live site's", () => {
+    expect(storeName("https://fliptilespuzzle.netlify.app/api/ranked/games")).toBe("ranked");
+    expect(storeName("https://6738a1b2c3--fliptilespuzzle.netlify.app/api/ranked/games")).toBe("ranked-test");
+    expect(storeName("https://deploy-preview-3--fliptilespuzzle.netlify.app/api/ranked/games")).toBe("ranked-test");
+  });
+
+  it("Peter Pathetic is on every leaderboard, last, with the worst score; below even a player who only lost", async () => {
+    for (const id of ["overall", "moves-4", "flips-12"]) {
+      const lb = await board(store, id);
+      expect(lb.entries).toEqual([{ rank: 1, name: PETER_NAME, value: id === "overall" ? 1 : TIME_LIMIT, games: 0, me: false }]);
+    }
+    await post(store, { deviceId: "device-loser", name: "Lou", games: [game("moves", 4, 0, false)] });
+    expect((await board(store, "moves-4")).entries.map((e: { name: string }) => e.name)).toEqual(["Lou", PETER_NAME]);
+  });
+
+  it("says when the leaderboards were last worked out", async () => {
+    const lb = await board(store, "moves-4");
+    expect(typeof lb.updated).toBe("number");
+    expect(Math.abs(lb.updated - Date.now())).toBeLessThan(60_000);
   });
 
   it("refuses bad requests", async () => {

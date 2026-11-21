@@ -6,16 +6,17 @@
 //     counts (fewer is impossible). After that, a solve with more flips counts too (still no
 //     more forces than the puzzle gives).
 //   - Flips mode: flips only.
-//   - The rank on a leaderboard is the average time of all games (losses as TIME_LIMIT), once a
-//     player has MIN_GAMES of them there. Lower is better.
-//   - The overall leaderboard adds up a score per leaderboard the player is ranked on: harder
-//     puzzles and faster times give more (see boardScore).
+//   - The rank on a leaderboard is the score: a weighted average time that starts at TIME_LIMIT
+//     (see statsOf), from the first game on. Lower is better.
+//   - The overall leaderboard ranks by the number of leaderboards a player is on (more is
+//     better), then the average of their places on them (lower is better), then the average of
+//     their scores on them (lower is better).
 import { MASKS, N, isSolved, solveFlips, solveMoves } from "../game/flipTiles";
 import { DIFFICULTIES, fewestForces, type RankedMode } from "./puzzles";
 
 export const TIME_LIMIT = 5 * 60_000; // ms
+export const NAME_MAX = 16; // characters in a name on the leaderboards (a common limit in games)
 export const RELAXED_AFTER = 4 * 60_000; // ms
-export const MIN_GAMES = 5; // games on a leaderboard before the player is ranked there
 export const MIN_MS_PER_MOVE = 200; // faster than this is not a human (the server refuses it)
 
 // A move as it is saved and sent: the tile, + 32 for a force
@@ -59,42 +60,32 @@ export interface GameRecord {
 export interface Stats {
   games: number;
   wins: number;
-  total: number; // ms, the times added up (losses as TIME_LIMIT)
+  score: number; // ms: the weighted average time (see SCORE_WEIGHT)
 }
-export const average = (s: Stats) => (s.games ? s.total / s.games : TIME_LIMIT);
+
+// The score on a leaderboard: an average time that starts at TIME_LIMIT and moves SCORE_WEIGHT
+// of the way to each game's time (a loss: TIME_LIMIT), oldest game first:
+//   score = (1 - SCORE_WEIGHT) x score + SCORE_WEIGHT x time
+// So a new player starts at the bottom and climbs only by playing many good games, and newer
+// games count a little more than older ones.
+export const SCORE_WEIGHT = 1 / 10;
 
 // The games added up per leaderboard
 export function statsOf(games: GameRecord[]): Partial<Record<BoardId, Stats>> {
   const stats: Partial<Record<BoardId, Stats>> = {};
-  for (const g of games) {
-    const s = (stats[boardId(g.mode, g.difficulty)] ??= { games: 0, wins: 0, total: 0 });
+  for (const g of [...games].sort((a, b) => a.playedAt - b.playedAt)) {
+    const s = (stats[boardId(g.mode, g.difficulty)] ??= { games: 0, wins: 0, score: TIME_LIMIT });
     s.games++;
     s.wins += g.won ? 1 : 0;
-    s.total += g.won ? Math.min(g.time, TIME_LIMIT) : TIME_LIMIT;
+    s.score = (1 - SCORE_WEIGHT) * s.score + SCORE_WEIGHT * (g.won ? Math.min(g.time, TIME_LIMIT) : TIME_LIMIT);
   }
   return stats;
 }
 
-// The score of one leaderboard for the overall one: the difficulty, times how much of the time
-// was left on average (0 to 100 points per difficulty step). Only once ranked there.
-export function boardScore(difficulty: number, s: Stats): number {
-  if (s.games < MIN_GAMES) return 0;
-  return Math.round(100 * difficulty * (1 - average(s) / TIME_LIMIT));
-}
-
-export function overallScore(stats: Partial<Record<BoardId, Stats>>): number {
-  let score = 0;
-  for (const [id, s] of Object.entries(stats)) score += boardScore(Number(id.split("-")[1]), s!);
-  return score;
-}
-
-// The minutes and seconds of a time: "1:07.4" (tenths), or "1:07" without them
-export function formatTime(ms: number, tenths = true): string {
+// The minutes and seconds of a time: "1:07"
+export function formatTime(ms: number): string {
   const t = Math.max(0, ms);
-  const minutes = Math.floor(t / 60_000);
-  const seconds = Math.floor((t % 60_000) / 1000);
-  const text = `${minutes}:${String(seconds).padStart(2, "0")}`;
-  return tenths ? `${text}.${Math.floor((t % 1000) / 100)}` : text;
+  return `${Math.floor(t / 60_000)}:${String(Math.floor((t % 60_000) / 1000)).padStart(2, "0")}`;
 }
 
 // The server's check of a game sent to it: the puzzle is what it says (worked out again), and a

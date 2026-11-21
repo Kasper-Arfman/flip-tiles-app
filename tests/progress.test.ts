@@ -185,7 +185,33 @@ describe("saves from older versions", () => {
   });
 });
 
+describe("ranked difficulties", () => {
+  it("each opens with the stage of its number: flips by its flips-only stars, moves by its fewest-moves stars", async () => {
+    const app = await startApp();
+    const { isDifficultyOpen } = await import("../src/ranked/unlock");
+    const delta = app.TIERS.find((t) => t.difficulty === 4)!;
+    expect(isDifficultyOpen("flips", 4)).toBe(false);
+    // Every flips-only star of Delta but one: still closed
+    for (const level of delta.levels.slice(1)) app.award(level, app.STAR_SOLVED | app.STAR_FLIPS);
+    expect(isDifficultyOpen("flips", 4)).toBe(false);
+    app.award(delta.levels[0], app.STAR_SOLVED | app.STAR_FLIPS);
+    expect(isDifficultyOpen("flips", 4)).toBe(true);
+    expect(isDifficultyOpen("moves", 4)).toBe(false); // (no fewest-moves stars yet)
+    for (const level of delta.levels) app.award(level, app.STAR_MOVES);
+    expect(isDifficultyOpen("moves", 4)).toBe(true);
+    expect(isDifficultyOpen("flips", 5)).toBe(false);
+  });
+});
+
 describe("the Codex", () => {
+  it("allows Alpha 1 force, the last three stages 3, the others 2", async () => {
+    const app = await startApp();
+    const forces = app.TIERS.map((t) => app.entryForces(t));
+    expect(forces[0]).toBe(1);
+    expect(forces.slice(-3)).toEqual([3, 3, 3]);
+    expect(forces.slice(1, -3).every((n) => n === 2)).toBe(true);
+  });
+
   it("a completed stage earns one entry, of 1 up to its number of forces, that flips can solve", async () => {
     const app = await startApp();
     const alpha = app.TIERS[0];

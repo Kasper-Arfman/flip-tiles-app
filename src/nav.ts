@@ -69,6 +69,9 @@ export function go(hash: string, replace = false) {
   location.replace(hash);
 }
 
+// The screen before this one in the history (undefined on the first screen)
+export const previousHash = (): string | undefined => visited[visited.length - 2];
+
 export function goUp(parent: string) {
   if (visited.length > 1 && visited[visited.length - 2] === parent) history.back();
   else go(parent, true);

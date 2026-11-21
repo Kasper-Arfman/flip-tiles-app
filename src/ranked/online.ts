@@ -12,8 +12,10 @@ import type { BoardId } from "./rules";
 
 // Where the site is. On the web: the site the game came from. In the apps: this address, the
 // Netlify site (set it before a release: npm run release-check reminds you).
-export const SERVER_URL = "https://YOUR-SITE.netlify.app";
-const api = (path: string) => `${Capacitor.isNativePlatform() ? SERVER_URL : "."}/api/ranked${path}`;
+export const SERVER_URL = "https://fliptilespuzzle.netlify.app";
+// (While developing, `npm run dev` has no server of its own: it uses the real one too.)
+const api = (path: string) =>
+  `${Capacitor.isNativePlatform() || import.meta.env.DEV ? SERVER_URL : "."}/api/ranked${path}`;
 
 async function call(path: string, init?: RequestInit) {
   const controller = new AbortController();
@@ -45,7 +47,7 @@ export function sendGames(always = false): Promise<void> {
         body: JSON.stringify({ deviceId: deviceId(), name: playerName(), games }),
       });
       // (a refused game is never accepted later: it isn't sent again)
-      markUploaded([...result.accepted, ...result.rejected.map((r: { id: string }) => r.id)]);
+      markUploaded(result.accepted, result.rejected.map((r: { id: string }) => r.id));
       for (const r of result.rejected) log("warn", `Ranked: the server refused game ${r.id}: ${r.reason}`);
     } catch (error) {
       log("info", `Ranked: games not sent now (${String(error)}); later`);
@@ -61,6 +63,7 @@ export interface Leaderboard {
   entries: Entry[];
   me: Entry | null;
   players: number;
+  updated?: number; // when the server last worked the leaderboards out (ms since 1970)
 }
 
 // A leaderboard. Anyone can look; only a player who joined sends their id along (to be found in it).
@@ -69,9 +72,32 @@ export async function fetchLeaderboard(board: BoardId): Promise<Leaderboard> {
   return call(`/leaderboard?board=${board}${hasJoined() ? `&deviceId=${encodeURIComponent(deviceId())}` : ""}`);
 }
 
-// Ask the server to forget this player
-export async function forgetMe(): Promise<void> {
-  await call("/player", { method: "DELETE", body: JSON.stringify({ deviceId: deviceId() }) });
+// The name of the world's #1 on Top Ranked Players, for the home screen. Asked at most once a
+// minute; the last one known is kept on the device, so it shows offline too. None while only
+// Peter Pathetic is there (the made-up player: the only one with no games).
+const TOP_KEY = "flip-tiles-top-player";
+let topAsked = 0;
+
+export function knownTopPlayer(): string | null {
+  try {
+    return localStorage.getItem(TOP_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchTopPlayer(): Promise<string | null> {
+  if (Date.now() - topAsked < 60_000) return knownTopPlayer();
+  topAsked = Date.now();
+  const { entries } = await fetchLeaderboard("overall");
+  const top = entries[0]?.games > 0 ? entries[0].name : null;
+  try {
+    if (top) localStorage.setItem(TOP_KEY, top);
+    else localStorage.removeItem(TOP_KEY);
+  } catch {
+    // (no storage: shown this time only)
+  }
+  return top;
 }
 
 // Send what is waiting, at the start and whenever the connection comes back

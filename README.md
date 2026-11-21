@@ -483,16 +483,25 @@ solution tables; a sample of the levels was also checked with a separate brute-f
 
 - **Ranked mode** (`src/ranked/`, screens in `src/screens/ranked.ts`, `#/ranked`). The player
   picks a mode (*Fewest moves* or *Flips only*) and a difficulty (the number of moves of the
-  solution: 2 to 8, or 2 to 12 flips), and gets a random puzzle made on the spot
+  solution: 4 to 8 moves, or 4 to 12 flips; each opens with the stage of its number, 4 with Delta
+  up to 12 with Mu, once every level there has the mode's star: flips-only stars for *Flips only*,
+  fewest-moves stars for *Fewest moves*, see `unlock.ts`), and gets a random puzzle made on the spot
   (`puzzles.ts`: random moves on a solved board, kept only when the solvers confirm it can't be
   done in fewer). The rules, in `rules.ts`, are shared with the server:
   - a stopwatch runs from the moment the puzzle appears; 5 minutes, or it's a loss;
   - for 4 minutes only a solve in exactly the difficulty counts; after that more flips count too;
     the forces are limited as on the levels;
   - no hints; the Codex stays open (the clock keeps running);
-  - the rank on a leaderboard is the average time of all games, a loss counting as 5:00, from 5
-    games on; the overall leaderboard adds up points per leaderboard (difficulty x 100 x the share
-    of the 5 minutes left on average), so harder and faster ranks higher.
+  - the rank on a leaderboard is the *score*: a weighted average time that starts at 5:00 and
+    moves 1/15 of the way to each game's time (a loss counting as 5:00), so a new player starts
+    at the bottom, climbing takes many good games, and newer games count a little more
+    (`SCORE_WEIGHT` in `rules.ts`). Everyone is on a leaderboard from their first game there;
+  - the overall leaderboard, *Top Ranked Players*, ranks first by the number of leaderboards a
+    player is on (more is higher), then by their average place on them, then by their average
+    score on them, so playing well everywhere beats being best at one. Times are shown in
+    minutes and seconds;
+  - *Peter Pathetic*, a made-up player, is on every leaderboard with the worst score (5:00, no
+    games), so none is empty; he always comes last overall (`netlify/leaderboard.ts`).
 
   **No cheating by leaving** (`ranked.ts`): the game is saved as *active* before the puzzle is
   shown. Leaving its screen (back arrow, Android's back button) asks first and then counts as a
@@ -507,7 +516,13 @@ solution tables; a sample of the levels was also checked with a separate brute-f
   (`netlify/leaderboard.ts`) checks every game again: the puzzle has the stated difficulty, a win
   is a real solve by the rules, not faster than a human can tap. It can't check the time itself:
   a tampered app could send made-up times, the limit of a game that plays offline. Device ids are
-  stored only as a hash and never shown; *Leave the leaderboards* deletes the player's data.
+  stored only as a hash and never shown. Once joined, a player can change their name, not leave.
+
+  **A player is an install.** The id lives in the app's saved data, so it survives updates of
+  the app, but not uninstalling it, and every browser and address is a separate player too (the
+  dev server, a draft deploy, the website, each phone's app). The old entry stays on the server,
+  under the old id. Test deploys (an address with `--`, see `netlify/functions/ranked.mts`) keep
+  their games in a separate store (`ranked-test`), apart from the real leaderboards.
 
 - **Screens.** Each screen has an address after the `#` in the URL: `#/` (home), `#/how-to-play`,
   `#/tier/4`, `#/level/4/7`. When the address changes, `main.ts` builds that screen. Because
@@ -642,7 +657,7 @@ solution tables; a sample of the levels was also checked with a separate brute-f
   at the next start (`enforceForceLimits` in `progress.ts`). Solves that earned only *Solve it*
   aren't recorded, so that star can't be checked and stays.
 - **Codex** (`#/codex`: the light-bulb button on the home screen, with a red bubble counting the entries earned and not made yet). Every completed stage
-  earns one. Its pattern is at most that many forces from a solved board: Alpha 1, Beta 2, Gamma 3, ...
+  earns one. Its pattern is at most that many forces from a solved board: Alpha 1, the last three stages 3, all others 2
   (`entryForces` in `progress.ts`). The player picks how many forces to use with − and + (the gray tiles depend on it), places them (red diamonds on top show how many are left; < and Reset take them back) and presses Discover;
   the flips-only solution then stays visible, as gold diamonds, on this screen and in the
   *Codex* popup on every level. That popup shows all 12 as a grid of boards with nothing but

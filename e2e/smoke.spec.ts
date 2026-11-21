@@ -10,11 +10,15 @@ const testBuild = /export const TEST_BUILD = true/.test(readFileSync("src/dev.ts
 
 // Every error on the page fails the test (checked at the end of each test)
 const errors = new WeakMap<Page, string[]>();
-test.beforeEach(({ page }) => {
+test.beforeEach(async ({ page }) => {
   const list: string[] = [];
   errors.set(page, list);
   page.on("pageerror", (e) => list.push(e.message));
   page.on("console", (m) => m.type() === "error" && list.push(m.text()));
+  // The leaderboards' server (the home screen asks it for the world's #1): an empty leaderboard,
+  // also offline (these tests are about the game, not the server: see ranked.spec.ts)
+  await page.route("**/api/ranked/**", (route) =>
+    route.fulfill({ json: { board: "overall", entries: [], me: null, players: 0, accepted: [], rejected: [] } }));
 });
 test.afterEach(({ page }) => expect(errors.get(page)).toEqual([]));
 

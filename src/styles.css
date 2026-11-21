@@ -3052,3 +3052,288 @@ button.goal[aria-pressed="true"] small {
 .ranked-play.ranked-over .give-up {
   visibility: hidden;
 }
+
+/* The leaderboards' "Change name": plain underlined text */
+.join-card:has(.link-button) {
+  padding: 0;
+  background: none;
+}
+
+.link-button,
+.link-button:not(:disabled):hover,
+.link-button:not(:disabled):active {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--ink);
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+/* The leaderboards: Welcome [name] (Change name), on one line */
+.welcome {
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.welcome .link-button {
+  margin-left: 0.3rem;
+  font-weight: 400;
+}
+
+/* A difficulty whose stage isn't complete yet: a lock */
+.difficulty-picker button.locked {
+  display: grid;
+  place-items: center;
+  opacity: 0.45;
+}
+
+.difficulty-picker button.locked svg {
+  width: 0.9rem;
+  height: 0.9rem;
+}
+
+/* The home screen's Ranked row: the card a little shorter, a gold leaderboard button on its
+   right, and the world's #1 on the card in gold, with a crown */
+.ranked-row {
+  display: flex;
+  gap: 0.6rem;
+  align-items: stretch;
+}
+
+.ranked-row .ranked-entry {
+  flex: 1;
+  min-width: 0;
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
+}
+
+.top-player {
+  display: inline-flex;
+  align-items: center;
+  justify-self: end;
+  gap: 0.3rem;
+  min-width: 0;
+  color: #ffd24a;
+  font-weight: 700;
+  text-shadow: 0 0 8px rgba(255, 210, 74, 0.45);
+}
+
+.top-player[hidden] {
+  display: none;
+}
+
+.top-player .top-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.leaderboard-button {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 3.4rem;
+  border: 2px solid #fff4dc;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #ffd24a, #e3a21a 55%, #c98a12);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+  transition: transform 0.1s ease;
+}
+
+.leaderboard-button:active {
+  transform: scale(0.95);
+}
+
+.leaderboard-button svg {
+  width: 1.7rem;
+  height: 1.7rem;
+  fill: #5a3a00;
+  stroke: #5a3a00;
+}
+
+/* (a long name of the #1 shrinks with "…", never past the card) */
+.ranked-row .ranked-entry {
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 0.8rem;
+}
+
+/* A ranked game: no "Click to flip..." line under the board, and the line over it only when it
+   has something to say (too many moves, the last minute) */
+.ranked-play .flip-tiles .hint {
+  display: none;
+}
+
+.ranked-phase:empty {
+  display: none;
+}
+
+/* A ranked game's board: close under the forces row (as on a level), and without the board's
+   own "Move 1 / 50" (the screen counts the moves above it) */
+.ranked-play .flip-tiles {
+  margin: 0.5rem auto 0;
+}
+
+.ranked-play .move-number {
+  display: none;
+}
+
+/* Text under the difficulty buttons (and other notes in the lobby's cards): room above, none
+   below (it is the card's last line) */
+.ranked-card .ranked-label {
+  margin: 0.6rem 0 0;
+}
+
+/* A ranked game's end: the score's change in a dark pill near the top of the board (clear of
+   Solved! in the middle). The score counts from the old to the new one, then the difference
+   pops in: green going down (better), red going up (worse). */
+.score-change {
+  position: absolute;
+  top: 8%;
+  left: 50%;
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.45rem 0.95rem;
+  border: 2px solid rgba(255, 244, 220, 0.85);
+  border-radius: 999px;
+  background: rgba(19, 41, 77, 0.88);
+  color: #ffffff;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  transform: translateX(-50%);
+  animation: score-in 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.3) both;
+}
+
+/* (a loss: below "Time's up") */
+.ranked-result .result-title:not([hidden]) ~ .score-change {
+  top: 40%;
+}
+
+.score-label {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.score-value {
+  font-size: 1.35rem;
+  font-weight: 700;
+}
+
+.score-delta {
+  font-size: 0.95rem;
+  font-weight: 700;
+  opacity: 0;
+  transform: translateY(0.4rem) scale(0.6);
+}
+
+.score-change.settled .score-delta {
+  animation: delta-pop 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.5) forwards;
+}
+
+.score-change.better .score-delta {
+  color: #5ee08a;
+}
+
+.score-change.worse .score-delta {
+  color: #ff7b6e;
+}
+
+/* The pill glows once in the delta's color: a ring around it (its own layer, so the pill's
+   pop-in doesn't play again) */
+.score-change::after {
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  content: "";
+  pointer-events: none;
+}
+
+.score-change.settled.better::after {
+  animation: glow-better 0.9s ease-out;
+}
+
+.score-change.settled.worse::after {
+  animation: glow-worse 0.9s ease-out;
+}
+
+@keyframes score-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) scale(0.7);
+  }
+}
+
+@keyframes delta-pop {
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes glow-better {
+  30% {
+    box-shadow: 0 0 0 5px rgba(94, 224, 138, 0.6);
+  }
+}
+
+@keyframes glow-worse {
+  30% {
+    box-shadow: 0 0 0 5px rgba(255, 123, 110, 0.6);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .score-change,
+  .score-change.settled .score-delta {
+    animation: none;
+    opacity: 1;
+    transform: translateX(-50%);
+  }
+
+  .score-change.settled .score-delta {
+    transform: none;
+  }
+}
+
+/* A ranked game: Codex in the board's row of buttons, spaced like Reset */
+.ranked-play .moves .open-codex {
+  margin-left: 0.6rem;
+}
+
+/* A ranked game's Give up: small, in the top bar's right corner */
+.topbar .give-up,
+.topbar .give-up:not(:disabled):hover {
+  padding: 0.25rem 0.55rem;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+/* A tier's levels: a narrow first column with each group's number of moves, written upwards
+   along the group's side (screens/tier.ts), then the 4 columns of levels */
+.tier-screen .level-grid {
+  grid-template-columns: 1.1rem repeat(4, minmax(0, 1fr));
+}
+
+.grade-label {
+  grid-column: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.grade-label span {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg); /* (read from the bottom up) */
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}

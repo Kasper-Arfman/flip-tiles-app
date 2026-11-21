@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { MASKS, solveFlips, solveMoves } from "../src/game/flipTiles";
 import { DIFFICULTIES, fewestForces, fewestForcesSolution, makePuzzle, type RankedMode } from "../src/ranked/puzzles";
 import {
-  FORCE, RELAXED_AFTER, TIME_LIMIT, acceptsSolve, average, boardScore, checkGame, formatTime, overallScore, statsOf,
+  FORCE, RELAXED_AFTER, SCORE_WEIGHT, TIME_LIMIT, acceptsSolve, checkGame, formatTime, statsOf,
   type GameRecord,
 } from "../src/ranked/rules";
 import { readSaved, saved } from "./helpers";
@@ -98,24 +98,31 @@ describe("the rules", () => {
     expect(acceptsSolve(puzzle, moves, RELAXED_AFTER + 1)).toBe(true);
   });
 
-  it("the average counts a loss as 5:00; the overall score rewards hard and fast", () => {
-    const g = (time: number, won: boolean, difficulty = 3): GameRecord =>
-      ({ id: `g${Math.random()}`, mode: "moves", difficulty, board: 1, moves: [], time, won, playedAt: 0 });
-    const stats = statsOf([g(60_000, true), g(TIME_LIMIT, false)]);
-    expect(average(stats["moves-3"]!)).toBe((60_000 + TIME_LIMIT) / 2);
-    expect(boardScore(3, stats["moves-3"]!)).toBe(0); // (not ranked yet: under 5 games)
-    const five = statsOf(Array.from({ length: 5 }, () => g(60_000, true, 6)));
-    expect(boardScore(6, five["moves-6"]!)).toBe(480); // 100 x 6 x (1 - 1/5)
-    expect(overallScore(five)).toBe(480);
-    expect(formatTime(67_400)).toBe("1:07.4");
+  it("the score: from 5:00, 1/15 of the way to each game (a loss: 5:00), newest last; times in m:ss", () => {
+    const g = (time: number, won: boolean): GameRecord =>
+      ({ id: `g${Math.random()}`, mode: "moves", difficulty: 4, board: 1, moves: [], time, won, playedAt: 0 });
+    const first = { ...g(60_000, true), playedAt: 1 };
+    const second = { ...g(0, false), playedAt: 2 };
+    const stats = statsOf([second, first]); // (out of order: sorted by when played)
+    const afterFirst = (1 - SCORE_WEIGHT) * TIME_LIMIT + SCORE_WEIGHT * 60_000;
+    expect(stats["moves-4"]!.score).toBeCloseTo((1 - SCORE_WEIGHT) * afterFirst + SCORE_WEIGHT * TIME_LIMIT, 6);
+    expect(stats["moves-4"]).toMatchObject({ games: 2, wins: 1 });
+    expect(formatTime(67_400)).toBe("1:07");
+    expect(formatTime(TIME_LIMIT)).toBe("5:00");
+  });
+
+  it("difficulties start at 4 in both modes", () => {
+    expect(DIFFICULTIES.moves[0]).toBe(4);
+    expect(DIFFICULTIES.flips[0]).toBe(4);
   });
 
   it("the server's check refuses what isn't a real game", () => {
-    const p = makePuzzle("moves", 3, random(11));
+    const p = makePuzzle("moves", 4, random(11));
     const moves = solutionOf(p.board, "moves");
-    const game: GameRecord = { id: "abcdefgh-1", mode: "moves", difficulty: 3, board: p.board, moves, time: 20_000, won: true, playedAt: Date.now() };
+    const game: GameRecord = { id: "abcdefgh-1", mode: "moves", difficulty: 4, board: p.board, moves, time: 20_000, won: true, playedAt: Date.now() };
     expect(checkGame(game)).toBeNull();
-    expect(checkGame({ ...game, difficulty: 4 })).toMatch(/difficulty/);
+    expect(checkGame({ ...game, difficulty: 5 })).toMatch(/difficulty/);
+    expect(checkGame({ ...game, difficulty: 3 })).toMatch(/difficulty/); // (no longer offered)
     expect(checkGame({ ...game, moves: moves.slice(1) })).toMatch(/rules/);
     expect(checkGame({ ...game, time: 100 })).toMatch(/fast/);
     expect(checkGame({ ...game, won: false, moves: [], time: 30_000 })).toMatch(/whole time/);
@@ -138,13 +145,13 @@ describe("games on the device", () => {
 
   it("a game is saved as active before it is shown, and a solve in the right moves wins", async () => {
     const ranked = await start();
-    const game = ranked.startGame("moves", 3);
+    const game = ranked.startGame("moves", 4);
     expect(readSaved("ranked-v1").active.id).toBe(game.id);
     expect(ranked.trySolve(solutionOf(game.board, "moves").slice(1))).toBe(false); // (not solved)
     expect(ranked.trySolve(solutionOf(game.board, "moves"))).toBe(true);
     expect(ranked.activeGame()).toBeNull();
     expect(ranked.lastGame()).toMatchObject({ id: game.id, won: true });
-    expect(ranked.myStats()["moves-3"]).toMatchObject({ games: 1, wins: 1 });
+    expect(ranked.myStats()["moves-4"]).toMatchObject({ games: 1, wins: 1 });
   });
 
   it("closing the app during a game makes it a loss of 5:00 (no new puzzle, no time bought)", async () => {
@@ -160,7 +167,7 @@ describe("games on the device", () => {
   it("the clock runs on in the background, and setting the phone's clock back takes no time off", async () => {
     vi.useFakeTimers({ toFake: ["Date", "performance"] });
     const ranked = await start();
-    ranked.startGame("moves", 2);
+    ranked.startGame("moves", 4);
     vi.advanceTimersByTime(90_000); // (90 s, e.g. in another app)
     expect(Math.round(ranked.elapsed() / 1000)).toBe(90);
     vi.setSystemTime(Date.now() - 60 * 60_000); // (the phone's clock set back an hour)
@@ -169,17 +176,17 @@ describe("games on the device", () => {
 
   it("giving up, or leaving, is a loss; starting a new game while one is on loses that one", async () => {
     const ranked = await start();
-    ranked.startGame("moves", 2);
+    ranked.startGame("moves", 4);
     ranked.loseGame("gave up");
-    ranked.startGame("moves", 2);
-    ranked.startGame("moves", 2);
+    ranked.startGame("moves", 4);
+    ranked.startGame("moves", 4);
     expect(ranked.games().map((g) => g.won)).toEqual([false, false]);
-    expect(average(ranked.myStats()["moves-2"]!)).toBe(TIME_LIMIT);
+    expect(ranked.myStats()["moves-4"]!.score).toBe(TIME_LIMIT);
   });
 
   it("nothing is sent before joining; after joining, all games wait to be sent", async () => {
     const ranked = await start();
-    ranked.startGame("moves", 2);
+    ranked.startGame("moves", 4);
     ranked.loseGame("test");
     expect(ranked.hasJoined()).toBe(false);
     ranked.join("  Kasper  ");
@@ -188,5 +195,15 @@ describe("games on the device", () => {
     ranked.markUploaded([ranked.games()[0].id]);
     expect(ranked.pendingGames().length).toBe(0);
     expect(saved.has("ranked-v1")).toBe(true);
+  });
+
+  it("a game the server refused is left out of the score here too (so both are the same)", async () => {
+    const ranked = await start();
+    const game = ranked.startGame("moves", 4);
+    ranked.trySolve(solutionOf(game.board, "moves"));
+    expect(ranked.myStats()["moves-4"]!.games).toBe(1);
+    ranked.markUploaded([], [game.id]);
+    expect(ranked.myStats()["moves-4"]).toBeUndefined();
+    expect(ranked.pendingGames()).toEqual([]); // (not sent again)
   });
 });

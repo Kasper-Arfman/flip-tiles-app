@@ -10,14 +10,13 @@
 //   POST   /api/ranked/games        { deviceId, name, games }  -> { accepted, rejected }
 //   GET    /api/ranked/leaderboard?board=overall|moves-5&deviceId=...
 //                                    -> { board, entries, me, players }
-//   DELETE /api/ranked/player       { deviceId }               -> { deleted }
 //
 // Every game is checked again here (src/ranked/rules.ts, checkGame): the board is of the stated
 // difficulty, a win is a real solve by the rules, in a time a human can make. What can't be
 // checked is the time itself: a changed app could send made-up times. That is the limit of a
 // game that plays offline.
 import {
-  ALL_BOARDS, MIN_GAMES, average, boardScore, checkGame, overallScore, statsOf,
+  ALL_BOARDS, NAME_MAX, TIME_LIMIT, checkGame, statsOf,
   type BoardId, type GameRecord, type Stats,
 } from "../src/ranked/rules";
 
@@ -36,7 +35,7 @@ interface Player {
 export interface Entry {
   rank: number;
   name: string;
-  value: number; // a leaderboard: the average time (ms); overall: the score
+  value: number; // a leaderboard: the score (ms, see statsOf); overall: the average place (1 = first)
   games: number;
   me: boolean;
 }
@@ -50,7 +49,7 @@ const validId = (id: unknown): id is string => typeof id === "string" && /^[\w-]
 
 // A name as shown: at most 20 characters, no control characters, never empty
 export const cleanName = (name: unknown) =>
-  (typeof name === "string" ? name.replace(/[\p{C}<>]/gu, "").trim().slice(0, 20) : "") || "Player";
+  (typeof name === "string" ? name.replace(/[\p{C}<>]/gu, "").trim().slice(0, NAME_MAX) : "") || "Player";
 
 async function playerKey(deviceId: string) {
   const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`flip-tiles:${deviceId}`));
@@ -64,35 +63,70 @@ const json = (body: unknown, status = 200) =>
       "content-type": "application/json",
       // The apps ask from their own origin (https://localhost, capacitor://localhost)
       "access-control-allow-origin": "*",
-      "access-control-allow-methods": "GET, POST, DELETE, OPTIONS",
+      "access-control-allow-methods": "GET, POST, OPTIONS",
       "access-control-allow-headers": "content-type",
     },
   });
 
 // All the leaderboards at once, from all players (cached a short while)
-let cache: { at: number; boards: Map<BoardId, { key: string; name: string; value: number; games: number }[]> } | null = null;
+interface Row {
+  key: string;
+  name: string;
+  value: number; // see Entry
+  games: number;
+  score: number; // ms: a leaderboard's score; overall: the scores added up (its tie-break)
+  boards: number; // overall: the leaderboards the player is on
+}
+let cache: { at: number; boards: Map<BoardId, Row[]> } | null = null;
+
+export const PETER_NAME = "Peter Pathetic";
+const PETER: Row = { key: "made-up/peter-pathetic", name: PETER_NAME, value: TIME_LIMIT, games: 0, score: TIME_LIMIT, boards: 1 };
 
 async function allBoards(store: KeyValueStore, now: number) {
   if (cache && now - cache.at < CACHE_MS) return cache.boards;
-  const boards = new Map<BoardId, { key: string; name: string; value: number; games: number }[]>();
-  for (const id of [...ALL_BOARDS, "overall" as const]) boards.set(id, []);
+  const boards = new Map<BoardId, Row[]>();
+  for (const id of ALL_BOARDS) boards.set(id, []);
   for (const key of await store.list("players/")) {
     const text = await store.get(key);
     if (!text) continue;
     const player: Player = JSON.parse(text);
-    const stats = statsOf(player.games);
-    let games = 0;
-    for (const [id, s] of Object.entries(stats) as [BoardId, Stats][]) {
-      games += s.games;
-      if (s.games >= MIN_GAMES) boards.get(id)?.push({ key, name: player.name, value: average(s), games: s.games });
+    for (const [id, s] of Object.entries(statsOf(player.games)) as [BoardId, Stats][]) {
+      // (a leaderboard no longer in the game, e.g. a difficulty taken out, isn't shown)
+      boards.get(id)?.push({ key, name: player.name, value: s.score, games: s.games, score: s.score, boards: 1 });
     }
-    const score = overallScore(stats);
-    if (score > 0) boards.get("overall")!.push({ key, name: player.name, value: score, games });
   }
-  for (const [id, list] of boards) {
-    // A leaderboard: the lowest average first (more games first when equal); overall: the highest score
-    list.sort(id === "overall" ? (a, b) => b.value - a.value || b.games - a.games : (a, b) => a.value - b.value || b.games - a.games);
+  // Peter Pathetic, a made-up player on every leaderboard with the worst score there is (and no
+  // games, so a real player with the same score still ranks above him): no leaderboard is empty
+  for (const list of boards.values()) list.push({ ...PETER });
+  // A leaderboard: the lowest score first (more games first when equal)
+  for (const list of boards.values()) list.sort((a, b) => a.value - b.value || b.games - a.games);
+
+  // Overall: first the number of leaderboards a player is on (more is higher: someone on 6
+  // leaderboards is above anyone on 1), then their average place on them (lower is higher), then
+  // their average score on them (faster is higher). Peter comes last, at his
+  // average place on the leaderboards that have real players (1 when there are none): on a
+  // leaderboard nobody played he is first, which mustn't lift him overall.
+  const players = new Map<string, Row & { places: number[] }>();
+  const peterPlaces: number[] = [];
+  for (const list of boards.values()) {
+    list.forEach((row, i) => {
+      if (row.key === PETER.key) {
+        if (list.length > 1) peterPlaces.push(i + 1);
+        return;
+      }
+      const p = players.get(row.key) ?? { ...row, value: 0, games: 0, score: 0, boards: 0, places: [] };
+      p.places.push(i + 1);
+      p.games += row.games;
+      p.score += row.score;
+      p.boards++;
+      players.set(row.key, p);
+    });
   }
+  const mean = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 1);
+  const overall = [...players.values()].map(({ places, ...p }) => ({ ...p, value: mean(places) }));
+  overall.sort((a, b) => b.boards - a.boards || a.value - b.value || a.score / a.boards - b.score / b.boards);
+  overall.push({ ...PETER, value: mean(peterPlaces) });
+  boards.set("overall", overall);
   cache = { at: now, boards };
   return boards;
 }
@@ -147,21 +181,12 @@ export async function handle(request: Request, store: KeyValueStore, now = Date.
         .map((e, i) => ({ rank: i + 1, name: e.name, value: e.value, games: e.games, me: e.key === myKey }));
       const mine = myKey ? list.findIndex((e) => e.key === myKey) : -1;
       const me = mine < 0 ? null : { rank: mine + 1, name: list[mine].name, value: list[mine].value, games: list[mine].games, me: true };
-      return json({ board, entries, me, players: list.length });
+      // (updated: when the leaderboards were last worked out, ms since 1970)
+      return json({ board, entries, me, players: list.length, updated: cache!.at });
     }
 
-    if (request.method === "DELETE" && path === "/player") {
-      const body = await request.json();
-      if (!validId(body?.deviceId)) return json({ error: "bad request" }, 400);
-      await store.delete(await playerKey(body.deviceId));
-      forgetCache();
-      return json({ deleted: true });
-    }
     return json({ error: "not found" }, 404);
   } catch {
     return json({ error: "bad request" }, 400);
   }
 }
-
-// (for the score's name in answers)
-export { boardScore };

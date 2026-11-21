@@ -9,7 +9,8 @@ import { TEST_BUILD } from "../dev";
 import { go } from "../nav";
 import { applySkin } from "../skins";
 import { homeArt } from "./homeArt";
-import { STOPWATCH } from "./ranked";
+import { fetchTopPlayer, knownTopPlayer } from "../ranked/online";
+import { STOPWATCH, showLeaderboard } from "./ranked";
 import { LOCK, coin, difficultyMarks, plural, screen, stageTitle, star } from "./ui";
 
 // The game's title: every letter on a tile of the puzzle, green and gold in turn (`first` is
@@ -32,6 +33,14 @@ const BULB = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a6.5 6.5
 // A completed stage's crown
 const CROWN = `<svg class="crown" viewBox="0 0 24 24" aria-hidden="true">` +
   `<path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z" /></svg>`;
+
+// The leaderboards' button, next to Ranked: a trophy
+const TROPHY = `<svg viewBox="0 0 24 24" aria-hidden="true">` +
+  `<path d="M7 4h10v5a5 5 0 0 1-10 0z" /><path d="M7 6H4.5a2.5 3 0 0 0 3 4M17 6h2.5a2.5 3 0 0 1-3 4" fill="none" stroke-width="1.8" />` +
+  `<path d="M10.5 14h3v3h-3zM8 19.5h8v1.5H8z" /></svg>`;
+
+const escapeText = (text: string) =>
+  text.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
 
 export function homeScreen(rerender: () => void) {
   const total = totalStars();
@@ -87,10 +96,14 @@ export function homeScreen(rerender: () => void) {
       </p>
     </header>
     <ul class="tiers">
-      <li><a class="tier-card ranked-entry" href="#/ranked">
-        <span class="tier-title">${STOPWATCH} Ranked</span>
-        <span class="tier-meta">Random puzzles against the clock, and the leaderboards</span>
-      </a></li>
+      <li class="ranked-row">
+        <a class="tier-card ranked-entry" href="#/ranked">
+          <span class="tier-title">${STOPWATCH} Ranked</span>
+          <span class="top-player"${knownTopPlayer() ? "" : " hidden"}>#1
+            <span class="top-name">${escapeText(knownTopPlayer() ?? "")}</span></span>
+        </a>
+        <a class="leaderboard-button" href="#/ranked/leaderboard" aria-label="Leaderboards">${TROPHY}</a>
+      </li>
       ${cards}
     </ul>
     <footer class="home-footer">
@@ -154,6 +167,17 @@ export function homeScreen(rerender: () => void) {
     applySkin(activeLook()); // back to the start's look (Classic, the square)
     rerender();
   });
+
+  // The gold button opens Top Ranked Players
+  element.querySelector(".leaderboard-button")!.addEventListener("click", () => showLeaderboard("overall"));
+
+  // The world's #1, on the Ranked card (the last one known shows at once; offline it stays)
+  const topPlayer = element.querySelector<HTMLElement>(".top-player")!;
+  fetchTopPlayer().then((name) => {
+    if (!element.isConnected) return;
+    topPlayer.hidden = !name;
+    topPlayer.querySelector(".top-name")!.textContent = name ?? "";
+  }, () => {});
   return element;
 }
 

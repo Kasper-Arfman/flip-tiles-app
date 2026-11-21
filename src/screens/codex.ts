@@ -1,5 +1,5 @@
 // The Codex: every completed stage earns an entry. The player makes a pattern on a solved board with
-// at most as many forces as the stage's place in the game (Alpha 1, Beta 2, Gamma 3, ...), presses
+// at most a stage's number of forces (Alpha 1, the last three stages 3, the others 2), presses
 // Discover, and from then on can see the flips-only solution of that pattern, here and in a popup
 // while solving a level. Only a stage completed earns one; coins only clear them again.
 //
