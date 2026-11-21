@@ -21,9 +21,10 @@ const keyOf = (board: string) => {
   }
   return Array.from({ length: 5 }, (_, r) => Array.from({ length: 5 }, (_, c) => (best >>> (r * 5 + c)) & 1).join("")).join(" ");
 };
-const TIERS: { difficulty: number; levels: { board: string; key: string }[] }[] =
-  JSON.parse(readFileSync("src/levels/levels.json", "utf8")).tiers.map((t: { difficulty: number; levels: { board: string }[] }) =>
-    ({ difficulty: t.difficulty, levels: t.levels.map((l) => ({ board: l.board, key: keyOf(l.board) })) }));
+type JsonLevel = { board: string; minMoves: number };
+const TIERS: { difficulty: number; levels: (JsonLevel & { key: string })[] }[] =
+  JSON.parse(readFileSync("src/levels/levels.json", "utf8")).tiers.map((t: { difficulty: number; levels: JsonLevel[] }) =>
+    ({ difficulty: t.difficulty, levels: t.levels.map((l) => ({ ...l, key: keyOf(l.board) })) }));
 
 const errors = new WeakMap<Page, string[]>();
 test.beforeEach(async ({ page }) => {
@@ -75,23 +76,44 @@ async function play(page: Page, mode: "moves" | "flips", difficulty: number) {
   await expect(page.locator(".ranked-play .tile").first()).toBeVisible();
 }
 
-test("a difficulty is locked until its stage has every star of the mode", async ({ page }) => {
-  // Every star except one level of Epsilon (5) lacking its fewest-moves star: Fewest moves 5
-  // locked, 4 open
+test("a difficulty is locked until its levels have the mode's star; the popup says which", async ({ page }) => {
+  // Every star except: one 4-move level of Epsilon (5) without its fewest-moves star, and one
+  // level of Zeta (6) without its flips-only star
   const stars = Object.fromEntries(TIERS.flatMap((t) => t.levels).map((l) => [l.key, 7]));
-  stars[TIERS.find((t) => t.difficulty === 5)!.levels[0].key] = 3;
+  const epsilon = TIERS.find((t) => t.difficulty === 5)!.levels.find((l) => l.minMoves === 4)!;
+  stars[epsilon.key] = 3;
+  stars[TIERS.find((t) => t.difficulty === 6)!.levels[0].key] = 5;
   await page.evaluate((stars) => localStorage.setItem("CapacitorStorage.progress-v1", JSON.stringify(stars)), stars);
   await page.goto("about:blank");
   await page.goto("./#/ranked");
-  await expect(page.locator('[data-difficulty="4"]')).toBeEnabled();
+  // Flips only comes first, and is the default
+  await expect(page.locator(".shop-tab").first()).toHaveText("Flips only");
+  await expect(page.locator('[data-mode="flips"]')).toHaveAttribute("aria-selected", "true");
   await expect(page.locator(".difficulty-picker .locked")).toHaveCount(1);
-  await expect(page.locator(".difficulty-picker .locked")).toHaveAttribute("aria-label", /Epsilon/);
+  await expect(page.locator('[data-locked="6"]')).toBeVisible();
+  await page.locator('[data-mode="moves"]').click();
+  // Fewest moves 4: locked by the 4-move group of Epsilon; 5 open
+  await expect(page.locator('[data-difficulty="5"]')).toBeEnabled();
+  await expect(page.locator(".difficulty-picker .locked")).toHaveCount(1);
+  await page.locator('[data-locked="4"]').click();
+  const popup = page.locator(".unlock-dialog");
+  await expect(popup).toBeVisible();
+  await expect(popup.locator("li:not(.complete)")).toHaveCount(1);
+  await expect(popup.locator("li:not(.complete)")).toContainText("Epsilon · 4 moves");
+  // The link: to that group on Epsilon's screen
+  await popup.locator("li:not(.complete) a").click();
+  await expect(page).toHaveURL(/#\/tier\/5$/);
+  await expect(page.locator(".unlock-dialog")).toHaveCount(0);
+  // ... scrolled to and flashing: the 4-move levels, not the others
+  await expect(page.locator('li[data-moves="4"] .level-tile.flash').first()).toBeVisible();
+  await expect(page.locator('li[data-moves="3"] .level-tile.flash')).toHaveCount(0);
+  await expect(page.locator('.grade-label[data-moves="4"]')).toBeInViewport();
   // A new player: everything locked, Play too
   await page.evaluate(() => localStorage.removeItem("CapacitorStorage.progress-v1"));
   await page.goto("about:blank");
   await page.goto("./#/ranked");
   await expect(page.locator(".play-ranked")).toBeDisabled();
-  await expect(page.locator(".ranked-screen")).toContainText("Earn every fewest-moves star of stage Delta");
+  await expect(page.locator(".ranked-screen")).toContainText("Tap a locked difficulty to see which stars open it.");
 });
 
 test("a game won in the right number of moves", async ({ page }) => {
@@ -116,7 +138,7 @@ test("a game won in the right number of moves", async ({ page }) => {
   await expect(page.locator(".ranked-stats")).toContainText("1"); // (one game in the record)
 });
 
-test("a solve with too many flips doesn't count before 4:00", async ({ page }) => {
+test("a solve with too many flips doesn't count", async ({ page }) => {
   await play(page, "flips", 4);
   const { active } = await saved(page);
   const best = solveFlips(active.board)!;
@@ -132,7 +154,7 @@ test("a solve with too many flips doesn't count before 4:00", async ({ page }) =
   await expect(page.locator(".ranked-result")).toBeVisible();
 });
 
-test("after 4:00 a solve with more flips counts; at 5:00 the time is up", async ({ page }) => {
+test("a longer solve never counts; hints from 3:00, one more every 30s; at 5:00 the time is up", async ({ page }) => {
   await page.clock.install(); // (the page's clock, to fast-forward)
   await page.goto("about:blank");
   await page.goto("./#/");
@@ -146,25 +168,25 @@ test("after 4:00 a solve with more flips counts; at 5:00 the time is up", async 
     await page.locator(`.ranked-play .tile[data-tile="${k}"]`).click();
     await page.clock.runFor(500); // (the board's own animations run on timers too)
   }
-  // Solved, with too many flips before 4:00: not a win, and no Solved! (the board just shows it)
+  // Solved, with too many flips: not a win, and no Solved! (the board just shows it)
   await expect(page.locator(".ranked-play")).toHaveClass(/too-many/);
   await expect(page.locator(".ranked-play .flip-tiles")).not.toHaveClass(/is-solved/);
   await expect(page.locator(".ranked-result")).toBeHidden();
-  // At 4:00 the same solve on the board counts
-  await page.clock.runFor(4 * 60_000);
-  await page.clock.runFor(2000); // (the result shows after the board's Solved! animation)
-  await expect(page.locator(".ranked-play .flip-tiles")).toHaveClass(/is-solved/);
-  await expect(page.locator(".ranked-result")).toBeVisible();
-  expect((await saved(page)).games[0]).toMatchObject({ won: true, moves: longer });
-
-  // A second game: wait out the clock
-  await page.locator(".ranked-again").click();
-  await page.clock.runFor(4 * 60_000 + 1000);
-  await expect(page.locator(".ranked-phase")).toContainText("More flips allowed");
-  await page.clock.runFor(60_000);
+  const marks = page.locator(".ranked-play .tile.flip");
+  await expect(marks).toHaveCount(0);
+  // At 3:00 the first hint; the longer solve still doesn't count
+  await page.clock.runFor(3 * 60_000);
+  await expect(marks).toHaveCount(1);
+  await expect(page.locator(".ranked-phase")).toContainText("1 hint");
+  await expect(page.locator(".ranked-result")).toBeHidden();
+  // 30 seconds later: two
+  await page.clock.runFor(30_000);
+  await expect(marks).toHaveCount(2);
+  // At 5:00 the time is up
+  await page.clock.runFor(90_000);
   await expect(page.locator(".ranked-result .result-title")).toHaveText("Time's up");
   const after = await saved(page);
-  expect(after.games.map((g: { won: boolean; time: number }) => [g.won, g.time])).toEqual([[true, after.games[0].time], [false, 300_000]]);
+  expect(after.games.map((g: { won: boolean; time: number }) => [g.won, g.time])).toEqual([[false, 300_000]]);
 });
 
 test("leaving a game asks first, and then counts as a loss", async ({ page }) => {
@@ -216,7 +238,51 @@ test("the leaderboards: join, and see yourself", async ({ page }) => {
   // (joining sends the games, then fetches the leaderboard: slower when all tests run at once)
   await expect(page.locator(".leaderboard-list li.me")).toContainText("Kasper (you)", { timeout: 10_000 });
   expect(sent).toHaveLength(1);
-  expect(sent[0]).toMatchObject({ name: "Kasper", games: [{ won: false }] });
+  expect(sent[0]).toMatchObject({ name: "Kasper", games: [{ won: false }], scores: { "moves-4": 300_000 } });
+});
+
+test("a leaderboard in pages of 10, your position under it, and Around me", async ({ page }) => {
+  // A joined player at place 40 of 60 (the server answered by the test, by offset and limit)
+  await page.evaluate(() => localStorage.setItem("CapacitorStorage.ranked-v1", JSON.stringify({
+    deviceId: "test-device-0001", name: "Kasper", joined: true, games: [], uploaded: [], refused: [], active: null,
+    choice: { mode: "flips", difficulty: 4 }, cutOff: 0,
+  })));
+  const all = Array.from({ length: 60 }, (_, i) => ({ rank: i + 1, name: i === 39 ? "Kasper" : `P${i + 1}`, value: 10_000 + i * 1000, games: 5, me: i === 39 }));
+  await page.route("**/api/ranked/leaderboard*", (route) => {
+    const url = new URL(route.request().url());
+    const offset = Number(url.searchParams.get("offset") ?? 0);
+    const limit = Number(url.searchParams.get("limit") ?? 100);
+    return route.fulfill({ json: { board: url.searchParams.get("board"), players: 60, me: all[39], entries: all.slice(offset, offset + limit) } });
+  });
+  await page.goto("about:blank");
+  await page.goto("./#/ranked");
+  // The name: on the Ranked screen
+  await expect(page.locator(".welcome")).toContainText("Welcome Kasper");
+  await page.locator(".leaderboards-link").click();
+  const rows = page.locator(".leaderboard-list:not(.mine) li");
+  await expect(rows).toHaveCount(10);
+  await expect(page.locator(".page-range")).toHaveText("1–10 of 60");
+  await expect(page.locator(".page-prev")).toBeDisabled();
+  await expect(page.locator(".leaderboard-list.mine li")).toContainText("Kasper (you)");
+  await expect(page.locator(".leaderboard-list.mine .rank")).toHaveText("40");
+  await page.locator(".page-next").click();
+  await expect(page.locator(".page-range")).toHaveText("11–20 of 60");
+  // Around me: place 40 in the middle (35–44), and no extra row of yours under it
+  await page.locator(".page-me").click();
+  await expect(page.locator(".page-range")).toHaveText("35–44 of 60");
+  await expect(rows.nth(5)).toHaveClass(/me/);
+  await expect(page.locator(".leaderboard-list.mine")).toHaveCount(0);
+  await page.locator(".page-next").click();
+  await page.locator(".page-next").click();
+  await expect(page.locator(".page-range")).toHaveText("55–60 of 60");
+  await expect(page.locator(".page-next")).toBeDisabled();
+  await page.locator(".page-top").click();
+  await expect(page.locator(".page-range")).toHaveText("1–10 of 60");
+  // The #1: a crown right before the name, which stays in line with the others
+  await expect(rows.first()).toHaveClass(/first/);
+  await expect(rows.first().locator(".first-crown")).toHaveCount(1);
+  const x = async (i: number) => (await rows.nth(i).locator(".name").boundingBox())!.x;
+  expect(await x(0)).toBe(await x(1));
 });
 
 test("the leaderboards offline: a message, and the game still plays", async ({ page, context }) => {
@@ -276,6 +342,35 @@ test("the lobby's Leaderboards link opens the leaderboard of the mode and diffic
   await page.locator('[data-difficulty="6"]').click();
   await page.locator(".leaderboards-link").click();
   await expect(page.locator(".board-choice select")).toHaveValue("flips-6");
+});
+
+test("a very hard flips-only level asks first, once its fewest-moves star is earned", async ({ page }) => {
+  // Alpha's hardest flips-only level (more flips than the stage's number): only its
+  // fewest-moves star (1 + 4)
+  const alpha = TIERS.find((t) => t.difficulty === 1)!;
+  const json = JSON.parse(readFileSync("src/levels/levels.json", "utf8")).tiers[0].levels as { minFlips: number }[];
+  const i = json.findIndex((l) => l.minFlips > 1);
+  const stars = Object.fromEntries(TIERS.flatMap((t) => t.levels).map((l) => [l.key, 7]));
+  stars[alpha.levels[i].key] = 5;
+  await page.evaluate((stars) => localStorage.setItem("CapacitorStorage.progress-v1", JSON.stringify(stars)), stars);
+  await page.goto("about:blank");
+  await page.goto("./#/tier/1");
+  const tile = page.locator(".level-tile").nth(i);
+  // Practice first: back home
+  await tile.click();
+  await expect(page.locator(".flips-warning")).toContainText(/the flips-only solution is very hard/i);
+  await page.locator(".flips-warning .practice").click();
+  await expect(page).toHaveURL(/#\/$/);
+  // Yes: the level
+  await page.goto("./#/tier/1");
+  await page.locator(".level-tile").nth(i).click();
+  await page.locator(".flips-warning .play-anyway").click();
+  await expect(page).toHaveURL(new RegExp(`#/level/1/${i + 1}$`));
+  // A level without the warning opens at once
+  await page.goto("./#/tier/1");
+  await page.locator(".level-tile").nth(i === 0 ? 1 : 0).click();
+  await expect(page).toHaveURL(/#\/level\/1\/\d$/);
+  await expect(page.locator(".flips-warning")).toHaveCount(0);
 });
 
 test("a tier's groups of levels show their number of moves along their side", async ({ page }) => {

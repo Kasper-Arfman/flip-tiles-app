@@ -5,7 +5,7 @@ import { PETER_NAME, cleanName, forgetCache, handle, type KeyValueStore } from "
 import { storeName } from "../netlify/functions/ranked.mts";
 import { solveFlips } from "../src/game/flipTiles";
 import { fewestForcesSolution, makePuzzle, type RankedMode } from "../src/ranked/puzzles";
-import { FORCE, SCORE_WEIGHT, TIME_LIMIT, type GameRecord } from "../src/ranked/rules";
+import { FORCE, SCORE_UPDATE_RATE, TIME_LIMIT, type GameRecord } from "../src/ranked/rules";
 
 const MANY = 5; // games per player in most tests
 
@@ -62,6 +62,16 @@ describe("the leaderboard server", () => {
     expect(stored.games.length).toBe(1);
   });
 
+  it("shows a player once, even with stray copies in the storage (the local test server's)", async () => {
+    await post(store, { deviceId: "device-once", name: "Una", games: games(2, "flips", 4, 20_000) });
+    const [key, value] = [...store.data.entries()][0];
+    store.data.set("players/.fs22mc69v2n", value); // (a half-written copy, as on Windows)
+    forgetCache();
+    const lb = await board(store, "flips-4");
+    expect(key).toMatch(/^players\/[0-9a-f]{64}$/);
+    expect(lb.entries.map((e: { name: string }) => e.name)).toEqual(["Una", PETER_NAME]);
+  });
+
   it("ranks by score from the first game; one great game doesn't beat many good ones; same names are fine", async () => {
     await post(store, { deviceId: "device-slow", name: "Sam", games: games(20, "moves", 4, 90_000) });
     await post(store, { deviceId: "device-fast", name: "Sam", games: games(20, "moves", 4, 30_000) });
@@ -73,13 +83,27 @@ describe("the leaderboard server", () => {
     expect(lb.players).toBe(4);
   });
 
-  it("the score starts at 5:00 and moves 1/15 towards each game; a loss counts as 5:00", async () => {
+  it("gives a page of a leaderboard: offset and limit, with the right places", async () => {
+    await post(store, { deviceId: "device-slow", name: "Sam", games: games(3, "moves", 4, 90_000) });
+    await post(store, { deviceId: "device-fast", name: "Ann", games: games(3, "moves", 4, 30_000) });
+    await post(store, { deviceId: "device-mid1", name: "Bo", games: games(3, "moves", 4, 60_000) });
+    const page = await handle(new Request(`${URL_BASE}/leaderboard?board=moves-4&offset=1&limit=2&deviceId=device-fast`), store)
+      .then((r) => r.json());
+    expect(page.entries.map((e: { rank: number; name: string }) => [e.rank, e.name])).toEqual([[2, "Bo"], [3, "Sam"]]);
+    expect(page.me).toMatchObject({ rank: 1, name: "Ann" }); // (your place, also when not on the page)
+    expect(page.players).toBe(4);
+    // (nonsense is cut to what makes sense; without them: the top 100)
+    const odd = await handle(new Request(`${URL_BASE}/leaderboard?board=moves-4&offset=-5&limit=9999`), store).then((r) => r.json());
+    expect(odd.entries).toHaveLength(4);
+  });
+
+  it("the score starts at 5:00 and moves 1/10 towards each game; a loss (at this score) counts as 5:00", async () => {
     // (in the order played: the times as sent)
     const list = [game("flips", 4, 60_000), game("flips", 4, 0, false), game("flips", 4, 120_000)];
     list.forEach((g, i) => (g.playedAt = Date.now() - 1000 * (3 - i)));
     await post(store, { deviceId: "device-loss", name: "Lou", games: list });
     let expected = TIME_LIMIT;
-    for (const t of [60_000, TIME_LIMIT, 120_000]) expected = (1 - SCORE_WEIGHT) * expected + SCORE_WEIGHT * t;
+    for (const t of [60_000, TIME_LIMIT, 120_000]) expected = (1 - SCORE_UPDATE_RATE) * expected + SCORE_UPDATE_RATE * t;
     expect((await board(store, "flips-4")).entries[0].value).toBeCloseTo(expected, 6);
   });
 
@@ -137,6 +161,24 @@ describe("the leaderboard server", () => {
     }
     await post(store, { deviceId: "device-loser", name: "Lou", games: [game("moves", 4, 0, false)] });
     expect((await board(store, "moves-4")).entries.map((e: { name: string }) => e.name)).toEqual(["Lou", PETER_NAME]);
+  });
+
+  it("shows the score the player's app reports, on leaderboards where it has their games", async () => {
+    await post(store, { deviceId: "device-own", name: "Own", games: games(3, "moves", 4, 60_000), scores: { "moves-4": 204_000 } });
+    expect((await board(store, "moves-4")).entries[0]).toMatchObject({ name: "Own", value: 204_000, games: 3 });
+    // A later send with only scores (no new games) updates it
+    await post(store, { deviceId: "device-own", name: "Own", games: [], scores: { "moves-4": 199_000 } });
+    forgetCache();
+    expect((await board(store, "moves-4")).entries[0].value).toBe(199_000);
+  });
+
+  it("ignores a reported score without games there, or that isn't a time from 0:00 to 5:00", async () => {
+    await post(store, { deviceId: "device-odd", name: "Odd", games: games(2, "moves", 4, 60_000),
+      scores: { "flips-9": 1_000, "moves-4": -5, "nonsense": 7 } });
+    const own = (await board(store, "moves-4")).entries[0];
+    expect(own.name).toBe("Odd");
+    expect(own.value).toBeGreaterThan(0); // (worked out from the games: the -5 is ignored)
+    expect((await board(store, "flips-9")).entries.map((e: { name: string }) => e.name)).toEqual([PETER_NAME]);
   });
 
   it("says when the leaderboards were last worked out", async () => {

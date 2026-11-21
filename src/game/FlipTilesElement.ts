@@ -176,6 +176,8 @@ class FlipTiles extends HTMLElement implements FlipTilesControls {
       state = apply(state, move);
       record(move);
       draw(k);
+      // (for the app's sounds: a tile was pressed, see sound.ts)
+      this.dispatchEvent(new CustomEvent("flip-tiles-press", { detail: move, bubbles: true }));
       return true;
     };
 

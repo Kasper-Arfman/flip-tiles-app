@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host",
+    "serve": "npx --yes netlify-cli dev",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host",
     "test": "vitest run",
@@ -12,6 +13,7 @@
     "test:e2e": "playwright test",
     "check": "tsc --noEmit && vitest run && playwright test",
     "curate": "node scripts/curate-levels.mjs",
+    "seed": "node scripts/seed-leaderboard.mjs",
     "icons": "node scripts/make-icons.mjs",
     "sync": "node scripts/sync-version.mjs && npm run build && cap sync",
     "android": "npm run sync && cap open android",

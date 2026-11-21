@@ -231,6 +231,15 @@ export function giveTestCoins(amount: number) {
   write(KEYS.wallet, wallet);
 }
 
+// Test builds and developing only: every star of every level, and the tutorial done (every stage
+// and ranked difficulty opens; stage rewards are paid on the home screen as usual)
+export function giveAllStars() {
+  for (const level of TIERS.flatMap((t) => t.levels)) stars[level.key] = ALL_STARS;
+  tutorialDone = true;
+  write(KEYS.stars, stars);
+  write(KEYS.tutorial, true);
+}
+
 // A short account of what is saved
 export const saveSummary = () => ({
   coins: wallet.coins,

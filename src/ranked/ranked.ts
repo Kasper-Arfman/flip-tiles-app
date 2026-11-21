@@ -42,7 +42,7 @@ const randomId = () =>
 
 const fresh = (): Saved => ({
   deviceId: randomId(), name: "", joined: false, games: [], uploaded: [], refused: [], active: null,
-  choice: { mode: "moves", difficulty: 4 }, cutOff: 0,
+  choice: { mode: "flips", difficulty: 4 }, cutOff: 0,
 });
 let saved = fresh();
 // The steady clock at the moment the active game started in this run of the app

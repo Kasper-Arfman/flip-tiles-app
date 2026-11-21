@@ -18,6 +18,8 @@ import { rankedLeaderboard, rankedLobby, rankedPlay } from "./screens/ranked";
 import { shopScreen } from "./screens/shop";
 import { tierScreen } from "./screens/tier";
 import { applySkin } from "./skins";
+import { loadSound, sound, tapSounds } from "./sound";
+import type { Move } from "./game/flipTiles";
 
 const app = document.querySelector<HTMLElement>("#app")!;
 
@@ -78,6 +80,13 @@ app.addEventListener("click", (e) => {
 
 onNavigate(render);
 
+// Sounds (sound.ts): a soft tap for every button, a tock for every tile pressed
+tapSounds();
+document.addEventListener("flip-tiles-press", (e) => {
+  if ((e as CustomEvent<Move>).detail.kind === "force") sound.force();
+  else sound.flip();
+});
+
 // Offline play on the web: the service worker saves the app's files on the device (see sw.js).
 // Not in the native apps (their files are on the device already), nor while developing (npm run
 // dev: there would be no list of files to save).
@@ -86,7 +95,7 @@ if ("serviceWorker" in navigator && !Capacitor.isNativePlatform() && import.meta
 }
 
 // The log first (it catches errors from here on), then what the player has
-startLog().then(loadProgress).then(loadRanked).then(() => {
+startLog().then(loadProgress).then(loadRanked).then(loadSound).then(() => {
   log("info", `Started: version ${__APP_VERSION__} (${__BUILD__}), ${Capacitor.getPlatform()}`);
   applySkin(activeLook());
   render();

@@ -196,10 +196,15 @@ describe("ranked difficulties", () => {
     expect(isDifficultyOpen("flips", 4)).toBe(false);
     app.award(delta.levels[0], app.STAR_SOLVED | app.STAR_FLIPS);
     expect(isDifficultyOpen("flips", 4)).toBe(true);
+    expect(isDifficultyOpen("flips", 5)).toBe(false);
+    // Fewest moves 4: every 4-move level of every stage (Delta's, Epsilon's, ...), nothing else
     expect(isDifficultyOpen("moves", 4)).toBe(false); // (no fewest-moves stars yet)
     for (const level of delta.levels) app.award(level, app.STAR_MOVES);
+    expect(isDifficultyOpen("moves", 4)).toBe(false); // (the 4-move levels of later stages too)
+    const fourMoves = app.TIERS.flatMap((t) => t.levels).filter((l) => l.minMoves === 4);
+    for (const level of fourMoves) app.award(level, app.STAR_MOVES);
     expect(isDifficultyOpen("moves", 4)).toBe(true);
-    expect(isDifficultyOpen("flips", 5)).toBe(false);
+    expect(isDifficultyOpen("moves", 5)).toBe(false);
   });
 });
 

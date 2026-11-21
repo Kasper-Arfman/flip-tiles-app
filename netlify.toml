@@ -6,3 +6,12 @@
 
 [functions]
   directory = "netlify/functions"
+
+# `npm run serve` (netlify dev): the whole site on this computer, at http://localhost:8888: the
+# game (Vite's dev server, with live reload) and the leaderboards' function, with a local data
+# store of its own. Nothing is uploaded and no Netlify credits are used.
+[dev]
+  command = "npm run dev"
+  targetPort = 5173
+  port = 8888
+  framework = "#custom"

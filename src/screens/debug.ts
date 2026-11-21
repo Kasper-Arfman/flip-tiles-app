@@ -7,12 +7,12 @@
 //   Store        whether the App Store / Google Play answered, and the coin pack's price
 //   Checks       every level solved by its stored solutions, and saving and reading back
 //   Log          the last errors and events (see log.ts); Copy log
-//   Test tools   (test builds) +100 coins, load a save
+//   Test tools   (test builds, and while developing) +100 coins, every star, load a save
 import { Capacitor } from "@capacitor/core";
 import { Preferences } from "@capacitor/preferences";
 import { DEV_MODE, TEST_BUILD } from "../dev";
 import { clearLog, log, logText } from "../log";
-import { activeLook, exportSave, giveTestCoins, importSave, saveSummary } from "../progress";
+import { activeLook, exportSave, giveAllStars, giveTestCoins, importSave, saveSummary } from "../progress";
 import { storeStatus } from "../purchases";
 import { checkLevels } from "../selfCheck";
 import { applySkin } from "../skins";
@@ -38,6 +38,10 @@ async function copy(text: string, fallback: HTMLTextAreaElement) {
     return false;
   }
 }
+
+// The test tools: in a test build, and always while developing (npm run dev / npm run serve;
+// never in a build for players)
+const TOOLS = TEST_BUILD || import.meta.env.DEV;
 
 export function debugScreen(rerender: () => void) {
   const store = storeStatus();
@@ -75,8 +79,9 @@ export function debugScreen(rerender: () => void) {
         <button type="button" class="copy-log">Copy log</button>
         <button type="button" class="clear-log">Clear log</button></section>
 
-      ${TEST_BUILD ? `<section><h2>Test tools</h2>
+      ${TOOLS ? `<section><h2>Test tools</h2>
         <button type="button" class="add-coins">+100 coins</button>
+        <button type="button" class="all-stars">Every star</button>
         <p>Load a save (from Copy save): paste it here. It replaces everything saved now.</p>
         <textarea class="save-input" rows="4" spellcheck="false"></textarea>
         <button type="button" class="load-save">Load save</button></section>` : ""}
@@ -122,10 +127,16 @@ export function debugScreen(rerender: () => void) {
     log(problems.length ? "error" : "info", `Checks: ${problems.length ? problems.join("; ") : "all good"}`);
   });
 
-  if (TEST_BUILD) {
+  if (TOOLS) {
     $(".add-coins")!.addEventListener("click", () => {
       giveTestCoins(100);
       log("info", "Test tools: 100 coins added");
+      rerender();
+    });
+    $(".all-stars")!.addEventListener("click", () => {
+      if (!confirm("Give every star of every level (every stage and ranked difficulty opens)?")) return;
+      giveAllStars();
+      log("info", "Test tools: every star given");
       rerender();
     });
     $(".load-save")!.addEventListener("click", async () => {

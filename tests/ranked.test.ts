@@ -2,9 +2,12 @@
 // closing the app). The server: leaderboard.test.ts.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MASKS, solveFlips, solveMoves } from "../src/game/flipTiles";
-import { DIFFICULTIES, fewestForces, fewestForcesSolution, makePuzzle, type RankedMode } from "../src/ranked/puzzles";
 import {
-  FORCE, RELAXED_AFTER, SCORE_WEIGHT, TIME_LIMIT, acceptsSolve, checkGame, formatTime, statsOf,
+  DIFFICULTIES, fewestForces, fewestForcesSolution, hintSolution, makePuzzle, type RankedMode,
+} from "../src/ranked/puzzles";
+import {
+  FORCE, HINT_AFTER, HINT_EVERY, RECOVER_GAMES, SCORE_UPDATE_RATE, hintsAt, TIME_LIMIT, acceptsSolve, checkGame, formatScore, formatTime,
+  lossPenalty, statsOf,
   type GameRecord,
 } from "../src/ranked/rules";
 import { readSaved, saved } from "./helpers";
@@ -53,10 +56,10 @@ describe("the rules", () => {
   it("a solve in exactly the difficulty counts; one that doesn't solve the board never does", () => {
     expect(acceptsSolve(puzzle, [0, 6, 18], 10_000)).toBe(true);
     expect(acceptsSolve(puzzle, [0, 6], 10_000)).toBe(false);
-    expect(acceptsSolve(puzzle, [0, 6], RELAXED_AFTER + 1)).toBe(false);
+    expect(acceptsSolve(puzzle, [0, 6], HINT_AFTER + 1)).toBe(false);
   });
 
-  it("moves mode: a longer solve counts only after 4:00, and never with more forces than given", () => {
+  it("moves mode: a longer solve never counts, nor one with more forces than given", () => {
     const p = makePuzzle("moves", 4, random(3));
     const best = solutionOf(p.board, "moves");
     expect(acceptsSolve(p, best, 1000)).toBe(true);
@@ -66,15 +69,14 @@ describe("the rules", () => {
       const crossForces = [...Array(25).keys()].filter((k) => (MASKS[flip] >>> k) & 1).map((k) => k + FORCE);
       const longer = [...best.filter((m) => m !== flip), ...crossForces];
       const roomy = { ...p, maxForces: 25 };
-      expect(acceptsSolve(roomy, longer, RELAXED_AFTER - 1)).toBe(false);
-      expect(acceptsSolve(roomy, longer, RELAXED_AFTER)).toBe(true);
-      expect(acceptsSolve(p, longer, RELAXED_AFTER)).toBe(longer.filter((m) => m & FORCE).length <= p.maxForces);
+      expect(acceptsSolve(roomy, longer, 1000)).toBe(false);
+      expect(acceptsSolve(roomy, longer, TIME_LIMIT - 1)).toBe(false);
     }
     expect(acceptsSolve({ ...puzzle, mode: "flips" }, [0 + FORCE, 6, 18], 1000)).toBe(false);
     expect(acceptsSolve(puzzle, [0, 6, 18], TIME_LIMIT)).toBe(false); // (time's up)
   });
 
-  it("a flips puzzle solved with more flips counts only after 4:00", () => {
+  it("a flips puzzle solved with more flips never counts", () => {
     // Board: flips 0, 6 and 18. Another solution: the same three, plus a set of flips that
     // changes nothing (5x5 has such "quiet" sets): find one with the solver
     const quietFirstRow = [...Array(32).keys()].find((first) => {
@@ -94,21 +96,71 @@ describe("the rules", () => {
     // The three flips, toggled by the quiet set: a different solution, with more flips
     const moves = [0, 6, 18, ...quiet].filter((k, _, all) => all.indexOf(k) === all.lastIndexOf(k));
     expect(moves.length).toBeGreaterThan(3);
-    expect(acceptsSolve(puzzle, moves, RELAXED_AFTER - 1)).toBe(false);
-    expect(acceptsSolve(puzzle, moves, RELAXED_AFTER + 1)).toBe(true);
+    expect(acceptsSolve(puzzle, moves, 1000)).toBe(false);
+    expect(acceptsSolve(puzzle, moves, TIME_LIMIT - 1)).toBe(false);
   });
 
-  it("the score: from 5:00, 1/15 of the way to each game (a loss: 5:00), newest last; times in m:ss", () => {
+  it("hints: none before 3:00, then one more every 30 seconds, never more than the solution", () => {
+    expect(hintsAt(HINT_AFTER - 1, 6)).toBe(0);
+    expect(hintsAt(HINT_AFTER, 6)).toBe(1);
+    expect(hintsAt(HINT_AFTER + HINT_EVERY - 1, 6)).toBe(1);
+    expect(hintsAt(HINT_AFTER + HINT_EVERY, 6)).toBe(2);
+    expect(hintsAt(TIME_LIMIT - 1, 6)).toBe(4); // (3:00, 3:30, 4:00, 4:30)
+    expect(hintsAt(TIME_LIMIT - 1, 2)).toBe(2);
+    // The hints are a real solution of the puzzle, of its number of moves, within its forces
+    for (const mode of ["flips", "moves"] as RankedMode[]) {
+      const p = makePuzzle(mode, 6, random(11));
+      const hints = hintSolution(p);
+      const encoded = hints.map((m) => m.tile + (m.kind === "force" ? FORCE : 0));
+      expect(hints.length).toBe(6);
+      expect(acceptsSolve(p, encoded, 1000)).toBe(true);
+    }
+  });
+
+  it("a loss costs what RECOVER_GAMES games in half the score make up for, at most 5:00", () => {
+    for (const s of [4_000, 10_000, 25_000]) {
+      const f = lossPenalty(s);
+      expect(f).toBeLessThan(TIME_LIMIT);
+      // One loss, then RECOVER_GAMES games in s/2: back at s
+      let score = (1 - SCORE_UPDATE_RATE) * s + SCORE_UPDATE_RATE * f;
+      for (let i = 0; i < RECOVER_GAMES; i++) score = (1 - SCORE_UPDATE_RATE) * score + SCORE_UPDATE_RATE * (s / 2);
+      expect(score).toBeCloseTo(s, 6);
+    }
+    expect(lossPenalty(120_000)).toBe(TIME_LIMIT);
+    expect(lossPenalty(TIME_LIMIT)).toBe(TIME_LIMIT);
+  });
+
+  it("a fast player's loss counts as the penalty, and a slower win no worse than that", () => {
+    const g = (time: number, won: boolean, playedAt: number): GameRecord =>
+      ({ id: `g${playedAt}`, mode: "moves", difficulty: 4, board: 1, moves: [], time, won, playedAt });
+    // Many 4-second games: a score near 0:04
+    const fast = Array.from({ length: 200 }, (_, i) => g(4_000, true, i));
+    const s = statsOf(fast)["moves-4"]!.score;
+    const lost = statsOf([...fast, g(TIME_LIMIT, false, 1000)])["moves-4"]!.score;
+    expect(lost).toBeCloseTo((1 - SCORE_UPDATE_RATE) * s + SCORE_UPDATE_RATE * lossPenalty(s), 6);
+    const slowWin = statsOf([...fast, g(TIME_LIMIT - 1, true, 1000)])["moves-4"]!.score;
+    expect(slowWin).toBeCloseTo(lost, 6);
+  });
+
+  it("the score: from 5:00, 1/10 of the way to each game (a loss: 5:00), newest last; times in m:ss", () => {
     const g = (time: number, won: boolean): GameRecord =>
       ({ id: `g${Math.random()}`, mode: "moves", difficulty: 4, board: 1, moves: [], time, won, playedAt: 0 });
     const first = { ...g(60_000, true), playedAt: 1 };
     const second = { ...g(0, false), playedAt: 2 };
     const stats = statsOf([second, first]); // (out of order: sorted by when played)
-    const afterFirst = (1 - SCORE_WEIGHT) * TIME_LIMIT + SCORE_WEIGHT * 60_000;
-    expect(stats["moves-4"]!.score).toBeCloseTo((1 - SCORE_WEIGHT) * afterFirst + SCORE_WEIGHT * TIME_LIMIT, 6);
+    const afterFirst = (1 - SCORE_UPDATE_RATE) * TIME_LIMIT + SCORE_UPDATE_RATE * 60_000;
+    expect(stats["moves-4"]!.score).toBeCloseTo((1 - SCORE_UPDATE_RATE) * afterFirst + SCORE_UPDATE_RATE * TIME_LIMIT, 6);
     expect(stats["moves-4"]).toMatchObject({ games: 2, wins: 1 });
     expect(formatTime(67_400)).toBe("1:07");
     expect(formatTime(TIME_LIMIT)).toBe("5:00");
+    // A score: under 10 seconds with hundredths, under a minute with tenths (cut off, not rounded up)
+    expect(formatScore(59_990)).toBe("59.9");
+    expect(formatScore(10_000)).toBe("10.0");
+    expect(formatScore(9_999)).toBe("9.99");
+    expect(formatScore(4_690)).toBe("4.69");
+    expect(formatScore(4_230)).toBe("4.23");
+    expect(formatScore(60_000)).toBe("1:00");
+    expect(formatScore(67_400)).toBe("1:07");
   });
 
   it("difficulties start at 4 in both modes", () => {

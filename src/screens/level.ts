@@ -20,12 +20,14 @@ import { createFlipTiles } from "../game/createFlipTiles";
 import type { FlipTilesChange, FlipTilesControls } from "../game/FlipTilesElement";
 import { findTier, levelName, nextLevel, type Level } from "../levels/levels";
 import { go } from "../nav";
+import { sound } from "../sound";
 import {
   ALL_STARS, HINT_COST, STAR_FLIPS, STAR_MOVES, STAR_SOLVED, award, buyHint, coins, countStars,
   finishTutorial, hasRecordedSolves, hintsBought, isLevelOpen, isTierComplete, recordSolve, solutionFor, starsOf, tutorialStep,
   type HintGoal,
 } from "../progress";
 import { openCodex } from "./codex";
+import { confirmFlips, warnsAboutFlips } from "./flipsWarning";
 import { openReplays } from "./replayDialog";
 import { bigStarGold, bigStarSocket, coin, plural, screen, star, topbar } from "./ui";
 
@@ -330,8 +332,13 @@ export function levelScreen(level: Level) {
     element.classList.add("level-complete");
     // The decorations come once the board's own solved animation has played
     hideResult();
+    sound.solved(0.35); // (as Solved! appears)
     resultTimer = window.setTimeout(() => {
       result.hidden = false; // (its animations start now)
+      // A ding as each star lands (in its socket, as its ring goes out: see the delays above),
+      // and a fanfare for the finale
+      landing.forEach((_, i) => sound.star(i, 0.4 + 0.45 * i + 0.3));
+      if (perfect || stageDone) sound.fanfare(1.85);
       // (a move taken back before then clears this timer too: see hideResult)
       if (stageDone) resultTimer = window.setTimeout(() => go("#/", true), STAGE_DONE_MS);
     }, RESULT_DELAY_MS);
@@ -339,9 +346,14 @@ export function levelScreen(level: Level) {
   widget.addEventListener("flip-tiles-change", (e) => update((e as CustomEvent<FlipTilesChange>).detail));
 
   result.querySelector(".again")!.addEventListener("click", () => {
-    hideResult();
-    widget.resetGame();
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    const retry = () => {
+      hideResult();
+      widget.resetGame();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    };
+    // (a level whose flips-only solution is very hard: asks first, see flipsWarning.ts)
+    if (warnsAboutFlips(level)) confirmFlips(retry);
+    else retry();
   });
   element.querySelector(".next-level")!.addEventListener("click", () => {
     // The tutorial's last step and a stage's last level: home, the menu. Otherwise, instead of

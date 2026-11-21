@@ -61,7 +61,7 @@ const EMPTY_BOARD = `<div class="entry-board empty" role="img" aria-label="Not d
   <b class="entry-question" aria-hidden="true">?</b></div>`;
 
 // A popup with the shared parts: a heading, ×, closes by a tap next to it or on leaving the screen
-function popup(className: string, heading: string, body: string) {
+export function popup(className: string, heading: string, body: string) {
   const dialog = document.createElement("dialog");
   dialog.className = `app-dialog ${className}`;
   dialog.innerHTML = `<div class="dialog-box">

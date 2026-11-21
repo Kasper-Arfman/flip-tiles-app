@@ -229,6 +229,24 @@ the file on any website). The game keeps everything on the phone and sends nothi
 works*. They are the one part of the game that talks to a server, and only for players who join:
 the stores' privacy forms must then say "name and game results, for leaderboards, optional".
 
+### Ranked mode: testing the leaderboards on your computer
+
+`npm run serve` runs the whole site on this computer at **http://localhost:8888**: the game (with
+live reload, like `npm run dev`) and the leaderboards' function, with a data store of its own.
+Nothing is uploaded, no Netlify credits are used, and the live leaderboards are never touched.
+Test every change to the leaderboards here first; deploy only what works.
+
+To see busy leaderboards, fill the local ones with made-up players: with `npm run serve`
+running, run `npm run seed` in a second terminal (100 players with about 11,000 real games, a few
+minutes; `npm run seed -- 30` for 30). The script (`scripts/seed-leaderboard.mjs`) only sends to
+localhost and refuses any other address, so the live leaderboards are safe. Its games are
+checked by the server like any others. The players' scores are spread evenly from 0:05 to 4:55
+(each one sends its score, as the app does, and plays games of about that time). To start over, stop
+the server and delete the folder `.netlify/blobs-serve` (all local leaderboard data).
+
+Plain `npm run dev` (port 5173) has no leaderboard server: its leaderboards say they need a
+connection. That is on purpose, so testing never writes to the live leaderboards.
+
 ### Ranked mode: putting the leaderboards online
 
 Ranked mode plays fully offline; only the online leaderboards need the server, a **Netlify
@@ -481,21 +499,57 @@ solution tables; a sample of the levels was also checked with a separate brute-f
 
 ## How the app works
 
+- **Sounds** (`src/sound.ts`). Made on the spot with the browser's Web Audio API, so there are no
+  sound files: each sound is a few short tones (an *oscillator*, a sine or triangle wave) or a
+  burst of noise, with a volume that rises in a few milliseconds and then fades (an *envelope*;
+  without the quick rise a sound starts with a click). A tile flip is a light tock, a force a
+  deeper thunk, a solve a rising chime, each star a ding as it lands, three stars or a completed
+  stage a fanfare, a coin landing in the pouch a ting; in ranked a hint gives a blip, the last 10
+  seconds tick, and a loss falls. Every button gives a soft tap (one listener on the whole page).
+  The speaker button on the home screen turns the sound off; that is saved apart from the
+  progress (Reset progress keeps it). The tiles don't know about sounds: the board tells the page
+  that a tile was pressed (the event `flip-tiles-press`) and `main.ts` plays the sound. On an
+  iPhone the sounds follow the silent switch (`audioSession.type = "ambient"`).
 - **Ranked mode** (`src/ranked/`, screens in `src/screens/ranked.ts`, `#/ranked`). The player
-  picks a mode (*Fewest moves* or *Flips only*) and a difficulty (the number of moves of the
-  solution: 4 to 8 moves, or 4 to 12 flips; each opens with the stage of its number, 4 with Delta
-  up to 12 with Mu, once every level there has the mode's star: flips-only stars for *Flips only*,
-  fewest-moves stars for *Fewest moves*, see `unlock.ts`), and gets a random puzzle made on the spot
+  picks a mode (*Flips only*, the default, or *Fewest moves*) and a difficulty (the number of
+  moves of the solution: 4 to 12 flips, or 4 to 8 moves), and gets a random puzzle made on the spot
   (`puzzles.ts`: random moves on a solved board, kept only when the solvers confirm it can't be
-  done in fewer). The rules, in `rules.ts`, are shared with the server:
+  done in fewer). A difficulty opens with stars (`unlock.ts`):
+  - *Flips only* n: every level of the stage of number n (4 Delta, ..., 12 Mu) has its flips-only
+    star; the stage's other stars don't matter;
+  - *Fewest moves* n: every level with an n-move solution, in every stage (the groups labelled
+    "n moves" on the stage screens: Delta's, Epsilon's, ...), has its fewest-moves star.
+
+  Tapping a locked difficulty opens a popup listing those groups with how many of their levels
+  have the star; each one links to its group on the stage's screen.
+
+  The lobby has *How ranked works* as underlined text under Play; it opens the rules in a popup.
+  Its buttons: the trophy (top right) opens Top Ranked Players, the high-scores list (in Your
+  record) the leaderboard of the mode and difficulty chosen.
+
+  The rules, in `rules.ts`, are shared with the server:
   - a stopwatch runs from the moment the puzzle appears; 5 minutes, or it's a loss;
-  - for 4 minutes only a solve in exactly the difficulty counts; after that more flips count too;
-    the forces are limited as on the levels;
-  - no hints; the Codex stays open (the clock keeps running);
+  - only a solve in exactly the difficulty counts, never a longer one; the forces are limited as
+    on the levels;
+  - no hints to buy, but from 3:00 the board shows one move of a solution, and one more every 30
+    seconds (`HINT_AFTER`, `HINT_EVERY` and `hintsAt` in `rules.ts`; the solution is
+    `hintSolution` in `puzzles.ts`), marked like the hints on the levels;
+  - the Codex stays open (the clock keeps running);
   - the rank on a leaderboard is the *score*: a weighted average time that starts at 5:00 and
-    moves 1/15 of the way to each game's time (a loss counting as 5:00), so a new player starts
-    at the bottom, climbing takes many good games, and newer games count a little more
-    (`SCORE_WEIGHT` in `rules.ts`). Everyone is on a leaderboard from their first game there;
+    moves 1/10 of the way to each game's time, so a new player starts at the bottom, climbing
+    takes many good games, and newer games count a little more (`SCORE_UPDATE_RATE` in `rules.ts`).
+    Everyone is on a leaderboard from their first game there;
+  - a loss (time's up, giving up, leaving) counts as a *penalty* F, chosen so that 5 *good
+    games* (`RECOVER_GAMES`) (each in half your score s) bring you back to where you were. With w = 1/10 and
+    r = 1 − w, one loss makes the score r·s + w·F, and n good games after it make it
+    rⁿ·(r·s + w·F) + (1 − rⁿ)·s/2. Setting that equal to s gives
+
+        F = (s / w) · ((1 − (1 − rⁿ)/2) / rⁿ − r)      (about 4.5 × s for n = 5)
+
+    and the penalty is the smaller of F and 5:00 (`lossPenalty` in `rules.ts`). So most players
+    lose the full 5:00, but on a leaderboard where people score 0:04 a loss costs about 0:18
+    instead of wiping out a long run of fast games. A win slower than the penalty counts as the
+    penalty, so finishing is never worse than giving up;
   - the overall leaderboard, *Top Ranked Players*, ranks first by the number of leaderboards a
     player is on (more is higher), then by their average place on them, then by their average
     score on them, so playing well everywhere beats being best at one. Times are shown in
@@ -515,7 +569,10 @@ solution tables; a sample of the levels was also checked with a separate brute-f
   random device id (`online.ts`), at once or when the connection is back. The server
   (`netlify/leaderboard.ts`) checks every game again: the puzzle has the stated difficulty, a win
   is a real solve by the rules, not faster than a human can tap. It can't check the time itself:
-  a tampered app could send made-up times, the limit of a game that plays offline. Device ids are
+  a tampered app could send made-up times, the limit of a game that plays offline. The score on a
+  leaderboard is the one the player's app reports with its games (and at every start), so it is
+  always the same as in the game, also for players whose games were scored with an older
+  version; it counts only where the server has a real game of theirs. Device ids are
   stored only as a hash and never shown. Once joined, a player can change their name, not leave.
 
   **A player is an install.** The id lives in the app's saved data, so it survives updates of
@@ -819,3 +876,7 @@ Notes added as the project goes along: what was learned, problems hit, and how t
   the stopwatch ran before the screen was on the page, took that for "the screen is gone" and
   stopped the clock for good. And Vitest can fail with "failed to find the runner" when the
   folder's drive letter is written in lower case (`c:\`): run it from `C:\`.
+- **2026-11-21**: Sounds, made in code with the Web Audio API instead of sound files. Learned:
+  browsers only allow sound after the player has tapped something, so the audio is set up at the
+  first sound (always after a tap), not when the app starts; and a sound needs an *envelope* (a
+  very quick fade in, then a fade out), or it starts and stops with a click.

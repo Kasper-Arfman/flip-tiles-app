@@ -4,10 +4,10 @@
 //   moves  its fewest moves (flips and forces) is exactly d
 // Made by playing d random moves on a solved board, then checking with the solvers that it
 // can't be done in fewer (a few tries are thrown away; see tests/ranked.test.ts for the speed).
-import { ALL_WHITE, MASKS, N, isSolved, solveFlips, solveMoves } from "../game/flipTiles";
+import { ALL_WHITE, MASKS, N, isSolved, solveFlips, solveMoves, type Move } from "../game/flipTiles";
 
 export type RankedMode = "flips" | "moves";
-export const RANKED_MODES: RankedMode[] = ["moves", "flips"];
+export const RANKED_MODES: RankedMode[] = ["flips", "moves"]; // (in this order on the screens)
 
 // The difficulties a player can choose, per mode: from 4 (fewer is over too quickly); at most 12
 // flips and 8 moves (harder boards are so rare that making one takes too long)
@@ -73,6 +73,18 @@ export const fewestForces = (board: number, minMoves: number) =>
   fewestForcesSolution(board, minMoves)?.forces.length ?? Infinity;
 
 // A random puzzle of this mode and difficulty
+// The solution ranked's hints show, one move at a time: the fewest flips (flips mode), or the
+// fewest moves with the fewest forces the puzzle allows, forces first (moves mode)
+export function hintSolution(puzzle: RankedPuzzle): Move[] {
+  if (puzzle.mode === "flips") return (solveFlips(puzzle.board) ?? []).map((tile) => ({ kind: "flip", tile }));
+  const s = fewestForcesSolution(puzzle.board, puzzle.difficulty);
+  if (!s) return [];
+  return [
+    ...s.forces.map((tile): Move => ({ kind: "force", tile })),
+    ...s.flips.map((tile): Move => ({ kind: "flip", tile })),
+  ];
+}
+
 export function makePuzzle(mode: RankedMode, difficulty: number, random: () => number = Math.random): RankedPuzzle {
   for (let tries = 0; tries < 10_000; tries++) {
     // A random color: all green or all yellow at the end

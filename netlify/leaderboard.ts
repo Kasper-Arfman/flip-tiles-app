@@ -8,13 +8,19 @@
 // entry is "you" to the device that asks.
 //
 //   POST   /api/ranked/games        { deviceId, name, games }  -> { accepted, rejected }
-//   GET    /api/ranked/leaderboard?board=overall|moves-5&deviceId=...
-//                                    -> { board, entries, me, players }
+//   GET    /api/ranked/leaderboard?board=overall|moves-5&deviceId=...&offset=0&limit=25
+//                                    -> { board, entries, me, players, updated }
+//          (a page: `limit` entries, at most 100, from place offset + 1; without them the top 100)
 //
 // Every game is checked again here (src/ranked/rules.ts, checkGame): the board is of the stated
 // difficulty, a win is a real solve by the rules, in a time a human can make. What can't be
 // checked is the time itself: a changed app could send made-up times. That is the limit of a
 // game that plays offline.
+//
+// The score shown is the one the player's app reports (Player.scores), so it is the same as in
+// the game; it counts only on a leaderboard where this server has a real game of theirs, and
+// only as a time from 0:00 to 5:00. A changed app could report a better score than its games
+// earned: the price of showing exactly the game's own score.
 import {
   ALL_BOARDS, NAME_MAX, TIME_LIMIT, checkGame, statsOf,
   type BoardId, type GameRecord, type Stats,
@@ -30,7 +36,15 @@ export interface KeyValueStore {
 interface Player {
   name: string;
   games: GameRecord[];
+  // The scores the player's own app worked out, per leaderboard: these are shown, so a player's
+  // score on the leaderboard is the one they see in the game (also for games played with an
+  // older version of the scoring). Used only on a leaderboard where this server has a game of
+  // theirs; without one, the score is worked out here from their games.
+  scores?: Partial<Record<BoardId, number>>;
 }
+
+// A score as an app reports it: a time from 0:00 to 5:00
+const validScore = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v) && v > 0 && v <= TIME_LIMIT;
 
 export interface Entry {
   rank: number;
@@ -50,6 +64,8 @@ const validId = (id: unknown): id is string => typeof id === "string" && /^[\w-]
 // A name as shown: at most 20 characters, no control characters, never empty
 export const cleanName = (name: unknown) =>
   (typeof name === "string" ? name.replace(/[\p{C}<>]/gu, "").trim().slice(0, NAME_MAX) : "") || "Player";
+
+const PLAYER_KEY = /^players\/[0-9a-f]{64}$/;
 
 async function playerKey(deviceId: string) {
   const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`flip-tiles:${deviceId}`));
@@ -87,12 +103,17 @@ async function allBoards(store: KeyValueStore, now: number) {
   const boards = new Map<BoardId, Row[]>();
   for (const id of ALL_BOARDS) boards.set(id, []);
   for (const key of await store.list("players/")) {
+    // Only real players (players/ + a hash, see playerKey): the local test server (`npm run
+    // serve`) on Windows leaves half-written copies under other names, which would show the same
+    // player twice
+    if (!PLAYER_KEY.test(key)) continue;
     const text = await store.get(key);
     if (!text) continue;
     const player: Player = JSON.parse(text);
     for (const [id, s] of Object.entries(statsOf(player.games)) as [BoardId, Stats][]) {
       // (a leaderboard no longer in the game, e.g. a difficulty taken out, isn't shown)
-      boards.get(id)?.push({ key, name: player.name, value: s.score, games: s.games, score: s.score, boards: 1 });
+      const score = validScore(player.scores?.[id]) ? player.scores![id]! : s.score;
+      boards.get(id)?.push({ key, name: player.name, value: score, games: s.games, score, boards: 1 });
     }
   }
   // Peter Pathetic, a made-up player on every leaderboard with the worst score there is (and no
@@ -148,6 +169,13 @@ export async function handle(request: Request, store: KeyValueStore, now = Date.
       const text = await store.get(key);
       const player: Player = text ? JSON.parse(text) : { name: "", games: [] };
       player.name = cleanName(body.name);
+      // The app's own scores (see Player.scores)
+      if (body.scores && typeof body.scores === "object") {
+        player.scores ??= {};
+        for (const [id, v] of Object.entries(body.scores)) {
+          if ((ALL_BOARDS as string[]).includes(id) && validScore(v)) player.scores[id as BoardId] = v;
+        }
+      }
       const known = new Set(player.games.map((g) => g.id));
       const accepted: string[] = [];
       const rejected: { id: string; reason: string }[] = [];
@@ -177,8 +205,11 @@ export async function handle(request: Request, store: KeyValueStore, now = Date.
       const deviceId = params.get("deviceId");
       const myKey = validId(deviceId) ? await playerKey(deviceId) : null;
       const list = (await allBoards(store, now)).get(board)!;
-      const entries: Entry[] = list.slice(0, TOP)
-        .map((e, i) => ({ rank: i + 1, name: e.name, value: e.value, games: e.games, me: e.key === myKey }));
+      // A page of it: `offset` entries skipped, at most `limit` (TOP when not asked: older apps)
+      const offset = Math.max(0, Math.min(list.length, Math.floor(Number(params.get("offset")) || 0)));
+      const limit = Math.max(1, Math.min(TOP, Math.floor(Number(params.get("limit")) || TOP)));
+      const entries: Entry[] = list.slice(offset, offset + limit)
+        .map((e, i) => ({ rank: offset + i + 1, name: e.name, value: e.value, games: e.games, me: e.key === myKey }));
       const mine = myKey ? list.findIndex((e) => e.key === myKey) : -1;
       const me = mine < 0 ? null : { rank: mine + 1, name: list[mine].name, value: list[mine].value, games: list[mine].games, me: true };
       // (updated: when the leaderboards were last worked out, ms since 1970)

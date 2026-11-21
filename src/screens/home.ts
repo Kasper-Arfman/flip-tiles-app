@@ -8,9 +8,10 @@ import {
 import { TEST_BUILD } from "../dev";
 import { go } from "../nav";
 import { applySkin } from "../skins";
+import { setSoundOn, sound, soundOn } from "../sound";
 import { homeArt } from "./homeArt";
 import { fetchTopPlayer, knownTopPlayer } from "../ranked/online";
-import { STOPWATCH, showLeaderboard } from "./ranked";
+import { STOPWATCH, TROPHY, showLeaderboard } from "./ranked";
 import { LOCK, coin, difficultyMarks, plural, screen, stageTitle, star } from "./ui";
 
 // The game's title: every letter on a tile of the puzzle, green and gold in turn (`first` is
@@ -30,14 +31,16 @@ const BAG = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8h14l-1.2 1
 const BULB = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a6.5 6.5 0 0 0-3.8 11.8c.8.6 1.3 1.4 1.3 2.2h5c0-.8.5-1.6 1.3-2.2A6.5 6.5 0 0 0 12 3z" />` +
   `<path d="M10 20.5h4" fill="none" /></svg>`;
 
+// The sound button: a speaker, with waves when the sound is on, crossed out when it's off
+const speaker = (on: boolean) => `<svg viewBox="0 0 24 24" aria-hidden="true">` +
+  `<path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" />` +
+  (on
+    ? `<path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11" fill="none" />`
+    : `<path d="M16 9.5l5 5M21 9.5l-5 5" fill="none" />`) + `</svg>`;
+
 // A completed stage's crown
 const CROWN = `<svg class="crown" viewBox="0 0 24 24" aria-hidden="true">` +
   `<path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z" /></svg>`;
-
-// The leaderboards' button, next to Ranked: a trophy
-const TROPHY = `<svg viewBox="0 0 24 24" aria-hidden="true">` +
-  `<path d="M7 4h10v5a5 5 0 0 1-10 0z" /><path d="M7 6H4.5a2.5 3 0 0 0 3 4M17 6h2.5a2.5 3 0 0 1-3 4" fill="none" stroke-width="1.8" />` +
-  `<path d="M10.5 14h3v3h-3zM8 19.5h8v1.5H8z" /></svg>`;
 
 const escapeText = (text: string) =>
   text.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
@@ -83,6 +86,8 @@ export function homeScreen(rerender: () => void) {
     <a class="round-button shop-button" href="#/shop" aria-label="Shop">${BAG}</a>
     <a class="round-button codex-button" href="#/codex"
       aria-label="Codex${toClaim ? `: ${toClaim} to claim` : ""}">${BULB}${toClaim ? `<span class="notification-bubble" aria-hidden="true">${toClaim}</span>` : ""}</a>
+    <button type="button" class="round-button sound-button" aria-pressed="${soundOn()}"
+      aria-label="Sound">${speaker(soundOn())}</button>
     <a class="round-button help-button${total === 0 ? " first-time" : ""}" href="#/how-to-play" aria-label="How to play">?</a>
     <header class="home-header">
       <h1 class="game-title" aria-label="Flip Tiles">
@@ -121,6 +126,14 @@ export function homeScreen(rerender: () => void) {
       setTimeout(() => tile.classList.toggle("gold"), 200);
     });
   }
+
+  // The sound, on or off (saved: sound.ts)
+  const soundButton = element.querySelector<HTMLButtonElement>(".sound-button")!;
+  soundButton.addEventListener("click", () => {
+    setSoundOn(!soundOn());
+    soundButton.setAttribute("aria-pressed", String(soundOn()));
+    soundButton.innerHTML = speaker(soundOn());
+  });
 
   // Open a locked tier with coins
   for (const button of element.querySelectorAll<HTMLButtonElement>(".unlock-button")) {
@@ -240,6 +253,7 @@ function flyCoins(card: HTMLElement, pouch: HTMLElement, add: (amount: number) =
       const share = landed === FLYING_COINS ? STAGE_REWARD - paid : Math.round(STAGE_REWARD / FLYING_COINS);
       paid += share;
       add(share);
+      sound.coin();
       pouch.classList.remove("bump");
       void pouch.offsetWidth;
       pouch.classList.add("bump");
