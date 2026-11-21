@@ -503,7 +503,8 @@ solution tables; a sample of the levels was also checked with a separate brute-f
   sound files: each sound is a few short tones (an *oscillator*, a sine or triangle wave) or a
   burst of noise, with a volume that rises in a few milliseconds and then fades (an *envelope*;
   without the quick rise a sound starts with a click). A tile flip is a light tock, a force a
-  deeper thunk, a solve a rising chime, each star a ding as it lands, three stars or a completed
+  deeper thunk, a solve four soft bells up a major chord (a pure tone plus two fainter overtones
+  that fade faster, like a marimba), each star a ding as it lands, three stars or a completed
   stage a fanfare, a coin landing in the pouch a ting; in ranked a hint gives a blip, the last 10
   seconds tick, and a loss falls. Every button gives a soft tap (one listener on the whole page).
   The speaker button on the home screen turns the sound off; that is saved apart from the

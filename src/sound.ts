@@ -4,7 +4,7 @@
 // progress keeps it).
 //
 //   flip, force     a tile pressed: a light tock, a deeper thunk
-//   solved          a rising chime, as Solved! appears
+//   solved          four soft bells up a chord, as Solved! appears
 //   star(i)         a bright ding as each star lands (higher for each)
 //   fanfare         three stars, or a stage complete
 //   coin            a coin landing in the pouch
@@ -54,10 +54,11 @@ type Tone = {
   at?: number; // seconds from now
   length: number; // seconds
   volume: number; // 0 to 1
+  hold?: boolean; // stays at full volume for most of its length, then fades (a held note)
 };
 
 // One tone: a quick rise (no click), then it fades away
-function tone({ freq, to, type = "sine", at = 0, length, volume }: Tone) {
+function tone({ freq, to, type = "sine", at = 0, length, volume, hold }: Tone) {
   const ctx = audio();
   if (!ctx) return;
   const start = ctx.currentTime + at;
@@ -68,8 +69,13 @@ function tone({ freq, to, type = "sine", at = 0, length, volume }: Tone) {
   if (to) osc.frequency.exponentialRampToValueAtTime(to, start + length);
   gain.gain.setValueAtTime(0.0001, start);
   gain.gain.exponentialRampToValueAtTime(volume, start + 0.006);
+  if (hold) gain.gain.setValueAtTime(volume, start + length * 0.55);
   gain.gain.exponentialRampToValueAtTime(0.0001, start + length);
-  osc.connect(gain).connect(ctx.destination);
+  // (square waves, the retro game sound, through a soft filter so they don't buzz)
+  const filter = ctx.createBiquadFilter();
+  filter.type = "lowpass";
+  filter.frequency.value = type === "square" ? 3200 : 12000;
+  osc.connect(filter).connect(gain).connect(ctx.destination);
   osc.start(start);
   osc.stop(start + length + 0.02);
 }
@@ -94,6 +100,14 @@ function noise({ at = 0, length, volume, freq }: { at?: number; length: number; 
   source.start(start);
 }
 
+// A soft bell, like a marimba or a glockenspiel (the sound of today's casual games): a pure tone
+// with two quieter overtones that die away faster, so it starts bright and ends round
+function bell(freq: number, at: number, length: number, volume: number) {
+  tone({ freq, at, length, volume });
+  tone({ freq: freq * 2, at, length: length * 0.5, volume: volume * 0.35 });
+  tone({ freq: freq * 3, at, length: length * 0.25, volume: volume * 0.12 });
+}
+
 // (a little variety, so many flips in a row don't sound like a machine)
 const vary = (hz: number) => hz * (0.96 + Math.random() * 0.08);
 
@@ -109,8 +123,11 @@ export const sound = {
     tone({ freq: vary(220), to: 90, type: "triangle", length: 0.16, volume: 0.3 });
     noise({ length: 0.06, volume: 0.2, freq: 900 });
   },
+  // A "level clear" jingle: four soft bells up a major chord, each ringing on under the next,
+  // the last one longest, so it ends as a chord
   solved(at = 0) {
-    [C5, E5, G5, C6].forEach((freq, i) => tone({ freq, type: "triangle", at: at + i * 0.08, length: 0.45, volume: 0.16 }));
+    [C5, E5, G5].forEach((freq, i) => bell(freq, at + i * 0.09, 0.9, 0.1));
+    bell(C6, at + 0.27, 1.4, 0.11);
   },
   star(i: number, at = 0) {
     const freq = [E6, G6, C6 * 2][Math.min(i, 2)];

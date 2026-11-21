@@ -2927,7 +2927,10 @@ button.goal[aria-pressed="true"] small {
 .topbar .global-link {
   width: calc(3.4rem - 4px);
   height: calc(3.4rem - 4px);
-  margin-block: -0.4rem; /* (it may reach into the bar's padding: the bar stays as low as elsewhere) */
+  /* (it may reach into the bar's padding, more at the bottom than the top: the bar stays as low
+     as elsewhere, and the button keeps some room above it) */
+  margin-top: -0.1rem;
+  margin-bottom: -0.7rem;
 }
 
 /* The ranked screens space their parts with a gap: none extra under the top bar */
