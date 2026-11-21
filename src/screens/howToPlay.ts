@@ -45,6 +45,13 @@ export function howToPlayScreen() {
         lets you step through your solution again.</p>
       <p>Every stage you complete earns an entry in the <strong>Codex</strong>: make a pattern, and see how to solve it
         with flips alone, for good.</p>
+      <h2>Ranked</h2>
+      <p>Random puzzles against the clock: pick <strong>Fewest moves</strong> or <strong>Flips only</strong>
+        and a difficulty. Solve it in exactly that many moves; after 4 minutes more flips are allowed, and at
+        5 minutes the time is up. No hints, and the clock never stops: leaving the game counts as a loss.
+        Your rank is your score: an average time that starts at 5:00 and moves a little towards each
+        game's time, so it takes many good games to climb. Each difficulty opens when you complete the
+        stage of its number. Join the online leaderboards to compare with the world.</p>
       <a class="button primary start-playing" href="#/tier/${TIERS[0].difficulty}">Start playing</a>
     </div>`);
 

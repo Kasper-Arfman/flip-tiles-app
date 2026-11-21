@@ -1,0 +1,8 @@
+# Netlify: how the site is built and served (the web version, and the online leaderboards of
+# ranked mode as a function). Used by `npx netlify deploy` and by deploys from git.
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[functions]
+  directory = "netlify/functions"

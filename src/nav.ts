@@ -3,6 +3,8 @@
 //   #/how-to-play       the rules
 //   #/shop              the shop: skins for coins
 //   #/codex             the Codex: one entry per completed stage
+//   #/debug             the debug screen (tap the version on the home screen 5 times)
+//   #/ranked            ranked mode: the lobby; #/ranked/play a game; #/ranked/leaderboard
 //   #/tier/4            the levels of difficulty 4
 //   #/level/4/7         level 7 of difficulty 4
 // Going to a screen adds it to the browser's history, so the back button (in the browser, and
@@ -19,6 +21,10 @@ export type Route =
   | { screen: "how-to-play" }
   | { screen: "shop" }
   | { screen: "codex" }
+  | { screen: "debug" }
+  | { screen: "ranked" }
+  | { screen: "ranked-play" }
+  | { screen: "ranked-leaderboard" }
   | { screen: "tier"; difficulty: number }
   | { screen: "level"; difficulty: number; number: number };
 
@@ -28,6 +34,10 @@ export function currentRoute(): Route {
   if (parts[0] === "how-to-play") return { screen: "how-to-play" };
   if (parts[0] === "shop") return { screen: "shop" };
   if (parts[0] === "codex") return { screen: "codex" };
+  if (parts[0] === "debug") return { screen: "debug" };
+  if (parts[0] === "ranked" && parts[1] === "play") return { screen: "ranked-play" };
+  if (parts[0] === "ranked" && parts[1] === "leaderboard") return { screen: "ranked-leaderboard" };
+  if (parts[0] === "ranked") return { screen: "ranked" };
   if (parts[0] === "tier" && a) return { screen: "tier", difficulty: a };
   if (parts[0] === "level" && a && b) return { screen: "level", difficulty: a, number: b };
   return { screen: "home" };
@@ -58,6 +68,9 @@ export function go(hash: string, replace = false) {
   replacing = true;
   location.replace(hash);
 }
+
+// The screen before this one in the history (undefined on the first screen)
+export const previousHash = (): string | undefined => visited[visited.length - 2];
 
 export function goUp(parent: string) {
   if (visited.length > 1 && visited[visited.length - 2] === parent) history.back();

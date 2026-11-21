@@ -12,5 +12,5 @@
     "verbatimModuleSyntax": true,
     "skipLibCheck": true
   },
-  "include": ["src", "capacitor.config.ts"]
+  "include": ["src", "netlify", "capacitor.config.ts"]
 }

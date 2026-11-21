@@ -25,8 +25,15 @@ export function tierScreen(tier: Tier, rerender: () => void) {
           (buy ? `<li class="grade-buy">${buy}</li>` : "")
         : `<li class="grade-divider" aria-hidden="true"></li>`
       : "";
+    // At the start of each group: its number of moves, written upwards along its left side
+    // (a narrow first column, as tall as the group's rows of 4)
+    const firstOfGrade = i === 0 || level.grade !== tier.levels[i - 1].grade;
+    const rows = Math.ceil(tier.grades[level.grade].length / 4);
+    const label = firstOfGrade
+      ? `<li class="grade-label" style="grid-row: span ${rows}"><span>${plural(level.minMoves, "move")}</span></li>`
+      : "";
     if (missing) {
-      return `${divider}<li><div class="level-tile locked" aria-label="Level ${level.number}, locked">
+      return `${divider}${label}<li><div class="level-tile locked" aria-label="Level ${level.number}, locked">
         ${miniBoard(level.board)}
         <span class="level-number">${level.number}</span>
         ${starRow(0, "small")}
@@ -34,7 +41,7 @@ export function tierScreen(tier: Tier, rerender: () => void) {
     }
     // All three stars: a gold border (no border before that: the stars show how far it is)
     const finish = bits === ALL_STARS ? " perfect" : "";
-    return `${divider}<li><a class="level-tile${finish}" href="#/level/${tier.difficulty}/${level.number}"
+    return `${divider}${label}<li><a class="level-tile${finish}" href="#/level/${tier.difficulty}/${level.number}"
         aria-label="Level ${level.number}">
       ${miniBoard(level.board)}
       <span class="level-number">${level.number}</span>

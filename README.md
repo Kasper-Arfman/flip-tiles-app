@@ -102,6 +102,9 @@ quick check of touch and screen size, but it is still a browser, not the app.
 
 ### 4. On the Android emulator
 
+(New to Android Studio? [Readme_Android.md](Readme_Android.md) explains it step by step: setup,
+the emulator, your own phone, debugging, and what to test before a release.)
+
 ```sh
 npm run android   # build + sync + open the android/ project in Android Studio
 ```
@@ -135,6 +138,155 @@ The native projects hold a *copy* of `dist/`. After changing web code, run `npm 
 `npm run ios` does the same with Xcode, on a Mac. On a Mac, Safari's *Develop* menu does what
 `chrome://inspect` does for Android.
 
+### Releasing to the App Store and Google Play (branch `app-store`)
+
+The store version lives on the branch `app-store`; `main` stays the simple web version for
+Netlify. What it adds: buying coins (one product, **100 coins for 0.99**: `src/purchases.ts`,
+with the plugin [capacitor-plugin-cdv-purchase](https://github.com/j3k0/cordova-plugin-purchase)),
+the app icons and splash screen, version numbers, a privacy policy, a debug screen, and the
+automated tests. The coin pack shows in the shop only inside the native apps, and only once the
+store has given its price.
+
+**The road to a release, in order.**
+
+1. **Test build** (now): `TEST_BUILD = true` in `src/dev.ts`. The coin pack is free and shown
+   everywhere, also in the browser, so everything around it can be tested without a store: the
+   coins arrive, they stay after a restart, *Reset progress* gives them back. Hand this build to
+   testers (Internal testing on Google Play, TestFlight on iOS).
+2. **Store purchases**: set the product up in both stores (below), set `TEST_BUILD = false`, and
+   test a real purchase with the stores' test accounts (below: nothing is charged).
+3. **Release**: fill in the contact address in `public/privacy.html`, raise the version, commit,
+   and `npm run release` (it refuses a test build, see *Releasing* below). Then build and upload.
+
+**Accounts (once).**
+- Apple: the [Apple Developer Program](https://developer.apple.com/programs/) ($99 a year). In
+  App Store Connect, sign the *Paid Apps* agreement and fill in bank and tax details, or nothing
+  can be sold.
+- Google: a [Play Console](https://play.google.com/console) account ($25 once), and a *payments
+  profile* (merchant account) under *Settings → Payments profile*.
+
+**The product (in each store).** Create it with exactly the id `coins_100`:
+- App Store Connect → your app → *In-App Purchases* → **Consumable**, id `coins_100`, price
+  **$0.99** (a point on Apple's price list; it shows each country's own price, e.g. €0.99).
+- Play Console → your app → *Monetize → In-app products* → create `coins_100`, price **$0.99**
+  (the console fills in the other countries; check them), and activate it.
+- The price is set only there, never in the code: the shop shows what the store says, in the
+  player's own currency. The stores keep about 15% (both have a lower fee for small developers:
+  Apple's *Small Business Program* and Google's 15% tier; Apple's must be applied for).
+
+**Testing a purchase without paying (do this before any public release).** Both stores have test
+buyers whose purchases are never charged:
+- Apple: App Store Connect → *Users and Access → Sandbox* → add a test account; on the iPhone, sign
+  in to it under *Settings → App Store → Sandbox Account*. Every purchase from an app built by
+  Xcode or from **TestFlight** then goes through the sandbox: a dialog says *[Sandbox]*, nothing
+  is charged.
+- Google: Play Console → *Settings → License testing* → add your Google account; upload the app
+  to the **Internal testing** track and install it from the link. The payment sheet then offers
+  *Test card, always approves*: nothing is charged.
+- Check: the price shows, buying adds 100 coins, closing the dialog adds nothing, and the coins
+  are still there after closing and reopening the app. Only then promote it to a public release.
+
+What protects buyers (in `purchases.ts`): coins are added and saved *before* the store is told the
+purchase is done (an app that stops in between gets the purchase again at its next start), each
+purchase is credited once (by its transaction id), and *Reset progress* gives bought coins back.
+
+**Version numbers.** One place: `"version"` in `package.json` (now `1.0.0`). `npm run sync` (and
+so `npm run android`, `npm run ios`, `npm run release`) writes it into both native projects
+(`scripts/sync-version.mjs`): the version players see (`1.0.0`) and the build number the stores
+compare (`10000`: 10000 x major + 100 x minor + patch). Both stores refuse an upload whose
+build number isn't higher than the last, so raise the version before every upload:
+`npm version patch` (1.0.0 → 1.0.1; `minor` and `major` for bigger steps). It shows at the
+bottom of the home screen.
+
+**Releasing.** `npm run release` runs, in order: the release check (`scripts/release-check.mjs`:
+stops when `TEST_BUILD` or `DEV_MODE` is on, the privacy policy has no contact yet, or anything
+isn't committed), then all the tests (`npm run check`), then the build and the copy into the
+native projects. Only when it passes, build and upload as below.
+
+**Building for Android (Windows works).** `npm run android` opens Android Studio. There, *Build →
+Generate Signed App Bundle*: create a *keystore* the first time (keep the file and its passwords
+safe and backed up, outside the project: every update must be signed with the same one), and
+upload the `.aab` in the Play Console, first to *Internal testing*.
+
+**Building for iOS (needs a Mac, or a cloud Mac such as Codemagic).** `npm run ios`; in Xcode,
+*Signing & Capabilities*: pick your team, and **+ Capability → In-App Purchase**. Then *Product →
+Archive* and upload; it appears in TestFlight.
+
+**App icon and splash screen.** Made from `public/icon.svg` by `npm run icons`
+(`scripts/make-icons.mjs`): it draws the pictures into `assets/`, then `@capacitor/assets` makes
+every size both platforms need. On Android the icon is *adaptive*: the phone cuts it to its own
+shape (circle, squircle), so the tiles sit in the middle with room around them. Run it again
+after changing the icon.
+
+**Store listings ask for:** screenshots, a short description, an age rating, and a **privacy
+policy URL**. The policy is `public/privacy.html`, so it is online at
+`https://<your site>.netlify.app/privacy.html` once this branch's build is on Netlify (or put
+the file on any website). The game keeps everything on the phone and sends nothing anywhere
+(the stores handle payments): answer Google's *Data safety* form and Apple's *App Privacy* with
+"no data collected".
+
+**The online leaderboards** (ranked mode, branch `ranked`): see *Ranked mode* under *How the app
+works*. They are the one part of the game that talks to a server, and only for players who join:
+the stores' privacy forms must then say "name and game results, for leaderboards, optional".
+
+### Ranked mode: putting the leaderboards online
+
+Ranked mode plays fully offline; only the online leaderboards need the server, a **Netlify
+Function** (`netlify/functions/ranked.mts`, logic in `netlify/leaderboard.ts`) that keeps its data
+in **Netlify Blobs**, Netlify's own storage. No database or other account is needed.
+
+A function can't go online by dragging `dist/` onto Netlify Drop: the site must be deployed with
+the Netlify command line (or from git). Once:
+
+1. `npx netlify login` (opens the browser), then `npx netlify link` and pick your existing site.
+2. `npx netlify deploy --prod`: builds the game (`netlify.toml` says how) and puts the site and the
+   function online. Use this for every update from now on, instead of Drop.
+3. In `src/ranked/online.ts`, set `SERVER_URL` to the site's address
+   (`https://<your site>.netlify.app`): the apps send their games there (the web version uses its
+   own address). `npm run release-check` refuses a release until this is set.
+4. Check it: open `https://<your site>.netlify.app/api/ranked/leaderboard?board=overall` in a
+   browser. It should answer `{"board":"overall","entries":[],...}`.
+
+Netlify's free plan includes functions and Blobs; a small game stays far inside its limits. The
+leaderboards are worked out from all players' data at most every 30 seconds; with many thousands
+of players that would need a smarter store (the function is written so the storage can be
+swapped: `KeyValueStore`).
+
+### Testing before an update
+
+Three layers, from fast to real. Run the first two before every commit you hand out; they need
+nothing but this computer.
+
+1. **`npm test`**: the unit tests (`tests/`, with [Vitest](https://vitest.dev)), under a
+   second. They check the puzzle logic and solvers (`game.test.ts`), that every level is solved
+   by its stored solutions in the right number of moves (`levels.test.ts`), and what the player
+   keeps (`progress.test.ts`): stars, unlocking (Beta at 5 stars, then 80%), coins and stage
+   rewards, purchases credited once and given back by *Reset progress*, saves from older versions
+   converted, the moves star taken back when a solve used too many forces, the Codex, replays,
+   and copying a save. Each test starts the app on a save of its choosing, with the phone's
+   storage replaced by one in memory (`tests/setup.ts`). `npm run test:watch` reruns them on
+   every change.
+2. **`npm run test:e2e`**: the smoke tests (`e2e/`, with [Playwright](https://playwright.dev)):
+   the built game in Microsoft Edge at phone size, played as a player would. A new player plays
+   the tutorial and keeps the stars after a reload; every screen opens; forces run out; the
+   coin pack works (test builds); the debug screen's checks pass; and the web version plays
+   offline. Any error on the page fails the test. When one fails, it names a `trace.zip`:
+   `npx playwright show-trace <that file>` replays the test step by step.
+   `npm run check` runs the type check, both kinds of tests, in one go.
+3. **On phones**: Internal testing (Google Play) and TestFlight (iOS), with a test build, then
+   with real store purchases (above). Things only a phone can show: touch, the store, the
+   back button, closing the app in the middle of a purchase.
+
+**The debug screen.** Tap the version at the bottom of the home screen 5 times. It shows which
+build this is (version, git commit, build time: a `*` after the commit means it was built with
+uncommitted changes), what is saved, what the store answered (price, errors), and the log: the
+last 200 errors and events, kept on the phone (`src/log.ts`), such as a purchase coming in or an
+old save converted. *Run the checks* checks every level and the saving on that phone. A tester
+with a problem can *Copy log* and *Copy save* and send them to you; in a test build, *Load
+save* puts their save on your phone, to see what they see. Nothing is sent anywhere by itself:
+there is no crash reporting service. Crashes of the app itself (not its web page) also appear in
+the Play Console (*Android vitals*) and in Xcode's *Organizer* for TestFlight builds.
+
 ### On an iPhone without a Mac: as a web app
 
 A native iPhone app needs a Mac and the Apple Developer Program ($99/year). But the game is a
@@ -158,7 +310,7 @@ Good to know:
 - An update is just putting a new build online; the app picks it up the next time it is opened
   (fully closed and reopened).
 - Android phones can do the same from Chrome (*Add to Home screen*).
-- It needs internet to open (there is no offline cache yet); progress is stored on the phone.
+- After the first visit it plays offline (`src/sw.js`); progress is stored on the phone.
 - It needs a recent iPhone system (iOS 16.4 or newer) for all the colors to show right.
 
 ### Updating the game without players losing progress
@@ -188,8 +340,8 @@ that stars, coins, skin, hints, replays and the first-time rules were all still 
 
 ### Automated tests
 
-None yet. A natural first step: unit tests (with [Vitest](https://vitest.dev)) for the move and
-board logic in `src/game/flipTiles.ts`.
+See *Testing before an update* above: `npm test` (unit tests) and `npm run test:e2e` (the built
+game in a browser), or both with `npm run check`.
 
 ## Commands
 
@@ -199,9 +351,15 @@ board logic in `src/game/flipTiles.ts`.
 | `npm run dev` | dev server with live reload, also reachable from your phone |
 | `npm run build` | type check, then build into `dist/` |
 | `npm run preview` | serve the built `dist/` |
-| `npm run sync` | build, then copy `dist/` and plugins into `android/` and `ios/` |
+| `npm test` | the unit tests (`tests/`), once; `npm run test:watch` keeps rerunning them |
+| `npm run test:e2e` | the smoke tests (`e2e/`): the built game in Edge |
+| `npm run check` | type check, unit tests and smoke tests: run before handing out a version |
+| `npm run sync` | write the version into the native projects, build, then copy `dist/` and plugins into `android/` and `ios/` |
 | `npm run android` | sync, then open Android Studio |
 | `npm run ios` | sync, then open Xcode (Mac only) |
+| `npm run release` | the release check, `check`, then `sync`: refuses a test build or uncommitted changes |
+| `npm run icons` | make the app icons and splash screens from `public/icon.svg` |
+| `npm version patch` | raise the version (1.0.0 → 1.0.1) before an upload to the stores |
 | `npm run curate` | pick the levels and write `src/levels/levels.json`, keeping the levels already released (`npm run curate -- --fresh` picks all anew: only before a first release) |
 
 The scripts are defined in `package.json`. `cap` is the Capacitor command line; run it directly
@@ -216,8 +374,19 @@ with `npx cap ...` (e.g. `npx cap doctor` checks your Capacitor setup).
 | `src/nav.ts` | the screens' addresses (`#/tier/4`, `#/level/4/7`) and going back |
 | `src/skins.ts` | the skins (tile color pairs) and shapes (tile outlines) sold in the shop, and putting them on |
 | `src/sw.js` | the service worker: saves the app's files on the device, so the web app plays offline (its file list is written in by `vite.config.ts` on every build) |
+| `src/purchases.ts` | buying 100 coins with real money, in the native apps only (branch `app-store`) |
 | `src/screens/codex.ts` | the Codex screen, its pattern editor, and the popup on a level |
-| `src/dev.ts` | `DEV_MODE`: shows what players must not see yet (set it to `false` for a release) |
+| `src/dev.ts` | `DEV_MODE` (shows what players must not see yet) and `TEST_BUILD` (free coin pack, test tools): both `false` for a release |
+| `src/screens/debug.ts` | the debug screen (tap the version on the home screen 5 times) |
+| `src/ranked/` | ranked mode: the puzzles (`puzzles.ts`), the rules shared with the server (`rules.ts`), the games on the device (`ranked.ts`), sending them (`online.ts`) |
+| `src/screens/ranked.ts` | ranked mode's screens: the lobby, a game, the leaderboards |
+| `netlify/`, `netlify.toml` | the online leaderboards' server: a Netlify Function and its logic (`leaderboard.ts`) |
+| `src/log.ts` | the log on the device: the last errors and events, shown on the debug screen |
+| `src/selfCheck.ts` | the level checks, run by the unit tests and on a phone from the debug screen |
+| `tests/`, `e2e/` | the unit tests (Vitest) and the smoke tests (Playwright, settings in `playwright.config.ts`) |
+| `scripts/sync-version.mjs`, `scripts/release-check.mjs`, `scripts/make-icons.mjs` | the version into the native projects; the check before a release; the app icons |
+| `assets/` | the icon and splash pictures the native ones are made from (by `npm run icons`) |
+| `public/privacy.html` | the privacy policy the stores ask for |
 | `src/progress.ts` | what the player has, saved on the device: stars, coins, hints, best solutions; which tiers are open |
 | `src/screens/` | one file per screen (home, tier, level, how to play), shared pieces in `ui.ts`, and the home screen's background art in `homeArt.ts` |
 | `src/styles.css` | the look of the screens |
@@ -312,6 +481,49 @@ solution tables; a sample of the levels was also checked with a separate brute-f
 
 ## How the app works
 
+- **Ranked mode** (`src/ranked/`, screens in `src/screens/ranked.ts`, `#/ranked`). The player
+  picks a mode (*Fewest moves* or *Flips only*) and a difficulty (the number of moves of the
+  solution: 4 to 8 moves, or 4 to 12 flips; each opens with the stage of its number, 4 with Delta
+  up to 12 with Mu, once every level there has the mode's star: flips-only stars for *Flips only*,
+  fewest-moves stars for *Fewest moves*, see `unlock.ts`), and gets a random puzzle made on the spot
+  (`puzzles.ts`: random moves on a solved board, kept only when the solvers confirm it can't be
+  done in fewer). The rules, in `rules.ts`, are shared with the server:
+  - a stopwatch runs from the moment the puzzle appears; 5 minutes, or it's a loss;
+  - for 4 minutes only a solve in exactly the difficulty counts; after that more flips count too;
+    the forces are limited as on the levels;
+  - no hints; the Codex stays open (the clock keeps running);
+  - the rank on a leaderboard is the *score*: a weighted average time that starts at 5:00 and
+    moves 1/15 of the way to each game's time (a loss counting as 5:00), so a new player starts
+    at the bottom, climbing takes many good games, and newer games count a little more
+    (`SCORE_WEIGHT` in `rules.ts`). Everyone is on a leaderboard from their first game there;
+  - the overall leaderboard, *Top Ranked Players*, ranks first by the number of leaderboards a
+    player is on (more is higher), then by their average place on them, then by their average
+    score on them, so playing well everywhere beats being best at one. Times are shown in
+    minutes and seconds;
+  - *Peter Pathetic*, a made-up player, is on every leaderboard with the worst score (5:00, no
+    games), so none is empty; he always comes last overall (`netlify/leaderboard.ts`).
+
+  **No cheating by leaving** (`ranked.ts`): the game is saved as *active* before the puzzle is
+  shown. Leaving its screen (back arrow, Android's back button) asks first and then counts as a
+  loss; an active game found when the app starts (it was closed, crashed or reloaded) is a loss,
+  and the lobby says so. The clock is the wall clock, so it runs on in the background, and within
+  a run of the app the steady clock (`performance.now`) keeps setting the phone's clock back from
+  taking time off.
+
+  **Offline and online**: games are saved on the device, and the lobby's record works offline.
+  A player who joins the leaderboards (a name; duplicates allowed) has their games sent with a
+  random device id (`online.ts`), at once or when the connection is back. The server
+  (`netlify/leaderboard.ts`) checks every game again: the puzzle has the stated difficulty, a win
+  is a real solve by the rules, not faster than a human can tap. It can't check the time itself:
+  a tampered app could send made-up times, the limit of a game that plays offline. Device ids are
+  stored only as a hash and never shown. Once joined, a player can change their name, not leave.
+
+  **A player is an install.** The id lives in the app's saved data, so it survives updates of
+  the app, but not uninstalling it, and every browser and address is a separate player too (the
+  dev server, a draft deploy, the website, each phone's app). The old entry stays on the server,
+  under the old id. Test deploys (an address with `--`, see `netlify/functions/ranked.mts`) keep
+  their games in a separate store (`ranked-test`), apart from the real leaderboards.
+
 - **Screens.** Each screen has an address after the `#` in the URL: `#/` (home), `#/how-to-play`,
   `#/tier/4`, `#/level/4/7`. When the address changes, `main.ts` builds that screen. Because
   every screen is a step in the browser history, the back button works for free, and so does
@@ -334,8 +546,8 @@ solution tables; a sample of the levels was also checked with a separate brute-f
   the coin pouch, which counts up (`payStageRewards` in `progress.ts`, `flyCoins` in `home.ts`;
   the wallet remembers which stages were paid, so each pays once). After a stage's last level
   otherwise, the button under the stars says *Menu* and leads home.
-- **Unlocking.** A stage opens when 70% of all the stars of the stages before it are earned
-  (`UNLOCK_SHARE` in `progress.ts`, rounded up: Gamma needs 15 of the 21 of Alpha and Beta, ...),
+- **Unlocking.** A stage opens when 80% of all the stars of the stages before it are earned
+  (`UNLOCK_SHARE` in `progress.ts`, rounded up: Gamma needs 17 of the 21 of Alpha and Beta, ...),
   so the cost grows with the game. The one exception is Beta, which opens at 5 of Alpha's 9 stars
   (`BETA_STARS`) so new players get going quickly. Or a stage opens right away for 100 coins
   (`UNLOCK_COST`). Within a stage, the levels come in groups (a grade: the levels with the same
@@ -445,7 +657,7 @@ solution tables; a sample of the levels was also checked with a separate brute-f
   at the next start (`enforceForceLimits` in `progress.ts`). Solves that earned only *Solve it*
   aren't recorded, so that star can't be checked and stays.
 - **Codex** (`#/codex`: the light-bulb button on the home screen, with a red bubble counting the entries earned and not made yet). Every completed stage
-  earns one. Its pattern is at most that many forces from a solved board: Alpha 1, Beta 2, Gamma 3, ...
+  earns one. Its pattern is at most that many forces from a solved board: Alpha 1, the last three stages 3, all others 2
   (`entryForces` in `progress.ts`). The player picks how many forces to use with − and + (the gray tiles depend on it), places them (red diamonds on top show how many are left; < and Reset take them back) and presses Discover;
   the flips-only solution then stays visible, as gold diamonds, on this screen and in the
   *Codex* popup on every level. That popup shows all 12 as a grid of boards with nothing but
@@ -582,6 +794,28 @@ Notes added as the project goes along: what was learned, problems hit, and how t
   engine of Safari on an iPhone, from Windows (`npx playwright-core install webkit`), and a
   browser profile on disk (`launchPersistentContext`) stands in for an app that is closed and
   opened again.
+- **2026-11-07**: Started the branch `app-store`: buying 100 coins in the native apps. Learned:
+  an in-app purchase has two halves: the store charges, then the app *delivers* and tells the
+  store it is done (`finish`). Until then the store keeps handing the purchase back, so deliver
+  first and finish second, and remember what was delivered (the transaction id) so nothing is
+  given twice. Both stores have free test buyers (Apple's sandbox and TestFlight, Google's
+  license testers): test there before anyone can pay. And `import()` (a dynamic import) makes
+  Vite put a library in a separate file that is only downloaded when that code runs: the web
+  version never loads the purchase plugin.
 - **2026-11-09**: Each level got a limited number of forces. Learned: when a number follows from
   data you already have (the forces of the stored solution), derive it instead of storing it
   again, so the limit and the hints can never disagree.
+- **2026-11-10**: Made the `app-store` branch ready for testers: a free test coin pack
+  (`TEST_BUILD`), app icons, version numbers, a privacy policy, a debug screen, unit tests and
+  smoke tests. Learned: test the tests, by breaking the code on purpose and checking that a test
+  fails (it did, for Beta's 5 stars and for a purchase credited twice). And the smoke test for
+  offline play found a real bug: a server can answer with `Vary: Origin`, and the service worker's
+  saved copy of the script then didn't match the browser's request, so the web app didn't open
+  offline. `ignoreVary` in `src/sw.js` fixed it.
+- **2026-11-15**: Ranked mode, on the branch `ranked`: random puzzles against the clock, and
+  online leaderboards on a Netlify Function. Learned: share the rules between the game and the
+  server (one file, `src/ranked/rules.ts`), so they can't disagree. A smoke test with the page's
+  clock fast-forwarded (`page.clock`) found a real bug the other tests missed: the first tick of
+  the stopwatch ran before the screen was on the page, took that for "the screen is gone" and
+  stopped the clock for good. And Vitest can fail with "failed to find the runner" when the
+  folder's drive letter is written in lower case (`c:\`): run it from `C:\`.
