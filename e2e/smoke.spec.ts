@@ -98,15 +98,16 @@ test("a level with no forces refuses a force, one with forces takes them until t
   expect(await board()).toBe(after);
 });
 
-test("the coin pack gives 100 coins (test build)", async ({ page }) => {
-  test.skip(!testBuild, "a release build: the coin pack is only in the apps, with the store");
+test("Top up: the smallest coin pack gives 100 coins, doubled the first time (test build)", async ({ page }) => {
+  test.skip(!testBuild, "a release build: the coin packs are only in the apps, with the store");
   await returningPlayer(page, 10);
   await page.goto("./#/shop");
-  await page.locator(".buy-coins").click();
+  await page.locator(".top-up").click();
+  await page.locator('.buy-pack[data-pack="coins_pack_1"]').click();
   await page.goto("./#/");
-  await expect.poll(() => coinTotal(page)).toBe(110);
+  await expect.poll(() => coinTotal(page)).toBe(210);
   await page.reload();
-  await expect.poll(() => coinTotal(page)).toBe(110);
+  await expect.poll(() => coinTotal(page)).toBe(210);
 });
 
 test("the debug screen opens from the version, and its checks pass", async ({ page }) => {

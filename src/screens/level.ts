@@ -29,7 +29,9 @@ import {
 import { openCodex } from "./codex";
 import { confirmFlips, warnsAboutFlips } from "./flipsWarning";
 import { openReplays } from "./replayDialog";
-import { bigStarGold, bigStarSocket, coin, plural, screen, star, topbar } from "./ui";
+import { bigStarGold, bigStarSocket, coin, notice, plural, screen, star, topbar } from "./ui";
+import { adsAvailable, watchAd } from "../ads";
+import { adOffer } from "../adRewards";
 
 // The result (stars and buttons over the board) comes this long after the solving move: once the
 // board's own solved animation (tiles turning, the wave of light, Solved!) has played
@@ -72,6 +74,7 @@ export function levelScreen(level: Level) {
       <button type="button" class="replay" hidden>▶ Replay</button>
       <button type="button" class="open-codex">Codex</button>
       <button type="button" class="buy-hint">Hint · ${coin()} ${HINT_COST}</button>
+      <button type="button" class="ad-hint primary" hidden>▶ Free hint <small class="ad-left"></small></button>
     </div>
     <ol class="goals">
       <li class="goal" data-star="${STAR_SOLVED}">${star(earnedBefore(STAR_SOLVED))}<span>Solve it</span></li>
@@ -170,27 +173,41 @@ export function levelScreen(level: Level) {
   const progressFlips = element.querySelector<HTMLElement>('[data-goal="flips"] .goal-progress')!;
   const goalButtons = [...element.querySelectorAll<HTMLButtonElement>("button.goal")];
   const buyButton = element.querySelector<HTMLButtonElement>(".buy-hint")!;
+  const adButton = element.querySelector<HTMLButtonElement>(".ad-hint")!;
+  const adLeft = adButton.querySelector<HTMLElement>(".ad-left")!;
   const replayButton = element.querySelector<HTMLButtonElement>(".replay")!;
   const coinCount = element.querySelector<HTMLElement>(".coin-count")!;
 
   // --- hints ---------------------------------------------------------------------------------
   let hintGoal: HintGoal | null = null; // the goal whose hints are shown
 
-  const hintsLeft = (goal: HintGoal) => solutionFor(level, goal).length - hintsBought(level, goal);
+  // A goal whose star is earned sells no more hints (its hints bought before still show)
+  const starEarned = (goal: HintGoal) => (starsOf(level) & (goal === "flips" ? STAR_FLIPS : STAR_MOVES)) !== 0;
+  const hintsLeft = (goal: HintGoal) => (starEarned(goal) ? 0 : solutionFor(level, goal).length - hintsBought(level, goal));
 
   const showHints = () => {
     goalButtons.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.goal === hintGoal)));
     coinCount.textContent = String(coins());
+    const left = hintGoal ? hintsLeft(hintGoal) : hintsLeft("flips") + hintsLeft("moves");
+    // Not enough coins for a hint (and hints left to give): a short video pays for one (ads.ts), at
+    // once (no waiting for the next video), as long as today's limit isn't reached
+    // (today's videos all watched: it stays, greyed out, "Come back tomorrow")
+    const offer = adOffer(true);
+    adButton.hidden = guided || left === 0 || coins() >= HINT_COST || !adsAvailable();
+    if (!adButton.classList.contains("busy")) adButton.disabled = !offer.canWatch;
+    adLeft.textContent = offer.canWatch ? `${offer.todayLeft} left today` : "Come back tomorrow";
+    // (the free hint takes the paid Hint button's place: not enough coins for that one anyway)
+    buyButton.hidden = !adButton.hidden;
     if (!hintGoal) {
       widget.setMarks([]);
       // Always ready to sell a hint (it asks which one), unless there are none left to sell
-      buyButton.disabled = coins() < HINT_COST || (hintsLeft("flips") === 0 && hintsLeft("moves") === 0);
+      buyButton.disabled = coins() < HINT_COST || left === 0;
       return;
     }
     const solution = solutionFor(level, hintGoal);
     const shown = hintsBought(level, hintGoal);
     widget.setMarks(solution.slice(0, shown));
-    buyButton.disabled = shown >= solution.length || coins() < HINT_COST;
+    buyButton.disabled = left === 0 || coins() < HINT_COST;
   };
 
   // Buy one more hint for a goal, and show that goal's hints
@@ -211,15 +228,35 @@ export function levelScreen(level: Level) {
     if (hintGoal) getHint(hintGoal);
     else chooseHint(); // no goal picked yet: ask which hint
   });
+  // A free hint: a short video pays its coins (at least HINT_COST), then the hint is bought as usual
+  adButton.addEventListener("click", () => {
+    adButton.disabled = true;
+    adButton.classList.add("busy");
+    void watchAd(true).then((result) => {
+      adButton.classList.remove("busy");
+      adButton.disabled = false;
+      if (result.outcome === "unavailable") alert(result.message);
+      if (result.outcome === "rewarded") {
+        notice(`+${result.coins} coins!`);
+        if (coins() >= HINT_COST) {
+          if (hintGoal) getHint(hintGoal);
+          else chooseHint();
+        }
+      }
+      showHints();
+    });
+  });
 
   // A popup to pick which hint to buy, when no goal is picked yet
   const chooseHint = () => {
     const option = (goal: HintGoal) => {
       const total = solutionFor(level, goal).length;
       const shown = hintsBought(level, goal);
-      return `<button type="button" class="hint-option" data-goal="${goal}" ${shown >= total ? "disabled" : ""}>
+      // (a star already earned: nothing left to help with)
+      const note = starEarned(goal) ? "★ Star earned" : shown >= total ? "all hints shown" : `${shown} of ${total} hints shown`;
+      return `<button type="button" class="hint-option" data-goal="${goal}" ${hintsLeft(goal) === 0 ? "disabled" : ""}>
         <strong>${goalNames[goal]}</strong>
-        <span>${shown >= total ? "all hints shown" : `${shown} of ${total} hints shown`}</span></button>`;
+        <span>${note}</span></button>`;
     };
     const dialog = document.createElement("dialog");
     dialog.className = "app-dialog hint-dialog";

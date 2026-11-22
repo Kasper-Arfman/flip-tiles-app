@@ -133,6 +133,26 @@ the app itself.
 The native projects hold a *copy* of `dist/`. After changing web code, run `npm run sync`
 (build + copy into both native projects), then press **Run** again in Android Studio.
 
+**Live reload on your phone (fastest while working on the game).** The app on the phone loads
+the game from the dev server on your computer, through the USB cable, and reloads by itself
+whenever you save a file. It is still the real app: ads (test ads), the store and the phone's own
+saved progress all work.
+1. Phone plugged in with USB debugging on (see *On a real Android phone*).
+2. First terminal: `npm run dev` (keep it running).
+3. Second terminal: `npm run android:live` (it builds the app once, installs it and starts it;
+   with more than one device it asks which). The cable carries the connection (`adb reverse`), so
+   no Wi-Fi or firewall settings are needed.
+4. Edit and save: the phone reloads. Stop with Ctrl+C in both terminals.
+
+The phone reaches the dev server through the cable (`adb reverse`). That link is gone after
+unplugging the phone: if the app says *localhost:5173 could not be loaded* (or
+`ERR_EMPTY_RESPONSE`), run `npm run android:tunnel` (sets the link again, without building) and
+reopen the app. Java for the build is found by itself (Android Studio's own, when `JAVA_HOME` isn't
+set: `scripts/android-live.mjs`).
+
+The app installed this way needs the dev server: to put a normal, standalone build back on the
+phone, run `npm run sync` and press **Run** in Android Studio (or `npx cap run android`).
+
 ### iOS
 
 `npm run ios` does the same with Xcode, on a Mac. On a Mac, Safari's *Develop* menu does what
@@ -140,23 +160,26 @@ The native projects hold a *copy* of `dist/`. After changing web code, run `npm 
 
 ### Releasing to the App Store and Google Play (branch `app-store`)
 
-The store version lives on the branch `app-store`; `main` stays the simple web version for
-Netlify. What it adds: buying coins (one product, **100 coins for 0.99**: `src/purchases.ts`,
-with the plugin [capacitor-plugin-cdv-purchase](https://github.com/j3k0/cordova-plugin-purchase)),
-the app icons and splash screen, version numbers, a privacy policy, a debug screen, and the
-automated tests. The coin pack shows in the shop only inside the native apps, and only once the
-store has given its price.
+What the store version has: coins for real money (four coin packs: `src/purchases.ts`, with the
+plugin [capacitor-plugin-cdv-purchase](https://github.com/j3k0/cordova-plugin-purchase)),
+coins for watching a video ad (`src/ads.ts`, Google AdMob, see *Monetization* below), the app
+icons and splash screen, version numbers, a privacy policy, a debug screen, and the automated
+tests. The packs and the ads show only inside the native apps (and in a test build); the web
+version on Netlify has neither.
 
 **The road to a release, in order.**
 
-1. **Test build** (now): `TEST_BUILD = true` in `src/dev.ts`. The coin pack is free and shown
-   everywhere, also in the browser, so everything around it can be tested without a store: the
-   coins arrive, they stay after a restart, *Reset progress* gives them back. Hand this build to
-   testers (Internal testing on Google Play, TestFlight on iOS).
-2. **Store purchases**: set the product up in both stores (below), set `TEST_BUILD = false`, and
-   test a real purchase with the stores' test accounts (below: nothing is charged).
-3. **Release**: fill in the contact address in `public/privacy.html`, raise the version, commit,
-   and `npm run release` (it refuses a test build, see *Releasing* below). Then build and upload.
+1. **Test build**: `TEST_BUILD = true` in `src/dev.ts`. The packs are free and shown everywhere,
+   and a pretend 5-second ad stands in for real ads in the browser, so everything around them
+   can be tested without a store or an ad account: the coins arrive, they stay after a restart,
+   *Reset progress* gives bought coins back. On a phone, a test build shows Google's *test ads*.
+   Hand this build to testers (Internal testing on Google Play, TestFlight on iOS).
+2. **Store purchases and ads**: set up the four products in both stores and your AdMob account
+   (below), set `TEST_BUILD = false`, and test a real purchase with the stores' test accounts
+   (nothing is charged) and the ads with test ads.
+3. **Release**: fill in the contact address in `public/privacy.html` and your real AdMob ids,
+   raise the version, commit, and `npm run release` (it refuses anything left undone, see
+   *Releasing* below). Then build and upload.
 
 **Accounts (once).**
 - Apple: the [Apple Developer Program](https://developer.apple.com/programs/) ($99 a year). In
@@ -165,14 +188,28 @@ store has given its price.
 - Google: a [Play Console](https://play.google.com/console) account ($25 once), and a *payments
   profile* (merchant account) under *Settings → Payments profile*.
 
-**The product (in each store).** Create it with exactly the id `coins_100`:
-- App Store Connect → your app → *In-App Purchases* → **Consumable**, id `coins_100`, price
-  **$0.99** (a point on Apple's price list; it shows each country's own price, e.g. €0.99).
-- Play Console → your app → *Monetize → In-app products* → create `coins_100`, price **$0.99**
-  (the console fills in the other countries; check them), and activate it.
+**The products (in each store).** Four *consumables*, with exactly these ids (from
+`COIN_PACKS` in `src/monetization.ts`):
+
+| Id | Coins | Price |
+| --- | --- | --- |
+| `coins_pack_1` | 100 (`BASE_COINS`) | $0.99 |
+| `coins_pack_2` | 300 | $1.99 |
+| `coins_pack_3` | 700 | $3.99 |
+| `coins_pack_4` | 3,000 | $14.99 |
+
+- App Store Connect → your app → *In-App Purchases* → **Consumable**, each id with its price
+  (a point on Apple's price list; it shows each country's own price, e.g. €0.99).
+- Play Console → your app → *Monetize → In-app products* → create each id with its price (the
+  console fills in the other countries; check them), and activate it.
 - The price is set only there, never in the code: the shop shows what the store says, in the
-  player's own currency. The stores keep about 15% (both have a lower fee for small developers:
-  Apple's *Small Business Program* and Google's 15% tier; Apple's must be applied for).
+  player's own currency. A pack the store doesn't know yet is simply not shown. The stores keep
+  about 15% (both have a lower fee for small developers: Apple's *Small Business Program* and
+  Google's 15% tier; Apple's must be applied for).
+- **Changing prices** (as often as you like): change the price in both stores, and `price` in
+  `COIN_PACKS` (only used for the "+49% coins" labels). **Changing what a pack gives**: change
+  `coins` there (and the product's description in the stores). Never change or reuse an id: a
+  store never lets an id be used again; for a new pack, add a new id.
 
 **Testing a purchase without paying (do this before any public release).** Both stores have test
 buyers whose purchases are never charged:
@@ -183,8 +220,9 @@ buyers whose purchases are never charged:
 - Google: Play Console → *Settings → License testing* → add your Google account; upload the app
   to the **Internal testing** track and install it from the link. The payment sheet then offers
   *Test card, always approves*: nothing is charged.
-- Check: the price shows, buying adds 100 coins, closing the dialog adds nothing, and the coins
-  are still there after closing and reopening the app. Only then promote it to a public release.
+- Check: all four prices show, the first purchase adds double the coins and later ones the pack's
+  coins, closing the dialog adds nothing, and the coins are still there after closing and
+  reopening the app. Only then promote it to a public release.
 
 What protects buyers (in `purchases.ts`): coins are added and saved *before* the store is told the
 purchase is done (an app that stops in between gets the purchase again at its next start), each
@@ -199,9 +237,10 @@ build number isn't higher than the last, so raise the version before every uploa
 bottom of the home screen.
 
 **Releasing.** `npm run release` runs, in order: the release check (`scripts/release-check.mjs`:
-stops when `TEST_BUILD` or `DEV_MODE` is on, the privacy policy has no contact yet, or anything
-isn't committed), then all the tests (`npm run check`), then the build and the copy into the
-native projects. Only when it passes, build and upload as below.
+stops when `TEST_BUILD` or `DEV_MODE` is on, the privacy policy has no contact yet, an AdMob id is
+still Google's sample or a placeholder, or anything isn't committed), then all the tests
+(`npm run check`), then the build and the copy into the native projects. Only when it passes,
+build and upload as below.
 
 **Building for Android (Windows works).** `npm run android` opens Android Studio. There, *Build →
 Generate Signed App Bundle*: create a *keystore* the first time (keep the file and its passwords
@@ -221,13 +260,85 @@ after changing the icon.
 **Store listings ask for:** screenshots, a short description, an age rating, and a **privacy
 policy URL**. The policy is `public/privacy.html`, so it is online at
 `https://<your site>.netlify.app/privacy.html` once this branch's build is on Netlify (or put
-the file on any website). The game keeps everything on the phone and sends nothing anywhere
-(the stores handle payments): answer Google's *Data safety* form and Apple's *App Privacy* with
-"no data collected".
+the file on any website). Both stores also ask what data the app collects; with ads, the answer is
+no longer "nothing":
+- Google Play, *App content*: **Contains ads: yes**. *Data safety*: *Device or other IDs*
+  (advertising ID) and *App interactions*, collected by the AdMob SDK, shared with Google, for
+  *Advertising* and *Fraud prevention*, not optional only in the sense that ads need them (ads
+  themselves are optional). Google's own guide lists what AdMob collects:
+  [AdMob data disclosure](https://developers.google.com/admob/android/privacy/play-data-disclosure).
+- Apple, *App Privacy*: *Identifiers → Device ID*, *Usage Data → Advertising Data*, *Diagnostics*,
+  used for **Third-Party Advertising**, and *linked to the user / used for tracking* only when the
+  player allowed tracking. Apple's guide: [App privacy details](https://developer.apple.com/app-store/app-privacy-details/).
+- Target audience / age: not for children (under 13). An app for children may only show
+  certified family-safe ads, with other rules (Google's *Families* policy).
 
-**The online leaderboards** (ranked mode, branch `ranked`): see *Ranked mode* under *How the app
-works*. They are the one part of the game that talks to a server, and only for players who join:
-the stores' privacy forms must then say "name and game results, for leaderboards, optional".
+**The online leaderboards** (ranked mode): see *Ranked mode* under *How the app works*. They are
+the one part of the game that talks to the game's own server, and only for players who join: the
+stores' privacy forms must then also say "name and game results, for leaderboards, optional".
+
+### Monetization: coins, ads and prices
+
+All the numbers are in one file, **`src/monetization.ts`**: what a hint costs (`HINT_COST`, 10
+coins), the coin packs (`BASE_COINS` and `COIN_PACKS`), the first-purchase bonus, and how ads pay.
+Change them there; the shop, the levels and the tests follow.
+
+**Coin packs** (real money, in the apps; set up in the stores as above): 1, 3, 7 and 30 times
+`BASE_COINS` for $0.99, $1.99, $3.99 and $14.99. The shop shows how many more coins per dollar each
+gives than the smallest (+49%, +74%, +98%), a *Most popular* and a *Best value* ribbon, and the
+**first purchase gives double coins** (`FIRST_PURCHASE_MULTIPLIER`): the first purchase is the
+hardest one to make.
+
+**Ads: rewarded videos only.** The player taps to watch a short video and gets coins: exactly one
+hint (`AD_REWARD = HINT_COST`). No ad ever interrupts the game, which players hate and which
+gets bad reviews. To make watching attractive, and coming back too:
+- *Free hint* right where it is needed: on a level, when there aren't enough coins for a hint, a
+  **▶ Free hint** button: the video pays the hint and the hint opens.
+- **Welcome bonus**: the very first video pays 3× (`AD_WELCOME_MULTIPLIER`).
+- **Daily bonus**: the first video of each day pays 2× (`AD_DAILY_MULTIPLIER`): a reason to come
+  back every day.
+- **Scarcity**: videos come in a stack of 3 (`AD_STACK`) that refills one every 20 minutes
+  (`AD_REFILL_MINUTES`), at most 10 a day (`AD_DAILY_LIMIT`). A small, refilling supply feels
+  like a gift to use up, and brings players back when it has refilled; unlimited videos would be
+  grinded once and devalue the coin packs.
+- Quietly placed: the shop's **Top up** button (beside *Your look*) opens a popup with the free
+  video (its bonus, how many are ready, when the next one comes) and the four coin packs
+  (`src/screens/topUp.ts`); the home screen has a small round **video button** (a clapperboard,
+  with a badge: how many videos are ready, 1 to 3) that opens *Watch a video?*: what it pays
+  (and the bonus, if any), how many are ready, when the next one comes, how many are left today,
+  and *Not now* / *Watch*.
+
+The ad bookkeeping (`src/adRewards.ts`) is saved apart from the progress, so *Reset progress*
+doesn't hand out the welcome bonus again.
+
+**Setting up ads (Google AdMob).**
+1. Make an account at [apps.admob.com](https://apps.admob.com) and add the app twice (Android and
+   iOS; link them to the store listings once they exist). Each gets an **app id**
+   (`ca-app-pub-...~...`).
+2. In each app, create an ad unit of type **Rewarded**; each gets an **ad unit id**
+   (`ca-app-pub-.../...`).
+3. Put them in:
+   - `src/monetization.ts`, `ADMOB`: the two rewarded ad unit ids;
+   - `android/app/src/main/AndroidManifest.xml`: the Android app id (`APPLICATION_ID`);
+   - `ios/App/App/Info.plist`: the iOS app id (`GADApplicationIdentifier`);
+   - `public/app-ads.txt`: your publisher id (`pub-...`, in AdMob under *Settings*). It must be
+     online at the root of the website given in the store listings (Netlify serves it from
+     `public/`); without it ads earn far less.
+4. In AdMob, *Privacy & messaging*: create a **GDPR message** (Europe) and an **IDFA explainer**
+   (iPhone). The app shows them before the first video (`ads.ts`), and the home screen gets a
+   *Privacy settings* button where the law requires one.
+5. Until all that is done, and in every test build and while developing, the app uses Google's
+   **test ads** (they say "Test Ad" and pay nothing). **Never tap your own real ads**: Google
+   closes accounts for it. To see real ads safely on your own phone, add it as a *test device*
+   in AdMob.
+
+The release check refuses a release until the real ids are in.
+
+**Where the money comes from, roughly.** A rewarded video pays the developer about $0.01 to
+$0.03 (much more in the US and Western Europe than elsewhere); coin packs bring $0.99 to $14.99
+minus the stores' 15%. A free game earns mostly from a few players who buy, and from many who
+watch now and then. Watch the numbers in AdMob and the stores, and change prices and rewards in
+`monetization.ts` as you learn.
 
 ### Ranked mode: testing the leaderboards on your computer
 
@@ -392,7 +503,10 @@ with `npx cap ...` (e.g. `npx cap doctor` checks your Capacitor setup).
 | `src/nav.ts` | the screens' addresses (`#/tier/4`, `#/level/4/7`) and going back |
 | `src/skins.ts` | the skins (tile color pairs) and shapes (tile outlines) sold in the shop, and putting them on |
 | `src/sw.js` | the service worker: saves the app's files on the device, so the web app plays offline (its file list is written in by `vite.config.ts` on every build) |
-| `src/purchases.ts` | buying 100 coins with real money, in the native apps only (branch `app-store`) |
+| `src/monetization.ts` | every number about money: hint cost, coin packs, first-purchase bonus, how ads pay, the AdMob ids |
+| `src/purchases.ts` | buying coin packs with real money, in the native apps only |
+| `src/ads.ts` | rewarded video ads (Google AdMob), with the privacy questions; a pretend ad in test builds |
+| `src/adRewards.ts` | how ads pay: the welcome and daily bonus, the stack of 3, the daily limit |
 | `src/screens/codex.ts` | the Codex screen, its pattern editor, and the popup on a level |
 | `src/dev.ts` | `DEV_MODE` (shows what players must not see yet) and `TEST_BUILD` (free coin pack, test tools): both `false` for a release |
 | `src/screens/debug.ts` | the debug screen (tap the version on the home screen 5 times) |
@@ -632,17 +746,17 @@ solution tables; a sample of the levels was also checked with a separate brute-f
   lower-case letter in gold before the name ("α Alpha", `stageTitle` in `ui.ts`), and a level is
   called by its stage and number ("Alpha 7"). The code and the addresses (`#/tier/3`) still
   use the difficulty.
-- **Coins.** A new player gets 1,000 (`STARTING_COINS`, generous while testing). There is no way
-  to earn coins yet.
+- **Coins.** A new player gets 100 (`STARTING_COINS`). More come from completing stages, from
+  watching a short video, and from coin packs bought in the app (see *Monetization: coins, ads
+  and prices*; all the numbers are in `src/monetization.ts`).
 - **The shop** (`#/shop`: the bag button on the home screen, or tap your coins) sells the look
-  of the tiles in two separate parts, which go together in any combination: **skins** (the two
-  colors of the tiles: 25 to find besides Classic) and **shapes** (the outline of every tile: a
+  of the tiles in two separate parts, which go together in any combination: **colors** (the two
+  colors of the tiles, called *skins* in the code: 25 to find besides Classic) and **shapes** (the outline of every tile: a
   heart, a paw, a flower, a strawberry, a kitty, a ghost, ...: 12 to find besides the square).
   Each has its own mystery box of 25 coins (`SKIN_COST`): a random one you don't have yet, each
   equally likely (`buyMysterySkins`, `buyMysteryShapes` in `progress.ts`); it shakes, the lid pops
-  off and the new look's board flips in (`openBox` in `shop.ts`). **Open 10** opens ten at once
-  for 250 (`BOX_BUNDLE`, `BUNDLE_COST`: the same price per box), ten different ones, while at
-  least ten are left: they come out one after the other in a grid, and you tap one to put it on.
+  off and the new look's board flips in (`openBox` in `shop.ts`). One box at a time (an *Open 10*
+  button is gone).
   Some shapes have two colors: a detail drawn in the tile's other color (a daisy's core, a
   strawberry's leaves, a crown's jewels: `detail` in `SHAPES`), set as the tile's background image
   (`--skin-detail-zero`, `--skin-detail-one`), which switches with the color halfway through a
@@ -680,7 +794,7 @@ solution tables; a sample of the levels was also checked with a separate brute-f
   `FlipTilesElement.ts`), so the replays show it too. Once solved, these marks and the hints'
   fade out after a moment (so the last move is seen filling its slot), for the celebration.
 - **Hints.** On a level, the goals "N moves" and "N flips" are buttons: tap one to show its
-  hints on the board, and buy the next hint for 1 coin (`HINT_COST`) with the Hint button, at
+  hints on the board, and buy the next hint for 10 coins (`HINT_COST`) with the Hint button, at
   the top right above the goals (with ▶ Replay next to it once there is a solve to watch; no
   text around them). A hint marks one move of a
   solution for that goal: a hollow diamond (a slot), gold = flip that tile, red = force it, and
@@ -881,3 +995,11 @@ Notes added as the project goes along: what was learned, problems hit, and how t
   browsers only allow sound after the player has tapped something, so the audio is set up at the
   first sound (always after a tap), not when the app starts; and a sound needs an *envelope* (a
   very quick fade in, then a fade out), or it starts and stops with a click.
+- **2026-11-22**: Monetization, on the branch `monetization`: four coin packs, rewarded video
+  ads (Google AdMob) and a hint for 10 coins. Learned: keep every number about money in one file
+  (`src/monetization.ts`), because prices change often early on; the stores own the prices, the
+  code only the coins. Ads in Europe and on iPhones need the player's consent first (Google's
+  consent form, Apple's tracking question), and the privacy policy and the stores' privacy forms
+  must say so. And rules that depend on time (a stack of ads that refills every 20 minutes) are
+  easiest to test as pure functions of a saved state and the time, so a test can jump ahead
+  instead of waiting.

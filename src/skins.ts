@@ -37,9 +37,9 @@ export interface Shape {
 
 export type SkinGroup = "rich" | "bright" | "dark";
 export const SKIN_GROUPS: { group: SkinGroup; title: string }[] = [
-  { group: "bright", title: "Skins: light & bright" },
-  { group: "rich", title: "Skins: rich & sweet" },
-  { group: "dark", title: "Skins: dark" },
+  { group: "bright", title: "Colors: light & bright" },
+  { group: "rich", title: "Colors: rich & sweet" },
+  { group: "dark", title: "Colors: dark" },
 ];
 
 export const DEFAULT_SKIN = "classic";

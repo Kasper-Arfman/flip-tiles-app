@@ -6,6 +6,9 @@ import {
   tierSolved, tierStars, totalStars,
 } from "../progress";
 import { TEST_BUILD } from "../dev";
+import { adsAvailable, privacyOptionsRequired, showPrivacyOptions } from "../ads";
+import { adOffer } from "../adRewards";
+import { CLAPPER, canTopUp, openAdOffer, openTopUp } from "./topUp";
 import { go } from "../nav";
 import { applySkin } from "../skins";
 import { setSoundOn, sound, soundOn } from "../sound";
@@ -86,6 +89,13 @@ export function homeScreen(rerender: () => void) {
     <a class="round-button shop-button" href="#/shop" aria-label="Shop">${BAG}</a>
     <a class="round-button codex-button" href="#/codex"
       aria-label="Codex${toClaim ? `: ${toClaim} to claim` : ""}">${BULB}${toClaim ? `<span class="notification-bubble" aria-hidden="true">${toClaim}</span>` : ""}</a>
+    ${adsAvailable() ? (() => {
+      // (its badge: how many videos are ready, 1 to 3; none when none is)
+      const ready = adOffer().left;
+      return `<button type="button" class="round-button ad-button"
+        aria-label="Free coins: ${ready} video${ready === 1 ? "" : "s"} ready">${CLAPPER}${ready
+        ? `<span class="notification-bubble" aria-hidden="true">${ready}</span>` : ""}</button>`;
+    })() : ""}
     <button type="button" class="round-button sound-button" aria-pressed="${soundOn()}"
       aria-label="Sound">${speaker(soundOn())}</button>
     <a class="round-button help-button${total === 0 ? " first-time" : ""}" href="#/how-to-play" aria-label="How to play">?</a>
@@ -96,8 +106,11 @@ export function homeScreen(rerender: () => void) {
       </h1>
       <p class="wealth">
         <span class="pill" aria-label="${total} stars">${star(true)} ${total} / ${3 * totalLevels}</span>
-        <a class="pill coin-pill" href="#/shop" aria-label="${coins()} coins: to the shop">${coin()}
-          <span class="coin-total">${shownCoins}</span></a>
+        ${canTopUp()
+          ? `<button type="button" class="pill coin-pill" aria-label="${coins()} coins: top up">${coin()}
+              <span class="coin-total">${shownCoins}</span></button>`
+          : `<a class="pill coin-pill" href="#/shop" aria-label="${coins()} coins: to the shop">${coin()}
+              <span class="coin-total">${shownCoins}</span></a>`}
       </p>
     </header>
     <ul class="tiers">
@@ -113,6 +126,7 @@ export function homeScreen(rerender: () => void) {
     </ul>
     <footer class="home-footer">
       <button type="button" class="reset-progress">Reset progress</button>
+      ${privacyOptionsRequired() ? `<button type="button" class="reset-progress privacy-settings">Privacy settings</button>` : ""}
       <button type="button" class="app-version">Version ${__APP_VERSION__}${TEST_BUILD ? " (test)" : ""}</button>
     </footer>`);
 
@@ -162,6 +176,15 @@ export function homeScreen(rerender: () => void) {
       });
     }, 900);
   }
+
+  // Free coins: first a popup with what a video gives (topUp.ts); the coins show when it is done
+  element.querySelector(".ad-button")?.addEventListener("click", () => openAdOffer(rerender));
+
+  // The coins: Top up (a video, coin packs; topUp.ts), where there is anything to top up with;
+  // else (the web version) the coins are a link to the shop
+  element.querySelector("button.coin-pill")?.addEventListener("click", () => openTopUp(rerender));
+  // Where the law asks for it (Europe): the player can change their ad privacy choice (ads.ts)
+  element.querySelector(".privacy-settings")?.addEventListener("click", () => void showPrivacyOptions());
 
   // The version: tapped 5 times in a row (within 2 seconds of each other), the debug screen
   let taps = 0;

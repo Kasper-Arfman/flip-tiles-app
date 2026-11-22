@@ -98,3 +98,13 @@ export function screen(className: string, html: string) {
   element.innerHTML = html;
   return element;
 }
+
+// A short message that pops up at the bottom of the screen and goes by itself ("+30 coins!")
+export function notice(text: string) {
+  const box = document.createElement("div");
+  box.className = "notice";
+  box.setAttribute("role", "status");
+  box.textContent = text;
+  document.body.append(box);
+  window.setTimeout(() => box.remove(), 2600);
+}

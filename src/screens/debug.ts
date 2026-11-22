@@ -14,6 +14,8 @@ import { DEV_MODE, TEST_BUILD } from "../dev";
 import { clearLog, log, logText } from "../log";
 import { activeLook, exportSave, giveAllStars, giveTestCoins, importSave, saveSummary } from "../progress";
 import { storeStatus } from "../purchases";
+import { adsAvailable, privacyOptionsRequired, usesTestAds } from "../ads";
+import { adOffer, resetAdsToday } from "../adRewards";
 import { checkLevels } from "../selfCheck";
 import { applySkin } from "../skins";
 import { screen, topbar } from "./ui";
@@ -64,10 +66,15 @@ export function debugScreen(rerender: () => void) {
       <section><h2>Store</h2>${table({
         "native app": store.native,
         "plugin loaded": store.loaded,
-        product: store.product,
-        price: store.price,
-        "can buy": store.canPurchase,
+        products: store.products,
         errors: store.errors,
+      })}</section>
+
+      <section><h2>Ads</h2>${table({
+        available: adsAvailable(),
+        "test ads": usesTestAds(),
+        "privacy options": privacyOptionsRequired(),
+        "next ad": JSON.stringify(adOffer()),
       })}</section>
 
       <section><h2>Checks</h2>
@@ -82,6 +89,7 @@ export function debugScreen(rerender: () => void) {
       ${TOOLS ? `<section><h2>Test tools</h2>
         <button type="button" class="add-coins">+100 coins</button>
         <button type="button" class="all-stars">Every star</button>
+        <button type="button" class="reset-ads">Reset videos (today's 10, the stack of 3)</button>
         <p>Load a save (from Copy save): paste it here. It replaces everything saved now.</p>
         <textarea class="save-input" rows="4" spellcheck="false"></textarea>
         <button type="button" class="load-save">Load save</button></section>` : ""}
@@ -128,6 +136,11 @@ export function debugScreen(rerender: () => void) {
   });
 
   if (TOOLS) {
+    $(".reset-ads")!.addEventListener("click", () => {
+      resetAdsToday();
+      log("info", "Test tools: videos reset");
+      rerender();
+    });
     $(".add-coins")!.addEventListener("click", () => {
       giveTestCoins(100);
       log("info", "Test tools: 100 coins added");

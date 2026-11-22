@@ -1,6 +1,7 @@
 // The shop: spend coins. At the top, the player's look as it is now (a small board in their skin
-// and shape, with the names); below it, tabs, one thing at a time:
-//   - Skins: the tiles' two colors
+// and shape, with the names), and beside it Top up (more coins: a free video, coin packs; the
+// popup is topUp.ts); below it, tabs, one thing at a time:
+//   - Colors (in the code: skins): the tiles' two colors
 //   - Shapes: the outline of every tile (a heart, a paw, a flower, ...)
 //   - Extras: Unlock all (every stage, group of levels, skin and shape at once)
 // Skins and shapes go together in any combination. Each tab of them starts with its mystery box
@@ -10,13 +11,13 @@
 // any time; one not owned yet is a gray card with a question mark (its name and look are the
 // surprise; while building the game, DEV_MODE shows them). The Extras tab is gone once there is
 // nothing left in it.
-import { DEV_MODE, TEST_BUILD } from "../dev";
+import { DEV_MODE } from "../dev";
 import {
-  BOX_BUNDLE, BUNDLE_COST, SKIN_COST, UNLOCK_ALL_COST, activeLook, activeShape, activeSkin, buyMysteryShapes,
+  SKIN_COST, UNLOCK_ALL_COST, activeLook, activeShape, activeSkin, buyMysteryShapes,
   buyMysterySkins, buyUnlockAll, coins, ownsAll, ownsShape, ownsSkin, shapesLeft, skinsLeft, useShape, useSkin,
 } from "../progress";
-import { COIN_PACK, buyCoinPack, coinPackPrice } from "../purchases";
 import { SHAPES, SKINS, SKIN_GROUPS, applySkin, findShape, findSkin, skinStyle, type Shape, type Skin } from "../skins";
+import { canTopUp, openTopUp } from "./topUp";
 import { coin, screen, topbar } from "./ui";
 
 // The board in every preview: a 3 x 3 checkerboard of tiles, in the skin's colors and the
@@ -27,13 +28,13 @@ const PREVIEW = `<div class="skin-preview" aria-hidden="true">${
 // The mystery box: a gift box with a question mark
 const BOX = `<svg class="mystery-box" viewBox="0 0 64 64" aria-hidden="true">
   <rect class="box-body" x="10" y="28" width="44" height="30" rx="4" />
-  <rect class="box-ribbon" x="28" y="28" width="8" height="30" />
+  <rect class="box-ribbon" x="28" y="51" width="8" height="7.5" />
   <g class="box-lid">
     <rect class="box-body" x="6" y="18" width="52" height="12" rx="3" />
-    <rect class="box-ribbon" x="28" y="18" width="8" height="12" />
+    <rect class="box-ribbon" x="28" y="18" width="8" height="8" />
     <path class="box-bow" d="M32 18c-6-10-16-8-14-2s14 2 14 2zM32 18c6-10 16-8 14-2s-14 2-14 2z" />
   </g>
-  <text class="box-mark" x="32" y="51" text-anchor="middle">?</text>
+  <text class="box-mark" x="32" y="48" text-anchor="middle">?</text>
 </svg>`;
 
 // An open padlock: Unlock all
@@ -50,9 +51,9 @@ interface Found { id: string; name: string }
 
 const KINDS = {
   skin: {
-    noun: "skin",
-    title: "Mystery skin",
-    what: "skin",
+    // (to players a skin is a "color": the tiles' two colors)
+    noun: "color",
+    title: "Mystery color",
     all: SKINS as Found[],
     owns: ownsSkin,
     inUse: () => activeSkin(),
@@ -65,7 +66,6 @@ const KINDS = {
   shape: {
     noun: "shape",
     title: "Mystery shape",
-    what: "tile shape",
     all: SHAPES as Found[],
     owns: ownsShape,
     inUse: () => activeShape(),
@@ -77,21 +77,12 @@ const KINDS = {
   },
 };
 
-// Coins for real money (see purchases.ts): only in the native apps, and only once the store has
-// given the price. The store itself shows its own confirmation with the price before charging.
-// (A test build: everywhere, free; see TEST_BUILD in dev.ts.)
-const coinPack = () => {
-  const price = coinPackPrice();
-  if (!price) return "";
-  return `<section class="mystery-card coin-pack-card">
-      <span class="coin-pack-icon">${coin()}</span>
-      <div class="mystery-text">
-        <h2>${COIN_PACK} coins</h2>
-        <p>${TEST_BUILD ? "Test version: no payment, the coins are added at once." : `Add ${COIN_PACK} coins to your pouch.`}</p>
-        <button type="button" class="primary buy-coins">Buy · ${price}</button>
-      </div>
-    </section>`;
-};
+// The square beside Your look: Top up coins (the popup: topUp.ts), where there is anything to
+// top up with (a video, or coin packs in the apps)
+const TOP_UP = `<button type="button" class="top-up" aria-label="Top up coins">
+    <span class="top-up-coin" aria-hidden="true">${coin()}<b>+</b></span>
+    <span>Top up</span>
+  </button>`;
 
 // The tab on show: kept while the shop is drawn again (after buying or putting on), and when
 // the player comes back to the shop
@@ -137,13 +128,9 @@ export function shopScreen(rerender: () => void) {
         ${BOX}
         <div class="mystery-text">
           <h2>${k.title}</h2>
-          <p>A random ${k.what} you don't have yet. ${left} left to find.</p>
           <div class="box-buttons">
             <button type="button" class="primary open-box" data-kind="${kind}" data-count="1"
               ${coins() < SKIN_COST ? "disabled" : ""}>Open · ${coin()} ${SKIN_COST}</button>
-            ${left >= BOX_BUNDLE ? `<button type="button" class="primary open-box" data-kind="${kind}"
-              data-count="${BOX_BUNDLE}" ${coins() < BUNDLE_COST ? "disabled" : ""}>Open ${BOX_BUNDLE} ·
-              ${coin()} ${BUNDLE_COST}</button>` : ""}
           </div>
         </div>
       </section>`;
@@ -154,7 +141,7 @@ export function shopScreen(rerender: () => void) {
   // The content of each tab
   const panels: Record<Tab, () => string> = {
     skin: () => box("skin") + SKIN_GROUPS.map(({ group, title }) => `
-      <h2 class="shop-section">${title.replace(/^Skins: (.)/, (_, c: string) => c.toUpperCase())}</h2>
+      <h2 class="shop-section">${title.replace(/^Colors: (.)/, (_, c: string) => c.toUpperCase())}</h2>
       <ul class="skin-grid">${SKINS.filter((s) => s.group === group).map((s) => card("skin", s)).join("")}</ul>`).join(""),
     shape: () => box("shape") + `
       <h2 class="shop-section">All shapes</h2>
@@ -163,7 +150,7 @@ export function shopScreen(rerender: () => void) {
         ${PADLOCK}
         <div class="mystery-text">
           <h2>Unlock all</h2>
-          <p>Every stage and level, every skin and every shape, right away.</p>
+          <p>Every stage and level, every color and every shape, right away.</p>
           <button type="button" class="primary buy-all" ${coins() < UNLOCK_ALL_COST ? "disabled" : ""}>
             Unlock · ${coin()} ${UNLOCK_ALL_COST}</button>
         </div>
@@ -171,7 +158,7 @@ export function shopScreen(rerender: () => void) {
   };
 
   const tabs: { id: Tab; label: string }[] = [
-    { id: "skin", label: `Skins <small>${owned("skin")}/${SKINS.length}</small>` },
+    { id: "skin", label: `Colors <small>${owned("skin")}/${SKINS.length}</small>` },
     { id: "shape", label: `Shapes <small>${owned("shape")}/${SHAPES.length}</small>` },
     // ...(hasExtras ? [{ id: "extras" as Tab, label: "Extras" }] : []),
   ];
@@ -179,15 +166,17 @@ export function shopScreen(rerender: () => void) {
   const look = activeLook();
   const element = screen("shop-screen", `
     ${topbar("Shop", "#/", `${coin()} ${coins()}`)}
-    <section class="my-look" style="${skinStyle(look)}">
-      ${PREVIEW}
-      <div class="my-look-text">
-        <small>Your look</small>
-        <strong>${findSkin(look.skin).name}</strong>
-        <span>${findShape(look.shape).name} tiles</span>
-      </div>
-    </section>
-    ${coinPack()}
+    <div class="shop-head">
+      <section class="my-look" style="${skinStyle(look)}">
+        ${PREVIEW}
+        <div class="my-look-text">
+          <small>Your look</small>
+          <strong>${findSkin(look.skin).name}</strong>
+          <span>${findShape(look.shape).name} tiles</span>
+        </div>
+      </section>
+      ${canTopUp() ? TOP_UP : ""}
+    </div>
     <div class="shop-tabs" role="tablist">
       ${tabs.map((t) => `<button type="button" role="tab" class="shop-tab" data-tab="${t.id}"
         aria-selected="${t.id === tab}">${t.label}</button>`).join("")}
@@ -202,17 +191,13 @@ export function shopScreen(rerender: () => void) {
       rerender();
       return;
     }
-    const pack = target.closest<HTMLButtonElement>(".buy-coins");
-    if (pack) {
-      pack.disabled = true; // (one order at a time)
-      void buyCoinPack().then((result) => {
-        if (result === "error") alert("The purchase didn't go through. Nothing was charged; please try again later.");
-        rerender(); // (the coins arrive by themselves when the store approves)
-      });
+    if (target.closest(".top-up")) {
+      // (coins that came in show in the top bar: the shop is drawn again under the popup)
+      openTopUp(rerender);
       return;
     }
     if (target.closest(".buy-all")) {
-      if (!confirm(`Unlock every stage, level, skin and shape for ${UNLOCK_ALL_COST} coins?`)) return;
+      if (!confirm(`Unlock every stage, level, color and shape for ${UNLOCK_ALL_COST} coins?`)) return;
       if (buyUnlockAll()) rerender();
       return;
     }
@@ -235,8 +220,9 @@ export function shopScreen(rerender: () => void) {
 // The box being opened, in a popup: it shakes, its lid pops off, and what was in it comes out:
 // a skin in the shape in use, a shape in the skin in use. They are already the player's.
 //   - One: its preview board flips in, with its name; Use it puts it on.
-//   - Ten (Open 10): the box goes, and the ten come out one after the other, in a grid, each
-//     with its name; tapping one picks it, Use it puts the picked one on.
+//   - Several (no longer offered: the shop opens one box at a time; kept for if it comes back):
+//     the box goes, and they come out one after the other, in a grid, each with its name;
+//     tapping one picks it, Use it puts the picked one on.
 // Without motion (the player asked for less), they are shown right away.
 function openBox(kind: Kind, found: Found[], rerender: () => void) {
   const k = KINDS[kind];

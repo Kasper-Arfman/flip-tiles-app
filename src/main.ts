@@ -7,6 +7,8 @@ import { currentRoute, go, goUp, onNavigate } from "./nav";
 import { log, startLog } from "./log";
 import { activeLook, isLevelOpen, loadProgress, starsToUnlock, tutorialStep } from "./progress";
 import { initPurchases } from "./purchases";
+import { initAds } from "./ads";
+import { loadAdRewards } from "./adRewards";
 import { startSending } from "./ranked/online";
 import { activeGame, loadRanked, loseGame } from "./ranked/ranked";
 import { codexScreen } from "./screens/codex";
@@ -95,7 +97,7 @@ if ("serviceWorker" in navigator && !Capacitor.isNativePlatform() && import.meta
 }
 
 // The log first (it catches errors from here on), then what the player has
-startLog().then(loadProgress).then(loadRanked).then(loadSound).then(() => {
+startLog().then(loadProgress).then(loadRanked).then(loadSound).then(loadAdRewards).then(() => {
   log("info", `Started: version ${__APP_VERSION__} (${__BUILD__}), ${Capacitor.getPlatform()}`);
   applySkin(activeLook());
   render();
@@ -103,6 +105,11 @@ startLog().then(loadProgress).then(loadRanked).then(loadSound).then(() => {
   // is drawn again (other screens show the coins when next opened; a level must not restart)
   void initPurchases(() => {
     if (currentRoute().screen === "shop") render();
+  });
+  // Ads (native apps only): ready for when the player chooses to watch one; then the screen is
+  // drawn again where an ad can be offered (not a level or a game: they must not restart)
+  void initAds().then(() => {
+    if (["shop", "home"].includes(currentRoute().screen)) render();
   });
   startSending(); // (ranked games waiting for the online leaderboard)
 });

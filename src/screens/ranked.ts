@@ -40,6 +40,9 @@ export const TROPHY = `<svg viewBox="0 0 24 24" aria-hidden="true">` +
   `<path d="M7 4h10v5a5 5 0 0 1-10 0z" /><path d="M7 6H4.5a2.5 3 0 0 0 3 4M17 6h2.5a2.5 3 0 0 1-3 4" fill="none" stroke-width="1.8" />` +
   `<path d="M10.5 14h3v3h-3zM8 19.5h8v1.5H8z" /></svg>`;
 
+// The edit button beside the player's name (Welcome <name>): a pencil
+const PENCIL = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l1-4.2L15.6 5.2a2 2 0 0 1 2.8 0l.4.4a2 2 0 0 1 0 2.8L8.2 19z" /><path d="M13.8 7l3.2 3.2" fill="none" /></svg>`;
+
 // The #1 of a leaderboard: a small crown just before the name (in the place's column, so the
 // names stay in line)
 const CROWN = `<svg class="first-crown" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z" /></svg>`;
@@ -72,7 +75,7 @@ export function rankedLobby(rerender: () => void) {
     ${topbar("Ranked", "#/", `<a class="leaderboard-button global-link" href="#/ranked/leaderboard" aria-label="Top Ranked Players">${TROPHY}</a>`)}
     ${cutOff ? `<p class="ranked-notice">${plural(cutOff, "ranked game")} ended when the app closed: counted as ${cutOff === 1 ? "a loss" : "losses"}.</p>` : ""}
     ${hasJoined() ? `<p class="welcome">Welcome <strong>${escape(playerName())}</strong>
-      <button type="button" class="rename link-button">(Change name)</button></p>` : ""}
+      <button type="button" class="rename" aria-label="Change name">${PENCIL}</button></p>` : ""}
     <div class="shop-tabs" role="tablist">
       ${RANKED_MODES.map((m) => `<button type="button" role="tab" class="shop-tab" data-mode="${m}"
         aria-selected="${m === mode}">${MODE_NAMES[m]}</button>`).join("")}
@@ -491,7 +494,7 @@ export function rankedLeaderboard(rerender: () => void) {
   return element;
 }
 
-// "Welcome <name> (Change name)", on the Ranked screen for a player who joined the leaderboards
+// "Welcome <name> ✎" (the pencil: change the name), on the Ranked screen for a player who joined the leaderboards
 function welcomeLine(rerender: () => void, element: HTMLElement) {
   element.querySelector(".rename")?.addEventListener("click", () => {
     const name = prompt("Your name on the leaderboards", playerName());

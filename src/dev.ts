@@ -10,4 +10,4 @@ export const DEV_MODE = false;
 // also in the browser (it gives its coins at once, without the store), and the debug screen
 // (tap the version at the bottom of the home screen 5 times) has test tools: add coins, load a
 // save. Set it to false when the purchases in the stores have been tested, for the release.
-export const TEST_BUILD = false;
+export const TEST_BUILD = true;

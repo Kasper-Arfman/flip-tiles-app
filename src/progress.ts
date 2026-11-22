@@ -12,6 +12,7 @@ import { Preferences } from "@capacitor/preferences";
 import { solveFlips, type Move } from "./game/flipTiles";
 import { TIERS, type Level, type Tier } from "./levels/levels";
 import { log } from "./log";
+import { HINT_COST } from "./monetization";
 import { DEFAULT_SKIN, SHAPES, SKINS, SQUARE, type Look, type Shape, type Skin } from "./skins";
 
 export const STAR_SOLVED = 1; // solved, in any number of moves
@@ -48,10 +49,9 @@ export const UNLOCK_GRADE_STARS = 10;
 export const STARTING_COINS = 100; // what a new player gets
 export const UNLOCK_COST = 100; // to open a difficulty early
 export const GRADE_UNLOCK_COST = 50; // to open the next group of levels in a difficulty early
-export const HINT_COST = 5; // to show one more move of a solution
+// (what a hint costs, and everything else about money: monetization.ts)
+export { HINT_COST };
 export const SKIN_COST = 25; // a mystery box in the shop: a random new skin, or a new shape
-export const BOX_BUNDLE = 10; // Open 10: ten boxes at once (ten different new ones)
-export const BUNDLE_COST = BOX_BUNDLE * SKIN_COST; // (250: the same price per box)
 // Everything at once, in the shop: every stage, group of levels, skin and shape. Bought one by
 // one that is 11 stages x 100 + 25 skins and 12 shapes x 25 = 2,025 coins, plus the groups of
 // levels (50 each).
@@ -383,6 +383,15 @@ export function creditPurchase(transactionId: string, amount: number): boolean {
   return true;
 }
 
+// Whether the player ever bought coins (the first purchase gets a bonus: monetization.ts)
+export const hasPurchased = () => wallet.purchases.length > 0;
+
+// Coins earned by watching an ad (see ads.ts): not bought, so Reset progress doesn't give them back
+export function earnCoins(amount: number) {
+  wallet.coins += amount;
+  write(KEYS.wallet, wallet);
+}
+
 // Everything is open and owned: every stage, every group of levels, every skin and shape
 export const ownsAll = () =>
   TIERS.every((t) => starsToUnlock(t) === 0 && t.grades.every((_, g) => starsToUnlockGrade(t, g) === 0)) &&
@@ -426,8 +435,8 @@ function buyMystery<T extends { id: string }>(left: T[], owned: string[], count:
   return found;
 }
 
-// Open mystery boxes: random skins, or random shapes, the player doesn't have yet (1, or
-// BOX_BUNDLE at once)
+// Open mystery boxes: random skins, or random shapes, the player doesn't have yet (the shop
+// opens one at a time)
 export const buyMysterySkins = (count = 1): Skin[] => buyMystery(skinsLeft(), wallet.skins, count);
 export const buyMysteryShapes = (count = 1): Shape[] => buyMystery(shapesLeft(), wallet.shapes, count);
 

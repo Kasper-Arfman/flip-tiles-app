@@ -24,6 +24,21 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<!-- Ads (Google AdMob): the app id from your AdMob account. Until then Google's sample id, for
+	     test ads only (scripts/release-check.mjs refuses a release with it). See README, Monetization. -->
+	<key>GADApplicationIdentifier</key>
+	<string>ca-app-pub-3940256099942544~1458002511</string>
+	<!-- Apple's tracking question (App Tracking Transparency), asked before the first ad -->
+	<key>NSUserTrackingUsageDescription</key>
+	<string>This lets the ads you choose to watch for coins be more relevant to you. The game works the same either way.</string>
+	<!-- Ad networks allowed to measure ad results (SKAdNetwork): Google's own; add the ones Google lists for your ad sources -->
+	<key>SKAdNetworkItems</key>
+	<array>
+		<dict>
+			<key>SKAdNetworkIdentifier</key>
+			<string>cstr6suwn9.skadnetwork</string>
+		</dict>
+	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
