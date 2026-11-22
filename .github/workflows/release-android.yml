@@ -1,0 +1,64 @@
+# Publishing a GitHub release (tag v1.2.3) builds the Android app, signs it with the upload key,
+# attaches the .aab to the release, and uploads it to Google Play's internal testing track. From
+# there it is promoted to production by hand in the Play Console (a last look before players get
+# it). Setup and the secrets it needs: docs/developer/deploy/android.md.
+name: Release Android
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch: # (or start it by hand, from the Actions tab)
+
+permissions:
+  contents: write # (to attach the .aab to the release)
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: npm ci
+
+      # Not a test build, real ad ids, the privacy contact filled in, ... (scripts/release-check.mjs)
+      - run: npm run release-check
+      - run: npx tsc --noEmit && npx vitest run
+
+      # The version from the release's tag (v1.2.3 -> 1.2.3), into package.json and the native project
+      - name: Version from the tag
+        if: github.event_name == 'release'
+        run: npm version "${GITHUB_REF_NAME#v}" --no-git-tag-version --allow-same-version
+      - run: npm run sync
+
+      - name: Signed app bundle
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/upload.jks"
+          export ANDROID_KEYSTORE_FILE="$RUNNER_TEMP/upload.jks"
+          cd android && ./gradlew bundleRelease
+
+      - name: Attach to the GitHub release
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$GITHUB_REF_NAME" android/app/build/outputs/bundle/release/app-release.aab --clobber
+
+      - name: Upload to Google Play (internal testing)
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: com.kasperarfman.fliptiles
+          releaseFiles: android/app/build/outputs/bundle/release/app-release.aab
+          track: internal
+          status: completed

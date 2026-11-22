@@ -2,7 +2,7 @@
 // watching ads pays. Change the numbers here; the rest of the game reads them from here.
 //
 // (The prices themselves are not here: a store sets the price of each pack, in App Store Connect
-// and the Play Console, and the shop shows what the store says. See README: "Monetization".)
+// and the Play Console, and the shop shows what the store says. See docs/developer/monetization.md.)
 
 // --- coins for hints ----------------------------------------------------------------------------
 
@@ -60,7 +60,7 @@ export const AD_DAILY_LIMIT = 10; // and no more than this many ads a day
 // developing, Google's official *test* ids are used: they show "Test Ad" and pay nothing. Never
 // tap your own real ads (Google closes accounts for it): test with test ids or test devices.
 // The app ids are also in the native projects: android/app/src/main/AndroidManifest.xml and
-// ios/App/App/Info.plist (see README: "Monetization").
+// ios/App/App/Info.plist (see docs/developer/monetization.md).
 
 export const ADMOB = {
   androidRewarded: "ca-app-pub-XXXXXXXXXXXXXXXX/NNNNNNNNNN", // your Android rewarded ad unit

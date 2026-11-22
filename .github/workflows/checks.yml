@@ -1,0 +1,28 @@
+# Every push and pull request: the type check, the unit tests and the smoke tests, so nothing
+# broken reaches main (or a release). See docs/developer/testing/web.md.
+name: Checks
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npx vitest run
+      # (the smoke tests use Microsoft Edge, as on Windows: playwright.config.ts)
+      - run: npx playwright install --with-deps msedge
+      - run: npx playwright test
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: test-results
+          path: test-results/

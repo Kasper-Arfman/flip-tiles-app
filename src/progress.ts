@@ -132,7 +132,7 @@ export async function loadProgress() {
 
 // --- updates of the game: what the player has stays theirs ----------------------------------
 //
-// Rules for changing the game without players losing anything (see README, "Updating the game"):
+// Rules for changing the game without players losing anything (see docs/developer/deploy/web.md, "Updating the game"):
 //   - a level is saved by its board, so a released level must stay in levels.json (the curation
 //     script keeps them); stars on a level that leaves stay saved, but don't count
 //   - saved data in an older format is converted once, here (migrate)
@@ -266,8 +266,6 @@ export function tutorialStep(): Level | null {
   if (!(starsOf(hold) & STAR_SOLVED)) return hold;
   return null;
 }
-
-export const isTutorialLevel = (level: Level) => level === TIERS[0].levels[0] || level === TIERS[0].levels[1];
 
 export function finishTutorial() {
   tutorialDone = true;

@@ -1,5 +1,5 @@
 // npm run android:live: the app on an Android phone (USB), loading the game from the dev server
-// (npm run dev, in another terminal) and reloading whenever a file is saved. See README:
+// (npm run dev, in another terminal) and reloading whenever a file is saved. See docs/developer/testing/android.md:
 // "Live reload on your phone".
 //
 // Gradle (Android's build tool) needs Java. Android Studio comes with its own; a terminal only

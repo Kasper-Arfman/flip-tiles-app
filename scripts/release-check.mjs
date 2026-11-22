@@ -18,7 +18,7 @@ if (readFileSync("public/privacy.html", "utf8").includes("CONTACT_EMAIL_HERE")) 
 if (readFileSync("src/ranked/online.ts", "utf8").includes("YOUR-SITE")) {
   problems.push("src/ranked/online.ts: set SERVER_URL to the Netlify site (the apps send leaderboard games there)");
 }
-// Ads: the real AdMob ids, not Google's samples or the placeholders (README: Monetization)
+// Ads: the real AdMob ids, not Google's samples or the placeholders (docs/developer/monetization.md)
 const SAMPLE_APP_ID = "ca-app-pub-3940256099942544";
 if (/X{6}/.test(readFileSync("src/monetization.ts", "utf8").match(/export const ADMOB = \{[\s\S]*?\};/)?.[0] ?? "X".repeat(6))) {
   problems.push("src/monetization.ts: fill in your AdMob rewarded ad units (ADMOB)");

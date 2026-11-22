@@ -30,8 +30,6 @@ export function log(level: LogEntry["level"], message: string) {
   }
 }
 
-export const logEntries = (): readonly LogEntry[] => entries;
-
 export function clearLog() {
   entries = [];
   void Preferences.remove({ key: KEY });

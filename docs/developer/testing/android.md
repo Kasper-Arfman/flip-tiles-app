@@ -1,14 +1,71 @@
-# Flip Tiles on Android: testing before release
+# Testing: on Android
+
+On the emulator and on your own phone, also with live reload. Back to [the developer guide](../../index.md).
+
+## On the Android emulator
+
+(New to Android Studio? *The full walkthrough* below explains it step by step: setup,
+the emulator, your own phone, debugging, and what to test before a release.)
+
+```sh
+npm run android   # build + sync + open the android/ project in Android Studio
+```
+
+In Android Studio, wait for the *Gradle sync* (bottom bar) to finish, choose the emulator in
+the device menu at the top, and press the green **Run** ▶ button. The first build takes a few
+minutes.
+
+## On a real Android phone
+
+1. On the phone: *Settings → About phone*, tap *Build number* 7 times to unlock *Developer
+   options*. Then in *Developer options* turn on *USB debugging*.
+2. Connect it with a USB cable and accept the "Allow USB debugging?" prompt.
+3. The phone appears in Android Studio's device menu: press **Run** ▶.
+
+The app stays installed afterwards, like any other app.
+
+## After changing code
+
+The native projects hold a *copy* of `dist/`. After changing web code, run `npm run sync`
+(build + copy into both native projects), then press **Run** again in Android Studio.
+
+**Live reload on your phone (fastest while working on the game).** The app on the phone loads
+the game from the dev server on your computer, through the USB cable, and reloads by itself
+whenever you save a file. It is still the real app: ads (test ads), the store and the phone's own
+saved progress all work.
+1. Phone plugged in with USB debugging on (see *On a real Android phone*).
+2. First terminal: `npm run dev` (keep it running).
+3. Second terminal: `npm run android:live` (it builds the app once, installs it and starts it;
+   with more than one device it asks which). The cable carries the connection (`adb reverse`), so
+   no Wi-Fi or firewall settings are needed.
+4. Edit and save: the phone reloads. Stop with Ctrl+C in both terminals.
+
+The phone reaches the dev server through the cable (`adb reverse`). That link is gone after
+unplugging the phone: if the app says *localhost:5173 could not be loaded* (or
+`ERR_EMPTY_RESPONSE`), run `npm run android:tunnel` (sets the link again, without building) and
+reopen the app. Java for the build is found by itself (Android Studio's own, when `JAVA_HOME` isn't
+set: `scripts/android-live.mjs`).
+
+The app installed this way needs the dev server: to put a normal, standalone build back on the
+phone, run `npm run sync` and press **Run** in Android Studio (or `npx cap run android`).
+
+## Debugging the app on Android
+
+While the app runs (emulator or phone), open `chrome://inspect` in desktop Chrome and click
+*inspect* under the app's web view. You get the full DevTools (console, elements, network) for
+the app itself.
+
+## The full walkthrough
 
 This guide takes you from "the game works in the browser" to "the game runs as a real Android
 app on an emulator and on your own phone", so you can test it before anything goes to the Play
 Store. No Android Studio experience needed. The steps for the Play Store itself (signing,
-uploading, store listing) are in [README.md](README.md#releasing-to-the-app-store-and-google-play-branch-app-store).
+uploading, store listing) are in [Releasing to the stores](../deploy/stores.md).
 
 Work on the branch `app-store`: that is the version with the coin pack, the icons and the debug
 screen.
 
-## How it fits together
+### How it fits together
 
 The game is a web app. Capacitor wraps it in a small Android app: an app whose whole screen is
 a web view (a browser without bars) that shows the game. So:
@@ -21,7 +78,7 @@ a web view (a browser without bars) that shows the game. So:
 The one rule to remember: **after changing the game's code, run `npm run sync` again**, then
 press Run in Android Studio. Otherwise the app shows the old version.
 
-## 1. One-time setup
+### 1. One-time setup
 
 ### Android Studio and the SDK
 
@@ -42,7 +99,7 @@ Java 21. Without this step the build stops with *"Unsupported class file major v
    *Eclipse Temurin* or *JetBrains Runtime*. Click *Download*, then *OK*.
 4. Android Studio asks to sync: click **Sync Now** (or see *Gradle sync* below).
 
-## 2. Open the project
+### 2. Open the project
 
 In a terminal in this project folder:
 
@@ -82,7 +139,7 @@ Android Studio has a lot of windows; for this project you need only a few.
 
 Hidden a window? *View → Tool Windows* lists them all.
 
-## 3. Test on an emulator (a virtual phone on your computer)
+### 3. Test on an emulator (a virtual phone on your computer)
 
 ### Create one (once)
 
@@ -114,7 +171,7 @@ game's icon (long-press it there to see the icon with Android's round mask).
   *Windows Hypervisor Platform* is on (*Turn Windows features on or off*).
 - Close other heavy programs; an emulator uses a few GB of memory.
 
-## 4. Test on your own Android phone
+### 4. Test on your own Android phone
 
 The real thing: real touch, real speed, real screen. Do this before every release.
 
@@ -142,14 +199,14 @@ the QR code with the phone (*Wireless debugging → Pair device with QR code*).
 *Running Devices* can mirror a connected phone: in *Settings → Tools → Device Mirroring*, turn
 on mirroring of physical devices. Handy for screenshots for the store listing.
 
-## 5. Find out what's wrong
+### 5. Find out what's wrong
 
 ### The game's own debug screen
 
 On the home screen, scroll down and **tap the version 5 times**. You see which build you have
 (version and git commit: check you are testing what you think you are testing), what is saved,
 what the store answered, and the game's log. **Run the checks** checks every level and the saving
-on that phone. See *Testing before an update* in [README.md](README.md#testing-before-an-update).
+on that phone. See *Testing before an update* in [Testing in the browser](web.md#testing-before-an-update).
 
 ### Chrome's DevTools for the app (the best tool)
 
@@ -172,7 +229,7 @@ Android Studio's **Logcat** window (bottom edge) shows everything the device log
 app itself (not of the game page) appear here, e.g. when the app crashes on start. Type
 `package:mine` in its filter box to see only Flip Tiles.
 
-## 6. What to test before a release
+### 6. What to test before a release
 
 Work through this list on a **real phone**, with a fresh install (uninstall the app first:
 long-press its icon → *Uninstall*), and then once more as an *update* over the previous version.
@@ -207,28 +264,28 @@ long-press its icon → *Uninstall*), and then once more as an *update* over the
 
 Also run the automated tests on the computer before each test round: `npm run check`.
 
-## 7. Giving it to testers (still pre-release)
+### 7. Giving it to testers (still pre-release)
 
 Building on your own phone is the first step; the next is letting friends test the app, before
 it is public. The Play Store's way to do that is **Internal testing**:
 
 1. Make a Google Play Console account ($25 once) and create the app.
 2. Build a signed *app bundle* (`.aab`): Android Studio, *Build → Generate Signed App Bundle /
-   APK…* (the steps, and the keystore you must keep safe, are in README.md).
+   APK…* (the steps, and the keystore you must keep safe, are in [Deploying: Android](../deploy/android.md)).
 3. Play Console → your app → *Test and release → Testing → Internal testing* → create a release,
    upload the `.aab`, and add your testers' Google accounts (up to 100).
 4. Testers get a link, install the app from the Play Store, and get your updates automatically.
    Nothing is public.
 
 This is also where the **real coin purchase** is tested (with `TEST_BUILD = false`): add the
-testers under *Settings → License testing*, and their purchases are never charged. See README.md.
+testers under *Settings → License testing*, and their purchases are never charged. See [Releasing to the stores](../deploy/stores.md).
 
 (Quicker, without the Play Console: *Build → Build App Bundle(s) / APK(s) → Build APK(s)* makes
 an `.apk` file that you can send to a friend to install directly; their phone will ask to allow
 installing apps from that source. Fine for a quick look, but purchases can't be tested this way,
 and they don't get updates.)
 
-## Quick reference
+### Quick reference
 
 | I want to... | Do this |
 |---|---|

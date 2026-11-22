@@ -18,3 +18,27 @@ playwright-report/
 
 # Local Netlify folder
 .netlify
+
+# Signing keys and secrets: NEVER in git (they belong in a password manager and in GitHub
+# secrets, see docs/developer/deploy/). Anyone with the upload key can publish as you.
+*.jks
+*.keystore
+keystore.properties
+key.properties
+*.p8
+*.p12
+*.mobileprovision
+*.cer
+google-play-service-account*.json
+.env
+.env.*
+
+# Release builds made on this computer
+android/app/release/
+*.aab
+*.apk
+*.ipa
+
+# Logs and test leftovers
+*.log
+coverage/

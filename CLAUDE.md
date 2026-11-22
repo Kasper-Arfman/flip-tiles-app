@@ -1,7 +1,7 @@
 # Flip Tiles app
 
 A mobile app (Android + iOS) of the 5x5 tile-flip puzzle: a Vite + TypeScript web app, wrapped
-with Capacitor. See README.md for the commands and the file layout.
+with Capacitor. See docs/index.md for the documentation (commands: docs/developer/setup.md) and docs/structure.md for the file layout.
 
 ## The puzzle
 

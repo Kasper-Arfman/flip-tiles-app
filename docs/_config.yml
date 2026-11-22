@@ -1,0 +1,5 @@
+# GitHub Pages: this folder is the documentation site. Turn it on under the repository's
+# Settings → Pages → Build and deployment: "Deploy from a branch", branch main, folder /docs.
+title: Flip Tiles
+description: The 5x5 tile-flip puzzle for Android, iOS and the web. Documentation.
+theme: jekyll-theme-cayman

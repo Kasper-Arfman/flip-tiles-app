@@ -16,10 +16,25 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    // Signing a release: with the upload key, when its details are in the environment (the GitHub
+    // release workflow puts them there from GitHub secrets; see docs/developer/deploy/android.md).
+    // Without them a release build is unsigned (Android Studio's Generate Signed Bundle still works).
+    signingConfigs {
+        release {
+            def keystore = System.getenv("ANDROID_KEYSTORE_FILE")
+            if (keystore) {
+                storeFile file(keystore)
+                storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                keyAlias System.getenv("ANDROID_KEY_ALIAS")
+                keyPassword System.getenv("ANDROID_KEY_PASSWORD")
+            }
+        }
+    }
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            if (System.getenv("ANDROID_KEYSTORE_FILE")) signingConfig signingConfigs.release
         }
     }
 }

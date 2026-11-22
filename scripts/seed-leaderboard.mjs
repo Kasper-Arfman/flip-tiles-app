@@ -1,6 +1,6 @@
 // Fills the LOCAL test leaderboards with made-up players, to see how a busy leaderboard looks:
 //
-//   npm run serve          (in one terminal: the local server, see README)
+//   npm run serve          (in one terminal: the local server, see docs/developer/testing/web.md)
 //   npm run seed           (in another: 100 players; `npm run seed -- 30` for 30)
 //
 // Only ever to the local server: any address but localhost is refused, so the live
