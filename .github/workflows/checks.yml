@@ -10,8 +10,8 @@ jobs:
   checks:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -21,7 +21,7 @@ jobs:
       # (the smoke tests use Microsoft Edge, as on Windows: playwright.config.ts)
       - run: npx playwright install --with-deps msedge
       - run: npx playwright test
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: test-results
