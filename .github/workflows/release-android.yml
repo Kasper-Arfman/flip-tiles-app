@@ -59,45 +59,33 @@ jobs:
         run: gh release upload "$GITHUB_REF_NAME" android/app/build/outputs/bundle/release/app-release.aab --clobber
 
       # The upload to Google Play doesn't fail the run: the .aab is already on the GitHub release,
-      # and a new app can't take it yet (the first upload is by hand, and an app that was never
-      # published only takes draft releases). The run's summary says what to do.
+      # and can be uploaded by hand. scripts/play-upload.mjs prints Google's reason when it is
+      # refused, and tries again as a draft for an app that was never published. The run's summary
+      # says what happened.
       - name: Upload to Google Play (internal testing)
         id: play
         continue-on-error: true
-        uses: r0adkll/upload-google-play@v1
-        with:
-          serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
-          packageName: com.kasperarfman.fliptiles
-          releaseFiles: android/app/build/outputs/bundle/release/app-release.aab
-          track: internal
-          status: completed
-      - name: Upload to Google Play as a draft (an app not yet published)
-        id: play_draft
-        if: steps.play.outcome == 'failure'
-        continue-on-error: true
-        uses: r0adkll/upload-google-play@v1
-        with:
-          serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
-          packageName: com.kasperarfman.fliptiles
-          releaseFiles: android/app/build/outputs/bundle/release/app-release.aab
-          track: internal
-          status: draft
+        env:
+          GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+          RELEASE_NAME: ${{ github.ref_name }}
+        run: node scripts/play-upload.mjs android/app/build/outputs/bundle/release/app-release.aab
 
       - name: Summary
         if: always()
         env:
-          PLAY: ${{ steps.play.outcome }}
-          DRAFT: ${{ steps.play_draft.outcome }}
+          RESULT: ${{ steps.play.outputs.result }}
+          REASON: ${{ steps.play.outputs.reason }}
         run: |
           {
             echo "## Android ${GITHUB_REF_NAME}"
-            if [ "$PLAY" = "success" ]; then
+            if [ "$RESULT" = "completed" ]; then
               echo "Uploaded to Google Play, **internal testing**, and rolled out to the testers."
-            elif [ "$DRAFT" = "success" ]; then
+            elif [ "$RESULT" = "draft" ]; then
               echo "Uploaded to Google Play as a **draft**: Play Console → Test and release → Internal testing → edit the release → *Next* → *Save and publish*."
             else
-              echo "**Not uploaded to Google Play.** Download \`app-release.aab\` from the GitHub release (or this run's artifact) and upload it by hand: Play Console → Test and release → Internal testing → *Create new release*."
-              echo "This is expected for the very first release. Otherwise see the *Upload to Google Play* step's log, and docs/developer/deploy/android.md."
+              echo "**Not uploaded to Google Play.** Google said: ${REASON:-(the build failed before the upload)}"
+              echo ""
+              echo "The \`.aab\` is on the GitHub release (and in this run's artifacts): it can be uploaded by hand, Play Console → Test and release → Internal testing → *Create new release*. See docs/developer/deploy/android.md."
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 

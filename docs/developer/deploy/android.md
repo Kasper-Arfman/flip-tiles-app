@@ -55,9 +55,14 @@ From now on it is automatic. For every next version:
    they already have.
 2. Pre-release for test builds, a normal release for a store version (the release check then
    runs).
-3. The run uploads to internal testing by itself. If its summary says *"uploaded as a draft"* (an
-   app that was never published only takes drafts): Play Console → *Internal testing* → the
-   release → *Save and publish*.
+3. The run uploads to internal testing by itself (`scripts/play-upload.mjs`). If its summary says
+   *"uploaded as a draft"* (an app that was never published only takes drafts): Play Console →
+   *Internal testing* → the release → *Save and publish*. If it says *"Not uploaded"*, it quotes
+   Google's reason. Usually one of: the *Google Play Android Developer API* isn't enabled in the
+   service account's Cloud project; the service account has no access to this app in the Play
+   Console (*Users and permissions*, *Release to testing tracks*; a new invitation can take up to a
+   day); or the JSON secret is incomplete. Meanwhile the `.aab` on the GitHub release can be
+   uploaded by hand.
 
 ## From test build to the Play Store
 
@@ -116,7 +121,8 @@ It asks for a password (twice) and your name. Then:
 ### 2. A service account (lets GitHub upload to Google Play)
 
 1. [Google Cloud Console](https://console.cloud.google.com) → a project → *IAM & Admin → Service
-   accounts* → *Create*. No roles needed there.
+   accounts* → *Create*. No roles needed there. In the same project, *APIs & Services → Library* →
+   **Google Play Android Developer API** → *Enable* (without it every upload is refused).
 2. On the account: *Keys → Add key → JSON*: a `.json` file downloads. Keep it secret like the key.
 3. [Play Console](https://play.google.com/console) → *Users and permissions* → *Invite new users*:
    the service account's e-mail address, with access to this app: *Release to testing tracks*
