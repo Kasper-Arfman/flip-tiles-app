@@ -17,6 +17,51 @@ click is on purpose: nothing reaches players without you looking at it first.
 What the stores need in general (accounts, the coin products, version numbers, store listing):
 [Releasing to the stores](stores.md). Back to [the developer guide](../../index.md).
 
+## The first release, step by step
+
+The shortest way from "account verified, secrets set" to the app in the Play Console. Do the
+[one-time setup](#one-time-setup) below first (the five secrets).
+
+1. **Create the app in the Play Console.** *Home → Create app*: name *Flip Tiles*, default
+   language, *Game*, *Free* (it can't become paid later; the coin packs are fine in a free app),
+   tick the declarations, *Create app*.
+2. **Build the `.aab` with a GitHub pre-release.** On GitHub: *Releases → Draft a new release* →
+   *Choose a tag* → type `v1.0.0` → *Create new tag on publish*, target `main`. Title `1.0.0`,
+   tick **Set as a pre-release**, *Publish release*.
+   - A pre-release skips the release check, so the current test build (`TEST_BUILD = true`,
+     Google's test ads) is fine for internal testing. A normal release runs the check and stops
+     until everything on the [road to a release](stores.md) is done.
+   - The iOS workflow doesn't start: it is off until the repository variable `IOS_RELEASE` is
+     `true` (see [iOS](ios.md)).
+3. **Wait for the run** under *Actions → Release Android* (about 5 to 10 minutes). It will be green,
+   and its summary page will say **"Not uploaded to Google Play"**. That is expected the first time:
+   Google only accepts uploads through the API for an app that already has a build.
+4. **Download `app-release.aab`** from the release page on GitHub (under *Assets*).
+5. **Upload it by hand.** Play Console → your app → *Test and release → Testing → Internal
+   testing* → *Testers* tab: create an e-mail list with your own Google account, save. Then
+   *Create new release* → accept *Play App Signing* (Google keeps the signing key; your
+   `upload.jks` is only the upload key) → drop in the `.aab` → *Next* → *Save and publish*.
+6. **Install it on your phone**: the *Testers* tab has a *Copy link*. Open it on your phone, accept,
+   and install from the Play Store. Internal testing builds are usually there within minutes.
+
+From now on it is automatic. For every next version:
+
+1. A new tag, higher than the last (`v1.0.1`, `v1.1.0`, ...): the stores refuse a build number
+   they already have.
+2. Pre-release for test builds, a normal release for a store version (the release check then
+   runs).
+3. The run uploads to internal testing by itself. If its summary says *"uploaded as a draft"* (an
+   app that was never published only takes drafts): Play Console → *Internal testing* → the
+   release → *Save and publish*.
+
+**Going public (production).** New personal developer accounts must first run a **closed test with
+at least 12 testers for 14 days** before Google allows production (*Test and release →
+Production* shows what is still missing). Promote the internal build to *Closed testing*
+(*Promote release*), invite the testers, and wait the two weeks. Meanwhile, finish what the
+console's *Dashboard* lists: store listing, content rating, data safety, ads declaration,
+target audience, privacy policy URL ([what to answer](stores.md)). Then promote to production
+with a normal (not pre-) release.
+
 ## One-time setup
 
 ### 1. The upload key (signs every update)

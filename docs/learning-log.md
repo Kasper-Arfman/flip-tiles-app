@@ -153,3 +153,9 @@ Notes added as the project goes along: what was learned, problems hit, and how t
   must say so. And rules that depend on time (a stack of ads that refills every 20 minutes) are
   easiest to test as pure functions of a saved state and the time, so a test can jump ahead
   instead of waiting.
+- **2026-11-25**: The first Google Play release, on the branch `play-release`. Learned: Google
+  Play's upload API only works for an app that already has a build, so the very first `.aab` is
+  uploaded by hand (the GitHub release still builds and signs it); an app that was never
+  published only accepts *draft* releases; and new personal accounts need a closed test with 12
+  testers for 14 days before production. A GitHub *pre-release* now skips the release check, so
+  test builds can go to internal testing.

@@ -37,6 +37,11 @@ What the stores need in general: [Releasing to the stores](stores.md). Back to
 Keep the `.p8` file in your password manager too: it can't be downloaded again (a new key can be
 made, and the old one revoked).
 
+6. **Switch it on**: *Settings → Secrets and variables → Actions → Variables* → *New repository
+   variable* `IOS_RELEASE` = `true`. Until then a release only builds Android (so it can go out
+   before the Apple setup is done); *Actions → Release iOS → Run workflow* still works by hand.
+   A release marked *pre-release* skips the release check (a test build for TestFlight).
+
 ## Good to know
 
 - GitHub's Mac minutes count ten times against the free minutes of a private repository; a

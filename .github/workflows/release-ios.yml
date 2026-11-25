@@ -2,6 +2,8 @@
 # through an App Store Connect API key (Xcode makes the certificates and profiles itself), and
 # uploads it to TestFlight. From there it is submitted for review by hand in App Store Connect.
 # Setup and the secrets it needs: docs/developer/deploy/ios.md.
+# Off on releases until the repository variable IOS_RELEASE is "true" (Settings → Secrets and
+# variables → Actions → Variables), so Android releases work before the Apple setup is done.
 name: Release iOS
 
 on:
@@ -11,6 +13,7 @@ on:
 
 jobs:
   ios:
+    if: github.event_name == 'workflow_dispatch' || vars.IOS_RELEASE == 'true'
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -19,7 +22,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm run release-check
+      - if: ${{ !github.event.release.prerelease }} # (a pre-release is a test build for TestFlight)
+        run: npm run release-check
       - name: Version from the tag
         if: github.event_name == 'release'
         run: npm version "${GITHUB_REF_NAME#v}" --no-git-tag-version --allow-same-version

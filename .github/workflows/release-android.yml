@@ -2,6 +2,8 @@
 # attaches the .aab to the release, and uploads it to Google Play's internal testing track. From
 # there it is promoted to production by hand in the Play Console (a last look before players get
 # it). Setup and the secrets it needs: docs/developer/deploy/android.md.
+# A release marked "Set as a pre-release" skips the release check, so a test build (TEST_BUILD on,
+# Google's test ads) can go to internal testing.
 name: Release Android
 
 on:
@@ -28,7 +30,9 @@ jobs:
       - run: npm ci
 
       # Not a test build, real ad ids, the privacy contact filled in, ... (scripts/release-check.mjs)
-      - run: npm run release-check
+      # Skipped for a pre-release: those are test builds for internal testing.
+      - if: ${{ !github.event.release.prerelease }}
+        run: npm run release-check
       - run: npx tsc --noEmit && npx vitest run
 
       # The version from the release's tag (v1.2.3 -> 1.2.3), into package.json and the native project
@@ -54,7 +58,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: gh release upload "$GITHUB_REF_NAME" android/app/build/outputs/bundle/release/app-release.aab --clobber
 
+      # The upload to Google Play doesn't fail the run: the .aab is already on the GitHub release,
+      # and a new app can't take it yet (the first upload is by hand, and an app that was never
+      # published only takes draft releases). The run's summary says what to do.
       - name: Upload to Google Play (internal testing)
+        id: play
+        continue-on-error: true
         uses: r0adkll/upload-google-play@v1
         with:
           serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
@@ -62,3 +71,40 @@ jobs:
           releaseFiles: android/app/build/outputs/bundle/release/app-release.aab
           track: internal
           status: completed
+      - name: Upload to Google Play as a draft (an app not yet published)
+        id: play_draft
+        if: steps.play.outcome == 'failure'
+        continue-on-error: true
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: com.kasperarfman.fliptiles
+          releaseFiles: android/app/build/outputs/bundle/release/app-release.aab
+          track: internal
+          status: draft
+
+      - name: Summary
+        if: always()
+        env:
+          PLAY: ${{ steps.play.outcome }}
+          DRAFT: ${{ steps.play_draft.outcome }}
+        run: |
+          {
+            echo "## Android ${GITHUB_REF_NAME}"
+            if [ "$PLAY" = "success" ]; then
+              echo "Uploaded to Google Play, **internal testing**, and rolled out to the testers."
+            elif [ "$DRAFT" = "success" ]; then
+              echo "Uploaded to Google Play as a **draft**: Play Console → Test and release → Internal testing → edit the release → *Next* → *Save and publish*."
+            else
+              echo "**Not uploaded to Google Play.** Download \`app-release.aab\` from the GitHub release (or this run's artifact) and upload it by hand: Play Console → Test and release → Internal testing → *Create new release*."
+              echo "This is expected for the very first release. Otherwise see the *Upload to Google Play* step's log, and docs/developer/deploy/android.md."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # (also when started by hand, when there is no release to attach it to)
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: app-release-aab
+          path: android/app/build/outputs/bundle/release/app-release.aab
+          if-no-files-found: ignore
