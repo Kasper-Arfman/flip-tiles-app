@@ -8,6 +8,11 @@
 import { execSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 
+// --android / --ios: check only that platform's ad ids (each release workflow builds one platform,
+// so Android can go out before iOS is set up). Without either: both.
+const only = ["android", "ios"].find((p) => process.argv.includes(`--${p}`));
+const checks = (platform) => !only || only === platform;
+
 const problems = [];
 const dev = readFileSync("src/dev.ts", "utf8");
 if (!/export const TEST_BUILD = false;/.test(dev)) problems.push("src/dev.ts: TEST_BUILD must be false (the coin pack is free in a test build)");
@@ -20,13 +25,17 @@ if (readFileSync("src/ranked/online.ts", "utf8").includes("YOUR-SITE")) {
 }
 // Ads: the real AdMob ids, not Google's samples or the placeholders (docs/developer/monetization.md)
 const SAMPLE_APP_ID = "ca-app-pub-3940256099942544";
-if (/X{6}/.test(readFileSync("src/monetization.ts", "utf8").match(/export const ADMOB = \{[\s\S]*?\};/)?.[0] ?? "X".repeat(6))) {
-  problems.push("src/monetization.ts: fill in your AdMob rewarded ad units (ADMOB)");
+const admob = readFileSync("src/monetization.ts", "utf8").match(/export const ADMOB = \{[\s\S]*?\};/)?.[0] ?? "";
+for (const platform of ["android", "ios"]) {
+  const unit = admob.match(new RegExp(`${platform}Rewarded:\\s*"([^"]*)"`))?.[1] ?? "X".repeat(6);
+  if (checks(platform) && /X{6}/.test(unit)) {
+    problems.push(`src/monetization.ts: fill in your AdMob rewarded ad unit (ADMOB.${platform}Rewarded)`);
+  }
 }
-if (readFileSync("android/app/src/main/AndroidManifest.xml", "utf8").includes(SAMPLE_APP_ID)) {
+if (checks("android") && readFileSync("android/app/src/main/AndroidManifest.xml", "utf8").includes(SAMPLE_APP_ID)) {
   problems.push("android/app/src/main/AndroidManifest.xml: put your AdMob Android app id in com.google.android.gms.ads.APPLICATION_ID");
 }
-if (readFileSync("ios/App/App/Info.plist", "utf8").includes(SAMPLE_APP_ID)) {
+if (checks("ios") && readFileSync("ios/App/App/Info.plist", "utf8").includes(SAMPLE_APP_ID)) {
   problems.push("ios/App/App/Info.plist: put your AdMob iOS app id in GADApplicationIdentifier");
 }
 if (readFileSync("public/app-ads.txt", "utf8").includes("pub-XXXX")) {

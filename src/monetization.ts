@@ -63,7 +63,7 @@ export const AD_DAILY_LIMIT = 10; // and no more than this many ads a day
 // ios/App/App/Info.plist (see docs/developer/monetization.md).
 
 export const ADMOB = {
-  androidRewarded: "ca-app-pub-XXXXXXXXXXXXXXXX/NNNNNNNNNN", // your Android rewarded ad unit
+  androidRewarded: "ca-app-pub-4129172073333275/5594100154", // the Android rewarded ad unit ("Coins reward")
   iosRewarded: "ca-app-pub-XXXXXXXXXXXXXXXX/NNNNNNNNNN", // your iOS rewarded ad unit
 };
 

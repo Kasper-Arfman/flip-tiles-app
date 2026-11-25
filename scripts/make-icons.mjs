@@ -9,6 +9,7 @@
 //   icon-foreground.png  the 3x3 tiles on transparent, for Android's adaptive icon (the phone
 //                        cuts it to a circle, a squircle...: the tiles stay inside the safe middle)
 //   icon-background.png  the green background of the adaptive icon
+//   store-icon-512.png   512x512, for the Google Play store listing (uploaded by hand)
 //   splash.png           2732x2732, the tiles small in the middle of the green: shown while the
 //                        app starts
 import { execSync } from "node:child_process";
@@ -32,6 +33,8 @@ await Promise.all([
   // tiles stay inside a round icon)
   png("icon-foreground.png", 1024, scaled(1.1)),
   png("icon-background.png", 1024, background),
+  // The Play Console's store listing icon: 512x512, square (Google rounds the corners itself)
+  png("store-icon-512.png", 512, background + tiles),
   png("splash.png", 2732, background + scaled(0.45)),
   png("splash-dark.png", 2732, background + scaled(0.45)),
 ]);

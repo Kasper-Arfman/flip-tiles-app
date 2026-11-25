@@ -20,11 +20,11 @@
             </intent-filter>
         </activity>
 
-        <!-- Ads (Google AdMob): the app id from your AdMob account. Until then Google's sample id,
-             for test ads only (scripts/release-check.mjs refuses a release with it). See README, Monetization. -->
+        <!-- Ads (Google AdMob): the Android app id from the AdMob account (Apps → Flip Tiles).
+             See docs/developer/monetization.md. -->
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
-            android:value="ca-app-pub-3940256099942544~3347511713" />
+            android:value="ca-app-pub-4129172073333275~4005686312" />
 
         <provider
             android:name="androidx.core.content.FileProvider"

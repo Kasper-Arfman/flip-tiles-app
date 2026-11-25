@@ -32,7 +32,7 @@ jobs:
       # Not a test build, real ad ids, the privacy contact filled in, ... (scripts/release-check.mjs)
       # Skipped for a pre-release: those are test builds for internal testing.
       - if: ${{ !github.event.release.prerelease }}
-        run: npm run release-check
+        run: npm run release-check -- --android
       - run: npx tsc --noEmit && npx vitest run
 
       # The version from the release's tag (v1.2.3 -> 1.2.3), into package.json and the native project

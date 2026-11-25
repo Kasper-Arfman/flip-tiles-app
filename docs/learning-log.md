@@ -158,4 +158,8 @@ Notes added as the project goes along: what was learned, problems hit, and how t
   uploaded by hand (the GitHub release still builds and signs it); an app that was never
   published only accepts *draft* releases; and new personal accounts need a closed test with 12
   testers for 14 days before production. A GitHub *pre-release* now skips the release check, so
-  test builds can go to internal testing.
+  test builds can go to internal testing. Also: a file committed from Windows isn't executable on
+  Linux (`git update-index --chmod=+x android/gradlew`); a square splash picture as the window's
+  background is stretched to the phone's shape, so the splash is now Android's own (a color and
+  the icon, in `styles.xml`); and the Play Store can say "something went wrong" a few times
+  while a first build is still being prepared.

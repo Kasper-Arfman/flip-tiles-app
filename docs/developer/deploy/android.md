@@ -43,6 +43,11 @@ The shortest way from "account verified, secrets set" to the app in the Play Con
    `upload.jks` is only the upload key) → drop in the `.aab` → *Next* → *Save and publish*.
 6. **Install it on your phone**: the *Testers* tab has a *Copy link*. Open it on your phone, accept,
    and install from the Play Store. Internal testing builds are usually there within minutes.
+   - **"Webpage not available, localhost:5173"**: the phone still has your own test install (from
+     `npm run android:live`, the same app id, loading the game from the dev server), and the Play
+     Store opened that one. Uninstall Flip Tiles from the phone, then install it from the Play
+     Store. The same goes the other way: uninstall the store version before `npm run android:live`
+     (a phone can't have two apps with one id, signed by different keys).
 
 From now on it is automatic. For every next version:
 
@@ -54,13 +59,41 @@ From now on it is automatic. For every next version:
    app that was never published only takes drafts): Play Console → *Internal testing* → the
    release → *Save and publish*.
 
-**Going public (production).** New personal developer accounts must first run a **closed test with
-at least 12 testers for 14 days** before Google allows production (*Test and release →
-Production* shows what is still missing). Promote the internal build to *Closed testing*
-(*Promote release*), invite the testers, and wait the two weeks. Meanwhile, finish what the
-console's *Dashboard* lists: store listing, content rating, data safety, ads declaration,
-target audience, privacy policy URL ([what to answer](stores.md)). Then promote to production
-with a normal (not pre-) release.
+## From test build to the Play Store
+
+A pre-release is a **test build**: free coin packs, Google's test ads. The real version needs
+these, in order (the release check names whatever is still missing:
+`npm run release-check -- --android`):
+
+1. **Real ads**: an AdMob account with the Android app and a *Rewarded* ad unit, the ids in the
+   code, and the GDPR message ([Monetization](../monetization.md), *Setting up ads*). The iOS ids
+   can wait until iOS: the Android workflow only checks Android's.
+2. **The coin packs** in the Play Console (*Monetize with Play → Products → In-app products*): the
+   four ids from [Releasing to the stores](stores.md). Creating products needs an uploaded build
+   (done) and a payments profile. Add yourself under *Settings → License testing*, so test
+   purchases cost nothing.
+3. **The privacy policy**: your contact address in `public/privacy.html`, pushed, so it is online
+   on the Netlify site (its URL goes in the store listing).
+4. **`TEST_BUILD = false`** in `src/dev.ts`, commit, push.
+5. **A normal release** (not a pre-release), e.g. `v1.1.0`: the release check now runs, and the
+   build goes to internal testing like before. On your phone, check everything with real ads (watch
+   them, but never tap them: Google closes accounts for clicking your own ads; or add your phone as
+   a test device in AdMob) and a test purchase (*Test card, always approves*).
+
+**Then the Play Store.** New personal developer accounts must first run a **closed test with at
+least 12 testers for 14 days** before Google allows production (*Test and release → Production*
+shows what is still missing):
+
+1. *Closed testing* → create a track (*Alpha* is there already) → *Testers*: an e-mail list of at
+   least 12 people (friends, family; each needs a Google account), and send them the join link.
+   Then on *Internal testing*, the release → **Promote release → Closed testing**.
+2. Meanwhile, the console's *Dashboard → Set up your app*: store listing (icon:
+   `assets/store-icon-512.png`, a 1024x500 feature graphic, at least 2 phone screenshots,
+   descriptions), content rating, data safety, ads (*yes*), target audience (13+), privacy policy
+   URL. What to answer: [Releasing to the stores](stores.md).
+3. After 14 days with 12 testers who stayed opted in: *Production → Apply for production access*
+   (a few questions about the test). Once granted: the closed testing release → **Promote release
+   → Production**. Google reviews it (hours to a few days), then it is in the Play Store.
 
 ## One-time setup
 

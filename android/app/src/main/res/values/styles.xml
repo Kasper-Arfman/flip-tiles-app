@@ -16,7 +16,13 @@
     </style>
 
 
+    <!-- The splash screen while the app starts: the icon's tiles, centered on the icon's green.
+         Android draws it at the right size on every screen (a picture as the background was
+         stretched to the screen's shape). Capacitor's BridgeActivity switches to
+         AppTheme.NoActionBar once the app is running. -->
     <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
-        <item name="android:background">@drawable/splash</item>
+        <item name="windowSplashScreenBackground">#1d5a33</item>
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>
     </style>
 </resources>

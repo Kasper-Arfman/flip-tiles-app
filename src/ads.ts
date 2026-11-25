@@ -29,14 +29,14 @@ let canRequestAds = false;
 let privacyRequired = false;
 
 const PLACEHOLDER = /X{6}/;
-// Google's test ads: in test builds, while developing, and until the real ad units are filled in
-export const usesTestAds = () =>
-  TEST_BUILD || DEV_MODE || import.meta.env.DEV || PLACEHOLDER.test(ADMOB.androidRewarded) || PLACEHOLDER.test(ADMOB.iosRewarded);
+// This platform's real ad unit (each platform has its own; Android can have its ids before iOS)
+const realUnit = () => (Capacitor.getPlatform() === "ios" ? ADMOB.iosRewarded : ADMOB.androidRewarded);
+// Google's test ads: in test builds, while developing, and until this platform's real ad unit is filled in
+export const usesTestAds = () => TEST_BUILD || DEV_MODE || import.meta.env.DEV || PLACEHOLDER.test(realUnit());
 
 const adUnit = () => {
-  const ios = Capacitor.getPlatform() === "ios";
-  const ids = usesTestAds() ? ADMOB_TEST : ADMOB;
-  return ios ? ids.iosRewarded : ids.androidRewarded;
+  if (!usesTestAds()) return realUnit();
+  return Capacitor.getPlatform() === "ios" ? ADMOB_TEST.iosRewarded : ADMOB_TEST.androidRewarded;
 };
 
 // Whether ads can be offered here (the button shows only then)

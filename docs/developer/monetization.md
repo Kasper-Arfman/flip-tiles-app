@@ -55,7 +55,8 @@ doesn't hand out the welcome bonus again.
    closes accounts for it. To see real ads safely on your own phone, add it as a *test device*
    in AdMob.
 
-The release check refuses a release until the real ids are in.
+The release check refuses a release until the real ids are in (each release workflow checks only
+its own platform's, so Android can go out before the iOS ids exist).
 
 **Where the money comes from, roughly.** A rewarded video pays the developer about $0.01 to
 $0.03 (much more in the US and Western Europe than elsewhere); coin packs bring $0.99 to $14.99
