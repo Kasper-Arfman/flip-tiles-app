@@ -30,7 +30,7 @@
 	<!-- Ads (Google AdMob): the app id from your AdMob account. Until then Google's sample id, for
 	     test ads only (scripts/release-check.mjs refuses a release with it). See README, Monetization. -->
 	<key>GADApplicationIdentifier</key>
-	<string>ca-app-pub-3940256099942544~1458002511</string>
+	<string>ca-app-pub-4129172073333275~7568888775</string>
 	<!-- Apple's tracking question (App Tracking Transparency), asked before the first ad -->
 	<key>NSUserTrackingUsageDescription</key>
 	<string>This lets the ads you choose to watch for coins be more relevant to you. The game works the same either way.</string>

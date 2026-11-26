@@ -64,7 +64,7 @@ export const AD_DAILY_LIMIT = 10; // and no more than this many ads a day
 
 export const ADMOB = {
   androidRewarded: "ca-app-pub-4129172073333275/5594100154", // the Android rewarded ad unit ("Coins reward")
-  iosRewarded: "ca-app-pub-XXXXXXXXXXXXXXXX/NNNNNNNNNN", // your iOS rewarded ad unit
+  iosRewarded: "ca-app-pub-4129172073333275/9912688925", // the iOS rewarded ad unit ("Coins reward")
 };
 
 // Google's test ad units (https://developers.google.com/admob/android/test-ads, .../ios/test-ads)
