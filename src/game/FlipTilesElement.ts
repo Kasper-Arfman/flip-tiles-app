@@ -5,12 +5,18 @@ import { N, MASKS, apply, isSolved, loadTable, type Move, type Ranking, type Sol
 const HOLD_MS = 450; // how long to hold a tile on a touch screen to force it
 const RIPPLE_MS = 60; // each step further from the pressed tile turns over this much later
 const CENTER = 12; // Scramble and Clear ripple out from the middle tile
+// Solved! appears when the light wave over a solved board is this far through its sweep (a
+// little before the last tiles have lit up)
+const STAMP_SHARE = 0.65;
 const count = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
 // The detail of the "flip-tiles-change" event, sent after every change to the board
 export interface FlipTilesChange {
   moves: Move[]; // the moves made, in order, without the ones undone or cancelled
   solved: boolean; // the moves solved the board
+  // On the move that solved it: in how many ms Solved! appears (0 without animations), so a page
+  // can start its own celebration together with it (the level screen's stars). Otherwise 0.
+  celebrateIn: number;
 }
 
 // What a page can do with the widget once it is on the page (the app's level screen uses these
@@ -123,9 +129,18 @@ class FlipTiles extends HTMLElement implements FlipTilesControls {
       // Solved! once a move has solved the board (not for a board that starts out solved),
       // after the slowest tile has turned over
       const solvedNow = at > 0 && isSolved(state);
+      let celebrateIn = 0;
       if (solvedNow && !this.classList.contains("is-solved")) {
+        // The light wave starts once the slowest tile has turned over; Solved! comes when the
+        // wave is STAMP_SHARE of the way (the times in ms, from the CSS: flip-tiles.css)
         const slowest = Math.max(0, ...tiles.map((t) => parseFloat(t.style.getPropertyValue("--flip-delay")) || 0));
-        this.style.setProperty("--solved-delay", `calc(${slowest}ms + var(--flash-time) + var(--flip-time))`);
+        const css = getComputedStyle(this);
+        const ms = (name: string) => parseFloat(css.getPropertyValue(name)) || 0;
+        const solvedDelay = slowest + ms("--flash-time") + ms("--flip-time");
+        const stampDelay = Math.round(solvedDelay + STAMP_SHARE * ms("--wave-length"));
+        this.style.setProperty("--solved-delay", `${solvedDelay}ms`);
+        this.style.setProperty("--stamp-delay", `${stampDelay}ms`);
+        celebrateIn = matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : stampDelay;
       }
       this.classList.toggle("is-solved", solvedNow);
       this.classList.toggle("all-one", solvedNow && state !== 0); // solved all yellow
@@ -135,6 +150,7 @@ class FlipTiles extends HTMLElement implements FlipTilesControls {
       const detail: FlipTilesChange = {
         moves: steps.slice(1, at + 1).map(({ tile, kind }) => ({ tile, kind })),
         solved: solvedNow,
+        celebrateIn,
       };
       this.dispatchEvent(new CustomEvent("flip-tiles-change", { detail }));
       if (next) next.disabled = !showing || !moves || moves.length === 0 || full(); // only with a solution shown

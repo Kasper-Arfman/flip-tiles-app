@@ -2778,7 +2778,7 @@ main:has(.level-screen) {
 
 /* Under a star that lands, the socket goes: nothing of it shows around the star */
 .level-screen.level-complete .result-star.earned .socket {
-  animation: socket-out 0.15s linear calc(var(--delay) + 0.3s) forwards;
+  animation: socket-out 0.15s linear calc(var(--delay) + var(--touchdown)) forwards;
 }
 
 @keyframes socket-out {
@@ -2788,10 +2788,11 @@ main:has(.level-screen) {
 }
 
 /* Each earned star (also from earlier solves) drops in, big and turning, squashes as it lands,
-   and bounces into its socket; a ring flashes and sparks fly. --delay (from the script) makes
-   the stars land one after the other, after the panel has come in. */
+   and bounces into its socket; a ring flashes and sparks fly. The times come from the script
+   (RESULT_TIMING in level.ts): --delay makes the stars land one after the other, --land is a
+   star's drop, and --touchdown the moment in it that the star touches its socket (its 55%). */
 .level-screen.level-complete .result-star.earned .gold {
-  animation: star-land 0.55s cubic-bezier(0.3, 0, 0.4, 1) var(--delay) both;
+  animation: star-land var(--land) cubic-bezier(0.3, 0, 0.4, 1) var(--delay) both;
 }
 
 @keyframes star-land {
@@ -2824,7 +2825,7 @@ main:has(.level-screen) {
 
 .level-screen.level-complete .result-star.earned::after {
   /* forwards, not both: before it starts the ring must stay hidden, not wait at its first frame */
-  animation: ring 0.5s ease-out calc(var(--delay) + 0.3s) forwards;
+  animation: ring 0.5s ease-out calc(var(--delay) + var(--touchdown)) forwards;
 }
 
 @keyframes ring {
@@ -2839,12 +2840,8 @@ main:has(.level-screen) {
 }
 
 /* The finale, when a solve gives the level its third star: once the last star has landed
-   (--finale), a gold glow swells behind the stars, they jump together, the title pops in, and
-   the panel's border turns gold */
-.result.perfect {
-  --finale: 1.85s; /* after the last star has landed */
-}
-
+   (--finale, from the script: RESULT_TIMING in level.ts), a gold glow swells behind the stars,
+   they jump together, the title pops in, and the panel's border turns gold */
 .result-stars {
   position: relative;
 }
@@ -2888,7 +2885,7 @@ main:has(.level-screen) {
 /* The jump: after the landing (fill forwards only, so it doesn't hide the landing before) */
 .level-screen.level-complete .result.perfect .result-star.earned .gold {
   animation:
-    star-land 0.55s cubic-bezier(0.3, 0, 0.4, 1) var(--delay) both,
+    star-land var(--land) cubic-bezier(0.3, 0, 0.4, 1) var(--delay) both,
     cheer 0.45s ease-in-out calc(var(--finale) + 0.1s) forwards;
 }
 
@@ -2950,7 +2947,7 @@ main:has(.level-screen) {
 }
 
 .level-screen.level-complete .spark {
-  animation: spark 0.6s ease-out calc(var(--delay) + 0.3s) forwards; /* (as the ring) */
+  animation: spark 0.6s ease-out calc(var(--delay) + var(--touchdown)) forwards; /* (as the ring) */
 }
 
 @keyframes spark {

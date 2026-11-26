@@ -298,7 +298,8 @@ export function rankedPlay(rerender: () => void) {
     requestAnimationFrame(step);
   };
 
-  const finish = (won: boolean) => {
+  // `celebrateIn`: a win, in how many ms the board's Solved! appears (the result comes with it)
+  const finish = (won: boolean, celebrateIn = 0) => {
     over = true;
     clearInterval(timer);
     element.classList.add("ranked-over");
@@ -310,11 +311,11 @@ export function rankedPlay(rerender: () => void) {
     if (won) sound.solved(0.35);
     else sound.lose();
     clock.textContent = formatTime(done.time);
-    // Won: after the board's own Solved! animation; lost: at once
+    // Won: together with the board's Solved!; lost: at once
     window.setTimeout(() => {
       result.hidden = false;
       showScoreChange();
-    }, won ? 1800 : 0);
+    }, won ? celebrateIn : 0);
     void sendGames();
   };
 
@@ -359,14 +360,14 @@ export function rankedPlay(rerender: () => void) {
 
   widget.addEventListener("flip-tiles-change", (e) => {
     if (over) return;
-    const { moves, solved } = (e as CustomEvent<FlipTilesChange>).detail;
+    const { moves, solved, celebrateIn } = (e as CustomEvent<FlipTilesChange>).detail;
     const forces = moves.filter((m) => m.kind === "force").length;
     count.textContent = `(${moves.length}/${game.difficulty})`;
     count.classList.toggle("over", moves.length > game.difficulty);
     forceSlots.forEach((slot, i) => slot.classList.toggle("filled", i < game.maxForces - forces));
     const encoded = moves.map((m) => m.tile + (m.kind === "force" ? FORCE : 0));
     solvedWith = solved ? encoded : null;
-    if (solved && trySolve(encoded)) return finish(true);
+    if (solved && trySolve(encoded)) return finish(true, celebrateIn);
     // Solved, but with more moves than allowed: not a win, and nothing happens (the count shows
     // it, e.g. (13/12)); take moves back
     element.classList.toggle("too-many", solved);

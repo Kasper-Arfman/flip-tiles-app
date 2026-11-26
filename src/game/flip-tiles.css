@@ -132,11 +132,11 @@
 
 /* When a move solves the board: once the tiles have turned over (--solved-delay, set by the
    script), a flash of light sweeps over them (--wave-delay per tile, from the markup), and
-   each tile stays lit after its flash. Then Solved! appears. */
+   each tile stays lit after its flash. Solved! appears a little before the wave is through
+   (--stamp-delay, also set by the script: STAMP_SHARE in FlipTilesElement.ts). */
 .flip-tiles {
   --light-time: 500ms; /* how long one tile's flash takes */
   --settle-time: 600ms; /* a wire, after its signal, cools from over-bright to faint */
-  --stamp-delay: calc(var(--solved-delay, 0ms) + var(--wave-length) + var(--light-time) / 2); /* as the last tile flashes */
 }
 
 /* Two layers over the tile, so they don't disturb the turning over: the flash (::before) and
