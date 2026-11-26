@@ -23,7 +23,13 @@ All of it is done in a web browser, so Windows is fine. In this order:
 2. **Register the bundle id**: [Certificates, Identifiers & Profiles](https://developer.apple.com/account/resources/identifiers)
    → *Identifiers → +* → *App IDs → App*. Description *Flip Tiles*, **Explicit** bundle id
    `com.kasperarfman.fliptiles` (the `appId` in `capacitor.config.ts`). Under *Capabilities*,
-   **In-App Purchase** is on by default; leave it on.
+   **In-App Purchase** is on by default; leave it on. Nothing else is needed (no App Services or
+   Capability Requests).
+   Also **register an iPhone or iPad** under *Devices → +* (platform iOS, its UDID). Without a
+   device the cloud build stops with *Your team has no devices from which to generate a
+   provisioning profile*: Xcode signs an archive for development first, and a development
+   profile needs a device. The UDID on Windows: connect the device, open it in the *Apple
+   Devices* app (or iTunes), and click the line under its name until it shows the UDID.
 3. **The app in [App Store Connect](https://appstoreconnect.apple.com)**: *Apps → + → New App*,
    platform iOS, name *Flip Tiles* (it must be free on the App Store; otherwise add a word),
    language, the bundle id from step 2, and a *SKU* (any text of your own, e.g. `fliptiles`).
@@ -95,12 +101,17 @@ must say why (`NSUserTrackingUsageDescription` in `Info.plist`).
 
 - GitHub's Mac minutes count ten times against the free minutes of a private repository; a
   release takes about 10 to 15 minutes. Public repositories run free.
+- Each spring Apple starts refusing uploads built with last year's SDK, and warns ahead in an
+  email (*ITMS-90725: SDK version issue*): a warning only, the upload still went through. The
+  workflow's first step picks the newest stable Xcode on GitHub's Mac (its log shows which), so a
+  new Xcode is used as soon as GitHub installs it; that can take some weeks after Apple's release.
 - Export compliance (encryption): `ITSAppUsesNonExemptEncryption` = `NO` in `Info.plist` tells
   Apple the game uses no encryption beyond HTTPS, so no build waits for that question.
 - The app runs on iPads too (`TARGETED_DEVICE_FAMILY = "1,2"` in the Xcode project). That is why
   iPad screenshots are needed. The game is made for phones, so on an iPad the app zooms the page
-  in, like a browser's zoom (`GameViewController` in `ios/App/App/SceneDelegate.swift`): it is
-  laid out smaller and drawn larger, so it fills the screen: as much zoom as leaves a page of at
+  in through its viewport (a small script at the top of `index.html`, with
+  `preferredContentMode: "mobile"` in `capacitor.config.ts`): it is laid out smaller and drawn
+  larger, so it fills the screen: as much zoom as leaves a page of at
   least 440 x 700 (as wide as a big phone, and tall enough for the level screen). Android tablets
   do the same (`MainActivity.java`).
 - Portrait only, on both platforms (`Info.plist`, `AndroidManifest.xml`). On an iPad Apple allows

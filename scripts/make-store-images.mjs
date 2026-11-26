@@ -72,7 +72,7 @@ const DEVICES = [
   { file: "assets/store/android/tablet-10in", width: 440, height: 704, scale: 1600 / 440 },
   // App Store Connect: the largest iPhone (6.9", 1290x2796) and iPad (13", 2064x2752); it scales
   // these down for the smaller ones. The iPad ones are needed because the app runs on iPads too.
-  // On an iPad the app zooms the page in (GameViewController in ios/App/App/SceneDelegate.swift),
+  // On an iPad the app zooms the page in (the viewport script in index.html),
   // by the same rule: the 13" iPad (1032x1376 points) gets a 525x700 page (3:4).
   { file: "assets/store/ios/iphone", width: 430, height: 932, scale: 3 },
   { file: "assets/store/ios/ipad", width: 525, height: 700, scale: 2064 / 525 },

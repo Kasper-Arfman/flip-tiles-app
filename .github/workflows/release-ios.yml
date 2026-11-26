@@ -16,6 +16,13 @@ jobs:
     if: github.event_name == 'workflow_dispatch' || vars.IOS_RELEASE == 'true'
     runs-on: macos-latest
     steps:
+      # The newest Xcode on the Mac (not a beta), not its default: Apple wants each year's new SDK
+      # for uploads from April on (ITMS-90725). Without a newer one installed it stays as it was.
+      - name: Newest Xcode
+        run: |
+          newest=$(ls -d /Applications/Xcode_*.app | grep -viE 'beta|_rc|release_candidate' | sort -V | tail -1 || true)
+          if [ -n "$newest" ]; then sudo xcode-select -s "$newest"; fi
+          xcodebuild -version
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:

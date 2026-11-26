@@ -181,3 +181,14 @@ Notes added as the project goes along: what was learned, problems hit, and how t
   and 10-inch tablet, iPhone, iPad). Also: the level screen centers the board in the room under
   the stars on tall phones (auto margins in a flex column), and the ranked lobby fits a small
   phone (360x640) without scrolling: a `max-height` media query tightens it only where needed.
+- **2026-11-26**: The first iOS build, from the cloud Mac to TestFlight on an iPad (no iPhone,
+  no Mac). Learned: the cloud build needs at least one registered device, even for the App
+  Store (Xcode signs the archive for development first); Windows shows a connected iPad's UDID
+  in its device id (`USB\VID_05AC&PID_...\<UDID>`, add the dash after 8 characters). An
+  *external* TestFlight group waits for Apple's beta review; an *internal* one is there in
+  minutes. And the iPad zoom from yesterday didn't hold up on a real iPad: `pageZoom` drew the
+  page larger but kept laying it out at the full width, so it was too big and scrolled (the
+  screenshots, made in a browser at the zoomed size, couldn't show that). Now the page sets its
+  own viewport on an iPad (`width=525, initial-scale=1.54`, worked out from the screen), the
+  phone way of zooming, which iOS follows. Lesson: test on the real device; a simulated screen
+  only shows what the code *should* do.
