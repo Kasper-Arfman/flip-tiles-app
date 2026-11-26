@@ -20,6 +20,10 @@ export interface FlipTilesControls {
   playMove(move: Move): void; // make a move, as if the tile was pressed
   resetGame(): void; // back to the start board
   setHistory(moves: Move[]): void; // these moves as the game's history, at its start (step with < >)
+  // Asked before a press of the player's own (tap, hold, click) is made: false ignores it. The
+  // level screen uses it for the tutorial (only the move shown) and a solved board (no more moves
+  // until Retry). Moves the page makes itself (playMove) aren't asked about.
+  canPress: (tile: number, force: boolean) => boolean;
 }
 
 class FlipTiles extends HTMLElement implements FlipTilesControls {
@@ -28,6 +32,7 @@ class FlipTiles extends HTMLElement implements FlipTilesControls {
   playMove: (move: Move) => void = () => {};
   resetGame: () => void = () => {};
   setHistory: (moves: Move[]) => void = () => {};
+  canPress: (tile: number, force: boolean) => boolean = () => true;
 
   connectedCallback() {
     const tiles = [...this.querySelectorAll<HTMLButtonElement>(".tile")];
@@ -190,6 +195,8 @@ class FlipTiles extends HTMLElement implements FlipTilesControls {
     // Several fingers at once work too: each tile follows its own finger, and the taps are made
     // one after the other, in the order the fingers lift (events never run at the same time).
     let lastTouch = -Infinity; // when a touch last pressed or held a tile (ms, performance.now)
+    // (the player's own presses: only those the page allows, see canPress)
+    const pressTile = (k: number, force: boolean) => this.canPress(k, force) && press(k, force);
     tiles.forEach((tile, k) => {
       let holdTimer: number | undefined;
       let start = { x: 0, y: 0 };
@@ -203,13 +210,15 @@ class FlipTiles extends HTMLElement implements FlipTilesControls {
         if (e.pointerType === "mouse") return;
         touching = true;
         start = { x: e.clientX, y: e.clientY };
-        if (!allowForce) return; // no hold to force
+        // No hold to force: in a flips-only game, or when the page doesn't allow a force here now
+        // (then the tile doesn't shrink as if it would)
+        if (!allowForce || !this.canPress(k, true)) return;
         tile.classList.add("holding");
         holdTimer = window.setTimeout(() => {
           cancelHold();
           touching = false; // (the hold is the move: lifting the finger adds no flip)
           lastTouch = performance.now();
-          if (press(k, true)) navigator.vibrate?.(30); // a small buzz, where phones support it
+          if (pressTile(k, true)) navigator.vibrate?.(30); // a small buzz, where phones support it
         }, HOLD_MS);
       });
       tile.addEventListener("pointermove", (e) => {
@@ -223,7 +232,7 @@ class FlipTiles extends HTMLElement implements FlipTilesControls {
         if (e.pointerType === "mouse" || !touching) return;
         touching = false;
         lastTouch = performance.now();
-        press(k, false);
+        pressTile(k, false);
       });
       const endTouch = () => {
         touching = false;
@@ -236,13 +245,13 @@ class FlipTiles extends HTMLElement implements FlipTilesControls {
       });
       tile.addEventListener("click", (e) => {
         if (performance.now() - lastTouch < 800) return; // a touch's click: already counted
-        press(k, e.shiftKey);
+        pressTile(k, e.shiftKey);
       });
       // Right click forces. A long press on a touch screen also opens this menu on some phones
       // (Android): there, the hold does the forcing, so only stop the menu.
       tile.addEventListener("contextmenu", (e) => {
         e.preventDefault();
-        if (holdTimer === undefined && !touching && performance.now() - lastTouch >= 800) press(k, true);
+        if (holdTimer === undefined && !touching && performance.now() - lastTouch >= 800) pressTile(k, true);
       });
     });
 

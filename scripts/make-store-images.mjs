@@ -11,7 +11,7 @@
 //   assets/store/android/tablet-7in-N.png     1200x1920, the same for the "7-inch tablet" slot
 //   assets/store/android/tablet-10in-N.png    1600x2560, and for the "10-inch tablet" slot
 // The App Store (uploaded by hand: App Store Connect → the app → the version):
-//   assets/store/ios/iphone-N.png             1290x2796, the same shots for the iPhone 6.9" slot
+//   assets/store/ios/iphone-N.png             1206x2622, the same shots for the iPhone 6.1"/6.3" slot
 //   assets/store/ios/ipad-N.png               2064x2752, and for the iPad 13" slot
 // (The coin packs' pictures: scripts/make-pack-images.mjs.)
 import { mkdirSync, readFileSync } from "node:fs";
@@ -48,6 +48,61 @@ const feature =
 await sharp(Buffer.from(feature)).png().toFile("assets/store/android/feature-graphic.png");
 console.log("assets/store/android/feature-graphic.png");
 
+// --- the App Store's creative assets (iOS 27 and later; optional) -------------------------------
+// Two pictures for the product page (App Store Connect: the version's Product Page Information),
+// in the feature graphic's look. Apple's spec (developer.apple.com/help/app-store-connect/
+// reference/app-information/creative-assets-specifications): no transparency; the "safe area"
+// in the middle is what every device shows, the rest may be cut off. So the board and the words
+// go in the safe area, and a faint wall of tiles, lined up with the board, fills the rest.
+//   header          3840x1646 (21:9), safe area 1646x661: the board only (the App Store shows
+//                   the app's name with it)
+//   search results  3840x2560 (3:2), safe area 2168x1030: the name, the line, the board
+const FONT = "Segoe UI, Roboto, Helvetica, Arial, sans-serif";
+function creative(width, height, s, boardLeft, boardTop, extra = "") {
+  const pitch = s * 1.19; // (a tile and the gap after it, as in the feature graphic: 64 + 12)
+  // The wall: the board's grid carried on over the whole picture, faint, some tiles yellow
+  const wall = [];
+  const c0 = Math.floor(-boardLeft / pitch) - 1, r0 = Math.floor(-boardTop / pitch) - 1;
+  for (let r = r0; boardTop + r * pitch < height; r++) {
+    for (let c = c0; boardLeft + c * pitch < width; c++) {
+      if (r >= 0 && r < 5 && c >= 0 && c < 5) continue; // (the board itself)
+      const yellow = ((r * 7 + c * 3) % 5 + 5) % 5 === 0 || ((r * 2 + c * 5) % 7 + 7) % 7 === 0;
+      wall.push(tile(boardLeft + c * pitch, boardTop + r * pitch, s, yellow));
+    }
+  }
+  const front = BOARD.flatMap((row, r) => [...row].map((v, c) => tile(boardLeft + c * pitch, boardTop + r * pitch, s, v === "1"))).join("");
+  return (
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}">${defs}` +
+    `<rect width="${width}" height="${height}" fill="url(#bg)" />` +
+    `<g opacity="0.13">${wall.join("")}</g>` +
+    // (a soft dark ring around the safe area, so the wall fades away from the board)
+    `<radialGradient id="fade" cx="50%" cy="50%" r="60%"><stop offset="0.35" stop-color="#0d3a1c" stop-opacity="0" />` +
+    `<stop offset="1" stop-color="#0d3a1c" stop-opacity="0.55" /></radialGradient>` +
+    `<rect width="${width}" height="${height}" fill="url(#fade)" />` +
+    `${front}${extra}</svg>`
+  );
+}
+const boardSize = (s) => s * 1.19 * 4 + s; // (5 tiles, 4 gaps)
+// Header: the board in the middle, as tall as the safe area allows (its 661, less a margin)
+{
+  const s = 96, side = boardSize(s);
+  const svg = creative(3840, 1646, s, (3840 - side) / 2, (1646 - side) / 2 - s * 0.04);
+  await sharp(Buffer.from(svg)).removeAlpha().png().toFile("assets/store/ios/header.png");
+  console.log("assets/store/ios/header.png");
+}
+// Search results: the feature graphic's layout, in the safe area (2168x1030, from x 836, y 765)
+{
+  const s = 150, side = boardSize(s);
+  const safe = { x: 836, y: 765, w: 2168, h: 1030 };
+  const left = safe.x + safe.w - side - 20, top = safe.y + (safe.h - side) / 2 - s * 0.04;
+  const words =
+    `<text x="${safe.x + 20}" y="${safe.y + 500}" font-family="${FONT}" font-weight="800" font-size="230" fill="#fff4dc">Flip Tiles</text>` +
+    `<text x="${safe.x + 30}" y="${safe.y + 650}" font-family="${FONT}" font-weight="600" font-size="88" fill="#ffd24a">Make every tile one color</text>`;
+  const svg = creative(3840, 2560, s, left, top, words);
+  await sharp(Buffer.from(svg)).removeAlpha().png().toFile("assets/store/ios/search-results.png");
+  console.log("assets/store/ios/search-results.png");
+}
+
 // --- the screenshots ----------------------------------------------------------------------------
 // A player some way in (a new one would only see the tutorial): the first stages with all stars,
 // the next one half done, some coins. Saved as the game saves (Capacitor Preferences: localStorage
@@ -70,11 +125,11 @@ const DEVICES = [
   // as far as leaves a page of at least 440x780, so at this shape 488x780 (10:16) for both.
   { file: "assets/store/android/tablet-7in", width: 488, height: 780, scale: 1200 / 488 },
   { file: "assets/store/android/tablet-10in", width: 488, height: 780, scale: 1600 / 488 },
-  // App Store Connect: the largest iPhone (6.9", 1290x2796) and iPad (13", 2064x2752); it scales
-  // these down for the smaller ones. The iPad ones are needed because the app runs on iPads too.
+  // App Store Connect: the iPhone 6.1"/6.3" slot (1206x2622, a 402x874 screen at 3x) and the
+  // largest iPad (13", 2064x2752); it scales these for the other sizes. The iPad ones are needed because the app runs on iPads too.
   // On an iPad the app zooms the page in (the viewport script in index.html),
   // by the same rule: the 13" iPad (1032x1376 points) gets a 585x780 page (3:4).
-  { file: "assets/store/ios/iphone", width: 430, height: 932, scale: 3 },
+  { file: "assets/store/ios/iphone", width: 402, height: 874, scale: 3 },
   { file: "assets/store/ios/ipad", width: 585, height: 780, scale: 2064 / 585 },
 ];
 const server = await createServer({ server: { port: 4179, strictPort: true }, logLevel: "error" });

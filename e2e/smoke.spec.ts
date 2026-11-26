@@ -98,6 +98,21 @@ test("a level with no forces refuses a force, one with forces takes them until t
   expect(await board()).toBe(after);
 });
 
+test("a solved board takes no more presses, until Retry", async ({ page }) => {
+  await returningPlayer(page);
+  await page.goto("./#/level/1/1");
+  await solve(page, levels.tiers[0].levels[0]);
+  const made = page.locator(".level-screen .tile.flipped, .level-screen .tile.forced");
+  const before = await made.count();
+  await tile(page, 0).click();
+  await tile(page, 1).click({ button: "right" });
+  await expect(page.locator(".result")).toBeVisible();
+  expect(await made.count()).toBe(before);
+  await page.locator(".result .again").click();
+  await tile(page, 0).click();
+  await expect(made).toHaveCount(1);
+});
+
 test.describe("on a touch screen", () => {
   test.use({ hasTouch: true, isMobile: true });
 
@@ -134,6 +149,18 @@ test.describe("on a touch screen", () => {
     await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
     await expect(page.locator(".level-screen .tile.forced")).toHaveCount(1);
     await expect(page.locator(".level-screen .tile.flipped")).toHaveCount(8);
+  });
+
+  test("the tutorial's hold step takes no taps, only the hold", async ({ page }) => {
+    await page.goto("./");
+    await page.evaluate(() => localStorage.clear());
+    await page.reload();
+    await tile(page, 12).tap(); // (1.1: tap the middle)
+    await page.locator(".next-level").tap();
+    await expect(page).toHaveURL(/#\/level\/1\/2$/);
+    const made = page.locator(".level-screen .tile.flipped, .level-screen .tile.forced");
+    for (let k = 0; k < 25; k++) await tile(page, k).tap();
+    await expect(made).toHaveCount(0);
   });
 });
 

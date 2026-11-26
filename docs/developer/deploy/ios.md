@@ -79,7 +79,7 @@ answers) is ready in `assets/store/listing/app-store.md`; `node scripts/check-li
 checks the lengths against Apple's limits after a change.
 
 - **Screenshots**: `node scripts/make-store-images.mjs` makes them in `assets/store/ios/`:
-  `iphone-*.png` (1290x2796) go under *iPhone 6.9" Display*, `ipad-*.png` (2064x2752) under
+  `iphone-*.png` (1206x2622) go under *iPhone 6.1"/6.3" Display*, `ipad-*.png` (2064x2752) under
   *iPad 13" Display*. Apple makes the smaller sizes from these. Up to 10 each; the first three
   are what people see in search results.
 - **Text**: name, subtitle (30 characters), description and keywords (100 characters, comma

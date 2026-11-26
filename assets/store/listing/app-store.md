@@ -50,21 +50,21 @@ logic,brain,teaser,grid,tile,flip,mind,iq,strategy,relaxing,offline,math,switch,
 ```
 Tap a tile and it flips, together with its four neighbours. Your goal: make every tile on the 5x5 board the same color, all green or all gold. Easy to learn, surprisingly deep to master.
 
-★ 223 HAND-PICKED PUZZLES
+223 HAND-PICKED PUZZLES
 Twelve stages, from Alpha to Mu, each one a step harder. We checked all 33 million possible boards and selected 223 of the most interesting puzzles, all unique, and all waiting to be solved!
 
-★ THREE STARS PER LEVEL
+THREE STARS PER LEVEL
 • Solve it, any way you like
 • Solve it in the fewest flips possible
 • Solve it in even fewer moves, but using "forces" to change individual tiles
 
-★ RANKED MODE
+RANKED MODE
 Race the clock on freshly generated puzzles. Choose your difficulty, beat your best time and, if you like, climb the online leaderboards.
 
-★ MAKE IT YOURS
+MAKE IT YOURS
 Collect 24 color themes and 13 tile shapes with the coins you earn.
 
-★ PLAY YOUR WAY
+PLAY YOUR WAY
 • Plays fully offline, no account needed
 • Stuck? Use a hint, or open the Codex to learn the patterns
 • No forced ads: watch a short video only when you want extra coins
@@ -82,8 +82,12 @@ A modern take on a classic logic puzzle. How few moves do you need?
 
 **Copyright**: `2026 Kasper Arfman`
 
-**Screenshots**: `assets/store/ios/iphone-*.png` under *iPhone 6.9" Display*, `ipad-*.png` under
+**Screenshots**: `assets/store/ios/iphone-*.png` (1206x2622) under *iPhone 6.1"/6.3" Display*, `ipad-*.png` under
 *iPad 13" Display* (`node scripts/make-store-images.mjs`).
+
+**Product page header** and **Search results** (optional, iOS 27 and later): `assets/store/ios/header.png`
+(3840x1646) and `assets/store/ios/search-results.png` (3840x2560), from the same script. Check
+them in App Store Connect's preview: the board (and the words) must stay inside the safe area.
 
 **App Review Information**: no sign-in needed (leave *Sign-in required* off). Contact: your name,
 phone and email. **Notes**:

@@ -6,10 +6,18 @@ import { readFileSync } from "node:fs";
 
 const text = readFileSync("assets/store/listing/app-store.md", "utf8");
 let problems = 0;
+// Symbols and emoji (★, ✓, arrows, ...): App Store Connect refuses them ("invalid characters").
+// Plain punctuation, accents and the • bullet are fine.
+const SYMBOLS = /[←-⯿]|\p{Extended_Pictographic}/gu;
 const report = (what, value, limit) => {
   const ok = [...value].length <= limit;
   if (!ok) problems++;
   console.log(`${ok ? "ok  " : "TOO LONG"}  ${what}: ${[...value].length} / ${limit}`);
+  const symbols = [...new Set(value.match(SYMBOLS) ?? [])];
+  if (symbols.length) {
+    problems++;
+    console.log(`INVALID   ${what}: Apple refuses ${symbols.join(" ")}`);
+  }
 };
 for (const [, what, limit, value] of text.matchAll(/\*\*([^*]+)\*\* \((\d+)[^)]*\):?\s*\n+```\n([\s\S]*?)\n```/g)) {
   report(what, value, Number(limit));

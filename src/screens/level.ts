@@ -129,9 +129,9 @@ export function levelScreen(level: Level) {
 
   // The tutorial's finger, over the tile to press: tapping (1.1), or tapping and holding (1.2),
   // with what it does written under it. Only that move on that tile works, so the step is always
-  // solved: the tiles' presses are caught on their way down (capture), before the board's own
-  // handlers hear of them, and only the right one is let through.
+  // solved (see canPress below).
   let finger: HTMLElement | undefined;
+  let tutorialMove: { tile: number; force: boolean } | undefined;
   if (guided) {
     const holding = level.number === 2;
     const bits = level.board.replace(/\s/g, "");
@@ -147,24 +147,15 @@ export function levelScreen(level: Level) {
       : `<span class="touch-ring"></span>`;
     finger.innerHTML = `${press}${HAND}<span class="touch-text">${holding ? "Tap and hold to force" : "Tap to flip"}</span>`;
     widget.querySelector(".board")!.append(finger);
-
-    for (const type of ["pointerdown", "click", "contextmenu"]) {
-      widget.addEventListener(type, (e) => {
-        const tile = (e.target as Element).closest<HTMLElement>(".tile");
-        if (!tile) return;
-        const onTarget = Number(tile.dataset.tile) === target;
-        // 1.1: only a plain tap (click) on the middle; 1.2: only a hold (pointerdown starts the
-        // hold; a right click forces with a mouse) on the odd tile
-        const allowed = onTarget && (holding
-          ? type !== "click"
-          : type === "click" && !(e as MouseEvent).shiftKey);
-        if (!allowed) {
-          e.stopPropagation();
-          if (type === "contextmenu") e.preventDefault();
-        }
-      }, { capture: true });
-    }
+    // 1.1: only a flip (a tap or a click) on the middle; 1.2: only a force (a hold, or a right
+    // click) on the odd tile
+    tutorialMove = { tile: target, force: holding };
   }
+  // The player's presses on the tiles: none once the board is solved (the result is on it; Retry,
+  // or < to take the last move back, opens it again), and in the tutorial only its one move
+  widget.canPress = (tile, force) =>
+    !element.classList.contains("level-complete") &&
+    (!tutorialMove || (tile === tutorialMove.tile && force === tutorialMove.force));
   let resultTimer: number | undefined;
   const hideResult = () => {
     clearTimeout(resultTimer);
