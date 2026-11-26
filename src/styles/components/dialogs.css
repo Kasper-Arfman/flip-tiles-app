@@ -1,0 +1,70 @@
+/* Popups (every <dialog class="app-dialog">): the box, its title and close button. And the
+   short message at the bottom of the screen ("+30 coins!", screens/ui.ts, notice). */
+
+/* A short message at the bottom of the screen ("+30 coins!"), gone by itself */
+.notice {
+  position: fixed;
+  left: 50%;
+  bottom: calc(env(safe-area-inset-bottom) + 1.5rem);
+  z-index: 50;
+  padding: 0.6rem 1.1rem;
+  border-radius: 999px;
+  background: var(--anthracite);
+  color: var(--white);
+  font-weight: 700;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
+  transform: translateX(-50%);
+  animation: notice-in-out 2.6s ease both;
+}
+
+@keyframes notice-in-out {
+  0% { opacity: 0; transform: translate(-50%, 1rem); }
+  12%, 85% { opacity: 1; transform: translate(-50%, 0); }
+  100% { opacity: 0; transform: translate(-50%, 0.5rem); }
+}
+
+.app-dialog {
+  width: min(100vw - 24px, 440px);
+  max-height: calc(100dvh - 24px);
+  padding: 0; /* the box inside has the padding: a tap on the dialog itself is next to the box */
+  border: none;
+  border-radius: 18px;
+  background: var(--card);
+  color: var(--ink);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+}
+
+.app-dialog::backdrop {
+  background: rgba(15, 18, 24, 0.6);
+}
+
+.dialog-box {
+  padding: 0.75rem 1rem 1rem;
+}
+
+.dialog-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.dialog-head h2 {
+  font-size: 1.15rem;
+}
+
+.dialog-head .close {
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink);
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+.dialog-head .close:not(:disabled):active {
+  background: var(--line);
+  color: var(--ink);
+}

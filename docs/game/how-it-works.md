@@ -101,7 +101,7 @@ Every part of the game, one by one. Back to [the documentation](../index.md).
 - **A stage on the home screen.** Its card has a progress bar of the stars earned, blue while
   under way. With every star earned the stage is complete: the bar turns gold, the card gets a
   gold trim and a crown with "Complete", and a sheen of light sweeps over it now and then
-  (`.tier-card.complete` in `styles.css`). Completing a stage pays 50 coins (`STAGE_REWARD`):
+  (`.tier-card.complete` in `styles/screens/home.css`). Completing a stage pays 50 coins (`STAGE_REWARD`):
   the solve that earns its last star shows "Stage complete!" without buttons and goes to the
   menu by itself, where "+50" rises from the stage's card and its coins burst out and fly into
   the coin pouch, which counts up (`payStageRewards` in `progress.ts`, `flyCoins` in `home.ts`;

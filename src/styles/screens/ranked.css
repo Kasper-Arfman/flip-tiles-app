@@ -1,0 +1,666 @@
+/* Ranked mode (screens/ranked.ts): the lobby, a game and its end, the leaderboards, and the
+   popup of a locked difficulty. */
+
+/* This screen's own colors (the shared ones: tokens.css) */
+:root {
+  --pale-gold: #fdf0d5; /* behind notes in the lobby, and your own row on a leaderboard */
+}
+
+.ranked-screen {
+  display: grid;
+  gap: 0.9rem;
+}
+
+/* The mode tabs: spaced by the screen's gap, like the rest (the shop's own margins would leave a
+   wide gap above the Difficulty card); a little more above, clear of the trophy, which reaches
+   down out of the top bar */
+.ranked-screen > .shop-tabs {
+  margin: 0.5rem 0 0;
+}
+
+/* A short phone (as 360x640): a little less room everywhere, so the whole lobby, How ranked works
+   included, fits without scrolling */
+@media (max-height: 700px) {
+  main:has(.ranked-screen) {
+    padding-bottom: calc(env(safe-area-inset-bottom) + 0.75rem);
+  }
+
+  .ranked-screen {
+    gap: 0.7rem;
+  }
+
+  /* (.ranked-screen in front: these win over the card's own rules, further down) */
+  .ranked-screen .ranked-card {
+    padding: 0.7rem 0.9rem;
+  }
+
+  .ranked-screen .ranked-card h2 {
+    margin-bottom: 0.45rem;
+  }
+}
+
+.ranked-card {
+  padding: 0.85rem 1rem;
+  border-radius: 14px;
+  background: var(--card);
+}
+
+.ranked-card h2 {
+  margin: 0 0 0.6rem;
+  font-size: 1.05rem;
+}
+
+.ranked-card p {
+  margin: 0 0 0.6rem;
+}
+
+.ranked-label,
+.ranked-notice {
+  margin: 0;
+  padding: 0.6rem 0.9rem;
+  border-radius: 10px;
+  background: var(--pale-gold);
+  color: #6b4a06;
+  font-size: 0.9rem;
+}
+
+/* The difficulties: a row of round number buttons, the chosen one filled */
+.difficulty-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.difficulty-picker button {
+  width: 2.4rem;
+  height: 2.4rem;
+  padding: 0;
+  border-radius: 50%;
+  font-variant-numeric: tabular-nums;
+}
+
+.difficulty-picker button[aria-checked="true"] {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--white);
+}
+
+.ranked-stats {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.25rem 1rem;
+  margin: 0;
+}
+
+.ranked-stats dt {
+  color: var(--muted);
+}
+
+.ranked-stats dd {
+  margin: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.play-ranked {
+  padding: 0.8rem;
+  font-size: 1.1rem;
+}
+
+/* How ranked works: underlined text under Play (like Reset progress), opening a popup */
+.ranked-rules-link {
+  justify-self: center;
+  padding: 0.25rem 0.5rem;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 400;
+  text-decoration: underline;
+}
+
+.ranked-rules ul {
+  margin: 0;
+  padding-left: 1.2rem;
+  font-size: 0.95rem;
+}
+
+.ranked-rules li + li {
+  margin-top: 0.4rem;
+}
+
+/* Your record, with a gold button on its right, the size of the home screen's: this
+   leaderboard (a list of high scores). Top Ranked Players: the trophy, in the top bar, as on the home screen */
+/* The leaderboard button in the card's top right corner, over the card: the record takes the
+   card's whole width under it, so "Join the leaderboards" stays on one line (the rows beside
+   the button, the title and Games, are short) */
+.record-card {
+  position: relative;
+}
+
+.record-card .leaderboard-button {
+  position: absolute;
+  top: 0.85rem;
+  right: 1rem;
+  height: 3.4rem;
+}
+
+.ranked-position {
+  white-space: nowrap;
+}
+
+/* The trophy in the top bar: about the size of the high-scores button (a little smaller, for the bar) */
+.topbar .global-link {
+  width: calc(3.4rem - 4px);
+  height: calc(3.4rem - 4px);
+  /* (it may reach into the bar's padding, more at the bottom than the top: the bar stays as low
+     as elsewhere, and the button keeps some room above it) */
+  margin-top: -0.1rem;
+  margin-bottom: -0.7rem;
+}
+
+/* The ranked screens space their parts with a gap: none extra under the top bar */
+.ranked-screen > .topbar {
+  margin-bottom: -0.4rem;
+}
+
+/* A game: the clock big over the board */
+.ranked-clock {
+  margin-top: 0.5rem;
+  text-align: center;
+  font-size: 2.4rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* From the first hint (3:00) on: the clock turns red */
+.ranked-play.hinting .ranked-clock {
+  color: var(--danger);
+}
+
+.ranked-phase,
+.ranked-progress {
+  margin: 0.2rem 0 0;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.ranked-progress .count.over {
+  color: var(--danger);
+  font-weight: 700;
+}
+
+.ranked-play.too-many .ranked-phase {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+/* Solved with too many moves: no Solved! on the board, it doesn't count */
+.ranked-play.too-many .flip-tiles .solved {
+  display: none;
+}
+
+.ranked-play .hint-bar {
+  margin-top: 0.75rem;
+}
+
+/* The game's end over the board: the time big, a line under it, the buttons at the bottom */
+.ranked-result .result-title {
+  top: 22%;
+  font-size: 2.2rem;
+}
+
+.ranked-result .result-buttons {
+  position: absolute;
+  left: 4%;
+  right: 4%;
+  bottom: 6%;
+}
+
+.ranked-result .result-buttons .primary {
+  background: var(--skin-one);
+}
+
+/* The game is over: the board takes no more moves */
+.ranked-play.ranked-over .flip-tiles .tile {
+  pointer-events: none;
+}
+
+/* The leaderboards */
+.join-form {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.join-form input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font: inherit;
+}
+
+.join-card button {
+  margin: 0.2rem 0.4rem 0.2rem 0;
+}
+
+.board-choice {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-weight: 600;
+}
+
+.board-choice select {
+  flex: 1;
+  min-width: 0;
+  padding: 0.45rem;
+  border-radius: 10px;
+  font: inherit;
+}
+
+.leaderboard-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--card);
+}
+
+.leaderboard-list.mine {
+  margin-top: 0.5rem;
+}
+
+.leaderboard-list li {
+  display: grid;
+  /* (each row is its own grid: the games column has a fixed width, so the scores line up
+     whatever the number of games) */
+  grid-template-columns: 2.2rem minmax(0, 1fr) auto 4.8rem;
+  gap: 0.6rem;
+  align-items: baseline;
+  padding: 0.55rem 0.9rem;
+  border-top: 1px solid var(--line);
+  font-variant-numeric: tabular-nums;
+}
+
+.leaderboard-list li:first-child {
+  border-top: none;
+}
+
+.leaderboard-list li.me {
+  background: var(--pale-gold);
+  color: var(--navy);
+  font-weight: 700;
+}
+
+.leaderboard-list .rank {
+  color: var(--muted);
+}
+
+/* The #1 of a leaderboard: a gold row, the place in gold, a crown before the name, in bold */
+.leaderboard-list li.first {
+  background: linear-gradient(90deg, rgba(255, 210, 74, 0.38), rgba(227, 162, 26, 0.12));
+  font-weight: 700;
+}
+
+/* (the crown at the right end of the place's column, right before the name: the name doesn't
+   move) */
+.leaderboard-list li.first .rank {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  align-self: center;
+  color: #b07a0c;
+  font-weight: 800;
+}
+
+.leaderboard-list .first-crown {
+  width: 0.95rem;
+  height: 0.95rem;
+  fill: var(--gold);
+}
+
+.leaderboard-list .name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.leaderboard-list .games {
+  grid-column: 4; /* (also on Top Ranked Players, which has no score column) */
+  color: var(--muted);
+  font-size: 0.8rem;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.ranked-play.ranked-over .give-up {
+  visibility: hidden;
+}
+
+/* The leaderboards' "Change name": plain underlined text */
+/* A leaderboard's pages: ‹ 26–50 of 101 ›, then Top and Around me, then your own row */
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 0.6rem;
+}
+
+.pager button {
+  width: 2.6rem;
+  height: 2.6rem;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+.pager .page-range {
+  min-width: 8rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.pager-jumps {
+  display: flex;
+  justify-content: center;
+  gap: 0.6rem;
+  margin-top: 0.5rem;
+}
+
+.leaderboard .my-position {
+  margin: 1rem 0 0.3rem;
+  font-weight: 600;
+}
+
+/* Your own row, under the page's rows: a small gap shows it isn't the next place */
+.leaderboard .leaderboard-list.mine {
+  margin-top: 0.35rem;
+}
+
+/* "Last updated": plain small grey text, centred */
+.leaderboard .leaderboard-updated {
+  margin-top: 0.4rem;
+  padding: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 0.8rem;
+  text-align: center;
+}
+
+/* The leaderboards: Welcome [name] (Change name), on one line */
+.welcome {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin: 0;
+  white-space: nowrap;
+}
+
+/* (the pencil after the name: change it) */
+.welcome .rename {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  margin-left: 0.2rem;
+  padding: 0;
+  border: 1.5px solid var(--line);
+  border-radius: 8px;
+  background: var(--card);
+  box-shadow: none;
+  color: var(--muted);
+}
+
+.welcome .rename:not(:disabled):active {
+  background: var(--line);
+}
+
+.welcome .rename svg {
+  width: 0.95rem;
+  height: 0.95rem;
+  fill: currentColor;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linejoin: round;
+}
+
+/* A difficulty whose stage isn't complete yet: a lock */
+.difficulty-picker button.locked {
+  display: grid;
+  place-items: center;
+  opacity: 0.45;
+}
+
+.difficulty-picker button.locked svg {
+  width: 0.9rem;
+  height: 0.9rem;
+}
+
+/* A locked difficulty's popup: the groups of levels to complete, each a link to it */
+.unlock-list {
+  display: grid;
+  gap: 0.4rem;
+  max-height: 60dvh;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.unlock-list .unlock-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.6rem 0.9rem;
+  border: 2px solid var(--line);
+  border-radius: 12px;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.unlock-list .unlock-name {
+  flex: 1;
+}
+
+.unlock-list .stage-locked .unlock-row {
+  border-style: dashed;
+  color: var(--muted);
+}
+
+.unlock-list .lock {
+  width: 0.9rem;
+  height: 0.9rem;
+  margin-right: -0.4rem;
+}
+
+.unlock-list .unlock-count {
+  margin-left: auto;
+  color: inherit; /* (the same as the group's name: grey on a locked stage) */
+  font-variant-numeric: tabular-nums;
+}
+
+/* A group not complete yet: a blue progress bar, filled as far as its levels have the star
+   (--done, set on the row) */
+.unlock-list li:not(.complete) .unlock-row {
+  background: linear-gradient(to right, rgba(59, 130, 246, 0.32) var(--done, 0%), transparent var(--done, 0%));
+}
+
+/* ... with a dark blue outline when its stage is open (a locked stage keeps the grey one) */
+.unlock-list li:not(.complete):not(.stage-locked) .unlock-row {
+  border-color: #1e4fa3;
+}
+
+/* A group already complete: filled green, white text */
+.unlock-list .complete .unlock-row {
+  border-color: var(--green);
+  background: var(--green);
+  color: var(--white);
+}
+
+.unlock-list .complete .unlock-count {
+  color: var(--white);
+  font-weight: 700;
+}
+
+/* A ranked game: no "Click to flip..." line under the board, and the line over it only when it
+   has something to say (too many moves, the last minute) */
+.ranked-play .flip-tiles .hint {
+  display: none;
+}
+
+.ranked-phase:empty {
+  display: none;
+}
+
+/* A ranked game's board: close under the forces row (as on a level), and without the board's
+   own "Move 1 / 50" (the screen counts the moves above it) */
+.ranked-play .flip-tiles {
+  margin: 0.5rem auto 0;
+}
+
+.ranked-play .move-number {
+  display: none;
+}
+
+/* Text under the difficulty buttons (and other notes in the lobby's cards): room above, none
+   below (it is the card's last line) */
+.ranked-card .ranked-label {
+  margin: 0.6rem 0 0;
+}
+
+/* A ranked game's end: the score's change in a dark pill near the top of the board (clear of
+   Solved! in the middle). The score counts from the old to the new one, then the difference
+   pops in: green going down (better), red going up (worse). */
+.score-change {
+  position: absolute;
+  top: 8%;
+  left: 50%;
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.45rem 0.95rem;
+  border: 2px solid rgba(255, 244, 220, 0.85);
+  border-radius: 999px;
+  background: rgba(19, 41, 77, 0.88);
+  color: var(--white);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  transform: translateX(-50%);
+  animation: score-in 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.3) both;
+}
+
+/* (a loss: below "Time's up") */
+.ranked-result .result-title:not([hidden]) ~ .score-change {
+  top: 40%;
+}
+
+.score-label {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.score-value {
+  font-size: 1.35rem;
+  font-weight: 700;
+}
+
+.score-delta {
+  font-size: 0.95rem;
+  font-weight: 700;
+  opacity: 0;
+  transform: translateY(0.4rem) scale(0.6);
+}
+
+.score-change.settled .score-delta {
+  animation: delta-pop 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.5) forwards;
+}
+
+.score-change.better .score-delta {
+  color: #5ee08a;
+}
+
+.score-change.worse .score-delta {
+  color: #ff7b6e;
+}
+
+/* The pill glows once in the delta's color: a ring around it (its own layer, so the pill's
+   pop-in doesn't play again) */
+.score-change::after {
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  content: "";
+  pointer-events: none;
+}
+
+.score-change.settled.better::after {
+  animation: glow-better 0.9s ease-out;
+}
+
+.score-change.settled.worse::after {
+  animation: glow-worse 0.9s ease-out;
+}
+
+@keyframes score-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) scale(0.7);
+  }
+}
+
+@keyframes delta-pop {
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes glow-better {
+  30% {
+    box-shadow: 0 0 0 5px rgba(94, 224, 138, 0.6);
+  }
+}
+
+@keyframes glow-worse {
+  30% {
+    box-shadow: 0 0 0 5px rgba(255, 123, 110, 0.6);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .score-change,
+  .score-change.settled .score-delta {
+    animation: none;
+    opacity: 1;
+    transform: translateX(-50%);
+  }
+
+  .score-change.settled .score-delta {
+    transform: none;
+  }
+}
+
+/* A ranked game: Codex in the board's row of buttons, spaced like Reset */
+.ranked-play .moves .open-codex {
+  margin-left: 0.6rem;
+}
+
+/* A ranked game's Give up: small, in the top bar's right corner */
+.topbar .give-up {
+  padding: 0.25rem 0.55rem;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}

@@ -1,0 +1,87 @@
+/* The design values used across the app: change one here, and every place that uses it follows.
+   (A color used by only one screen is at the top of that screen's file; one used just once is
+   written where it is used.) */
+:root {
+  /* --- the palette ------------------------------------------------------------------------ */
+  --navy: #13294d; /* the text and buttons on light backgrounds */
+  --slate: #5f6b7d; /* quieter text on light backgrounds */
+  --light-ink: #f2f3f5; /* the text on dark backgrounds (home cards, level grid, dark pills) */
+  --white: #ffffff; /* text and marks on colored or dark backgrounds */
+  --green: #2e9e4f; /* the same green as the tiles */
+  --gold: #e3a21a; /* earned stars; the same gold as the yellow tiles */
+  --gold-bright: #ffd24a; /* gold text, icons and trims on dark backgrounds */
+  --gold-deep: #c98a12; /* the dark end of the gold gradients (gold bars and buttons) */
+  --gold-edge: #a86f05; /* the dark edge of gold things (a gold title tile, the gold padlock) */
+  --gold-text: #b87a00; /* gold text on white (in use, a goal showing its hints) */
+  --cream: #fff4dc; /* the rim of the game's buttons and title tiles */
+  --cream-light: #fff8e6; /* the letters and icons on the dark round buttons and title tiles */
+  --red: #e0453a; /* forces (their diamonds and badges) and the notification bubble */
+  --red-edge: #5c0f0b; /* the dark outline around the red diamonds */
+  --danger: #c0392b; /* warnings: the ranked clock late in the game, too many moves, a failed check */
+  /* Something not found yet (a skin, a Codex entry): grey tiles */
+  --unknown-zero: #c9c7bf;
+  --unknown-one: #dedcd4;
+
+  /* --- what the screens are made of -------------------------------------------------------- */
+  --ink: var(--navy); /* text, buttons (turns light in the dark places: see below) */
+  --muted: var(--slate);
+  --paper: #f5f4ef; /* the page */
+  --card: #ffffff;
+  --line: #e3e1d9;
+  --empty-star: #c3c8d1;
+  --anthracite: #2b2f36; /* the cards on the home screen */
+  --night: #22252b; /* the background of the level grid */
+  --blush: #f4ebe3; /* the level tiles on it: off-white, a hint of pink-brown */
+
+  /* --- shadows ----------------------------------------------------------------------------- */
+  --card-shadow: 0 2px 10px rgba(19, 41, 77, 0.08); /* a white card on the page */
+  --lift-shadow: 0 4px 14px rgba(0, 0, 0, 0.25); /* a card or button lifted off the home art */
+  /* White text with a thin dark outline and a small drop, like the logo's letters: the outline
+     gives every letter its own dark edge, so it reads on any color, light ones included */
+  --text-outline:
+    1px 0 0 rgba(0, 0, 0, 0.75), -1px 0 0 rgba(0, 0, 0, 0.75),
+    0 1px 0 rgba(0, 0, 0, 0.75), 0 -1px 0 rgba(0, 0, 0, 0.75),
+    0 2.5px 0 rgba(0, 0, 0, 0.55);
+
+  /* --- fonts ------------------------------------------------------------------------------- */
+  --title-font: "Lilita One", system-ui, sans-serif; /* the chunky game font: title, buttons over the board */
+
+  /* --- the player's skin (set by skins.ts; these are the Classic skin) --------------------- */
+  /* The tiles' two colors */
+  --skin-zero: var(--green);
+  --skin-one: var(--gold);
+  /* The tiles' shape, as a mask (none: the square), and a two-color shape's detail, per tile
+     color (drawn in the other color; none for a one-color shape) */
+  --skin-shape: none;
+  --skin-detail-zero: none;
+  --skin-detail-one: none;
+}
+
+/* Dark places: the cards on the home screen, and the whole level grid screen.
+   Inside them the colors are redefined, so the text, lines, empty stars and difficulty marks
+   turn light without rules of their own. */
+.tier-card,
+.tier-screen {
+  --ink: var(--light-ink);
+  --muted: #aab1bc;
+  --line: #474d57;
+  --empty-star: #6c727d;
+  color: var(--ink);
+}
+
+/* The level grid screen is dark all over (the sticky top bar takes --paper as its background) */
+.tier-screen {
+  --paper: var(--night);
+}
+
+html:has(.tier-screen) {
+  background: var(--night);
+}
+
+/* ...with white level tiles in it: the light colors again */
+.level-tile {
+  --ink: var(--navy);
+  --muted: var(--slate);
+  --empty-star: #c8b9ad; /* a warm grey, matching the blush tile */
+  color: var(--ink);
+}

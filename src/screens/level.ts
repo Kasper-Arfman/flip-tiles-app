@@ -36,7 +36,7 @@ import { adOffer } from "../adRewards";
 // The result's animation (stars and buttons over the solved board): its timing, in seconds, all
 // here to tweak. It starts together with the board's Solved! (the widget says when that is: a
 // little before its wave of light is through, STAMP_SHARE in src/game/FlipTilesElement.ts), and
-// the times count from then. The CSS (styles.css, "The result") takes them from here.
+// the times count from then. The CSS (styles/components/result.css) takes them from here.
 const RESULT_TIMING = {
   firstStar: 0, // the first star starts to drop
   betweenStars: 0.45, // each next star drops this much later

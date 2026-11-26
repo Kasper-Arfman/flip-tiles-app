@@ -204,3 +204,11 @@ Notes added as the project goes along: what was learned, problems hit, and how t
   App Store Connect; AdMob needs its own app per platform), and the Netlify site isn't connected
   to git, so merging into `main` put nothing online. Now a release deploys the site too
   (`release-web.yml`).
+- **2026-11-26**: The one big `styles.css` split into `src/styles/` (a file per screen and per
+  shared piece; `index.css` lists what is where), and every color that was written in several
+  places is now one CSS variable at the top of a file (`tokens.css` for the shared ones), so a
+  color is changed in one place. To be sure nothing changed by accident, a script took the
+  computed style of every element on 40 screens, before and after, and compared them. Learned:
+  the default button's hover is written with `:where()`, which has no weight in the cascade, so
+  a button's own color already wins over it: the many `:hover` copies repeating that color could
+  go. And the solved animation's timing is now a few numbers at the top of `screens/level.ts`.

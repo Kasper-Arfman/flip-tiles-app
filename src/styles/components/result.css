@@ -1,0 +1,370 @@
+/* The result over a solved board: the stars dropping in, the title, and the buttons
+   (screens/level.ts; ranked mode uses the same layer: screens/ranked.css adjusts it). */
+
+/* The result: decorations over the solved board (level.ts puts this layer inside the board), shown
+   once the board's own animation, Solved! included, has played. No box: the stars drop in an arc
+   over the top of the board, a line goes under Solved!, and the buttons sit at the bottom.
+   A soft dark fade at the top and bottom keeps them readable; the middle, with Solved!, stays
+   clear. Only the buttons take taps. Its animations start when it appears: the times below
+   count from then. */
+.result {
+  position: absolute;
+  inset: 0;
+  z-index: 3; /* over the tiles, the wires and Solved! */
+  pointer-events: none;
+  text-align: center;
+  background: linear-gradient(to bottom,
+    rgba(10, 14, 20, 0.5), rgba(10, 14, 20, 0) 32%, rgba(10, 14, 20, 0) 62%, rgba(10, 14, 20, 0.6));
+  animation: fade-in 0.4s ease-out both;
+}
+
+.result[hidden] {
+  display: none;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* The stars: in an arc over the top of the board */
+.result .result-stars {
+  position: absolute;
+  top: 5%;
+  left: 0;
+  right: 0;
+  margin: 0;
+}
+
+/* Under Solved!: "in 3 moves", or "Three stars!". White with a thin dark outline and a small drop,
+   like the buttons' text, so it reads on any skin's colors (also the light ones). */
+.result-title {
+  position: absolute;
+  top: 60%;
+  left: 0;
+  right: 0;
+  width: max-content;
+  margin: 0 auto;
+  color: var(--white);
+  font-size: 1.1rem;
+  font-weight: 700;
+  text-shadow: var(--text-outline);
+}
+
+/* At the bottom: the buttons */
+.result-bottom {
+  position: absolute;
+  left: 4%;
+  right: 4%;
+  bottom: 5%;
+}
+
+/* The level's three stars in an arc: the middle one bigger and higher, the outer ones tilted
+   outwards. Each sits in a socket (an empty star shape); an earned star covers its socket. */
+.result-stars {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 0.6rem;
+  margin: 0.9rem 0 0.6rem;
+}
+
+.result-star {
+  position: relative;
+  width: 3.2rem;
+  height: 3.2rem;
+}
+
+.result-star:nth-child(1) {
+  transform: rotate(-14deg);
+}
+
+.result-star:nth-child(2) {
+  width: 4.2rem;
+  height: 4.2rem;
+  margin-bottom: 0.9rem;
+}
+
+.result-star:nth-child(3) {
+  transform: rotate(14deg);
+}
+
+.result-star svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  stroke-linejoin: round;
+}
+
+/* An empty place: a see-through star, like a slot in the board */
+.result-star .socket {
+  fill: rgba(255, 255, 255, 0.22);
+  stroke: rgba(255, 255, 255, 0.6);
+}
+
+/* The gold star (its colors are in its SVG, see bigStarGold in ui.ts) */
+.result-star .gold {
+  filter: drop-shadow(0 3px 3px rgba(60, 35, 0, 0.45));
+}
+
+/* Under a star that lands, the socket goes: nothing of it shows around the star */
+.level-screen.level-complete .result-star.earned .socket {
+  animation: socket-out 0.15s linear calc(var(--delay) + var(--touchdown)) forwards;
+}
+
+@keyframes socket-out {
+  to {
+    opacity: 0;
+  }
+}
+
+/* Each earned star (also from earlier solves) drops in, big and turning, squashes as it lands,
+   and bounces into its socket; a ring flashes and sparks fly. The times come from the script
+   (RESULT_TIMING in level.ts): --delay makes the stars land one after the other, --land is a
+   star's drop, and --touchdown the moment in it that the star touches its socket (its 55%). */
+.level-screen.level-complete .result-star.earned .gold {
+  animation: star-land var(--land) cubic-bezier(0.3, 0, 0.4, 1) var(--delay) both;
+}
+
+@keyframes star-land {
+  0% {
+    opacity: 0;
+    transform: translateY(-1.5rem) scale(2.6) rotate(-50deg);
+  }
+  55% {
+    opacity: 1;
+    transform: scale(0.8, 0.72) rotate(4deg); /* the landing: squashed */
+  }
+  75% {
+    transform: scale(1.14) rotate(-2deg);
+  }
+  100% {
+    transform: none;
+  }
+}
+
+/* The flash: a gold ring that widens and fades as the star lands */
+.result-star.earned::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 3px solid var(--gold);
+  border-radius: 50%;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.level-screen.level-complete .result-star.earned::after {
+  /* forwards, not both: before it starts the ring must stay hidden, not wait at its first frame */
+  animation: ring 0.5s ease-out calc(var(--delay) + var(--touchdown)) forwards;
+}
+
+@keyframes ring {
+  from {
+    opacity: 0.9;
+    transform: scale(0.4);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.7);
+  }
+}
+
+/* The finale, when a solve gives the level its third star: once the last star has landed
+   (--finale, from the script: RESULT_TIMING in level.ts), a gold glow swells behind the stars,
+   they jump together, the title pops in, and the panel's border turns gold */
+.result-stars {
+  position: relative;
+}
+
+.result-star {
+  z-index: 1; /* over the glow */
+}
+
+.result.perfect .result-stars::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 15rem;
+  height: 9rem;
+  margin: -4.5rem 0 0 -7.5rem;
+  background: radial-gradient(closest-side, rgba(255, 210, 74, 0.6), rgba(255, 210, 74, 0));
+  opacity: 0;
+  pointer-events: none;
+}
+
+.level-screen.level-complete .result.perfect .result-stars::before {
+  animation: glow-swell 0.9s ease-out var(--finale) both;
+}
+
+@keyframes glow-swell {
+  from {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+  to {
+    opacity: 0.75;
+    transform: none;
+  }
+}
+
+/* The jump: after the landing (fill forwards only, so it doesn't hide the landing before) */
+.level-screen.level-complete .result.perfect .result-star.earned .gold {
+  animation:
+    star-land var(--land) cubic-bezier(0.3, 0, 0.4, 1) var(--delay) both,
+    cheer 0.45s ease-in-out calc(var(--finale) + 0.1s) forwards;
+}
+
+.level-screen.level-complete .result.perfect .result-star:nth-child(2) .gold {
+  animation-delay: var(--delay), calc(var(--finale) + 0.18s);
+}
+
+.level-screen.level-complete .result.perfect .result-star:nth-child(3) .gold {
+  animation-delay: var(--delay), calc(var(--finale) + 0.26s);
+}
+
+@keyframes cheer {
+  0%,
+  100% {
+    transform: none;
+  }
+  40% {
+    transform: translateY(-0.6rem) scale(1.12);
+  }
+  70% {
+    transform: translateY(0) scale(0.96, 1.04);
+  }
+}
+
+.level-screen.level-complete .result.perfect .result-title {
+  color: var(--gold-bright);
+  font-size: 1.35rem;
+  animation: title-pop 0.45s cubic-bezier(0.3, 1.6, 0.5, 1) var(--finale) both;
+}
+
+@keyframes title-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Sparks: eight small dots that fly outwards from the star's middle */
+.spark {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0.4rem;
+  height: 0.4rem;
+  margin: -0.2rem 0 0 -0.2rem;
+  border-radius: 50%;
+  background: var(--gold-bright);
+  box-shadow: 0 0 4px #ffe58a;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.spark:nth-child(odd) {
+  background: var(--white);
+}
+
+.level-screen.level-complete .spark {
+  animation: spark 0.6s ease-out calc(var(--delay) + var(--touchdown)) forwards; /* (as the ring) */
+}
+
+@keyframes spark {
+  from {
+    opacity: 1;
+    transform: rotate(var(--angle)) translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: rotate(var(--angle)) translateY(-2.8rem) scale(0.3);
+  }
+}
+
+.result-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 0.6rem;
+  margin-top: 0.5rem;
+}
+
+/* The solve that completed the stage: no buttons, the game goes to the menu by itself */
+.result.stage-done .result-buttons {
+  visibility: hidden;
+}
+
+/* The buttons over the board: like two tiles of the skin, Retry in its first color and Next
+   level in its second, with a cream rim, a dark edge below and a shadow (the rim and shadow set a
+   button apart from the board, also when the board has its color). The text is white with a thin
+   dark outline and a small drop, like the logo's letters: the outline gives every letter its own
+   dark edge, so it reads on any color, light ones included. */
+.result-buttons button {
+  padding: 0.45rem 1.1rem 0.5rem;
+  border: 2.5px solid var(--cream);
+  border-radius: 12px;
+  background: var(--skin-zero);
+  color: var(--white);
+  text-shadow: var(--text-outline);
+  font-family: var(--title-font);
+  font-size: 1.05rem;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  box-shadow:
+    0 4px 0 rgba(0, 0, 0, 0.45),
+    0 8px 18px rgba(0, 0, 0, 0.4);
+  pointer-events: auto; /* (the layer itself lets taps through to the board) */
+}
+
+/* Next level: in the skin's second color */
+.result-buttons .next-level {
+  background: var(--skin-one);
+}
+
+/* Pressed: it goes down onto its edge */
+.result-buttons button:not(:disabled):active {
+  transform: translateY(3px);
+  box-shadow:
+    0 1px 0 rgba(0, 0, 0, 0.45),
+    0 4px 10px rgba(0, 0, 0, 0.4);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .result,
+  .level-screen.level-complete .result-star.earned .gold {
+    animation: none;
+  }
+
+  .level-screen.level-complete .result-star.earned .socket {
+    animation: none;
+    opacity: 0;
+  }
+
+  .level-screen.level-complete .result-star.earned::after,
+  .level-screen.level-complete .spark {
+    display: none;
+  }
+
+  /* The finale without movement: the glow and the title are simply there */
+  .level-screen.level-complete .result.perfect .result-title,
+  .level-screen.level-complete .result.perfect .result-star.earned .gold,
+  .level-screen.level-complete .result.perfect .result-stars::before {
+    animation: none;
+  }
+
+  .level-screen.level-complete .result.perfect .result-stars::before {
+    opacity: 0.75;
+  }
+}

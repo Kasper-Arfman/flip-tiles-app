@@ -1,0 +1,64 @@
+/* The forces: a row of red diamonds, one per force, full until it is used (a level, a ranked
+   game, the Codex's editor). */
+
+/* What is placed: one red diamond per force, hollow until placed (like a force hint and a move) */
+.force-slots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  box-sizing: border-box;
+  padding: 4px;
+}
+
+/* A shake when the player tries to force with none left */
+.available-forces.denied .force-slots {
+  animation: forces-denied 0.3s;
+}
+
+@keyframes forces-denied {
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+
+.force-slot {
+  width: 13px;
+  height: 13px;
+  border: 2px solid var(--red);
+  border-radius: 2px;
+  box-sizing: border-box;
+  box-shadow: 0 0 0 1px var(--red-edge), inset 0 0 0 1px var(--red-edge);
+  transform: rotate(45deg);
+}
+
+.force-slot.filled,
+.force-gem {
+  border: 0;
+  background: linear-gradient(135deg, #ffb3a8 0%, #e5483b 45%, #a3201a 100%);
+  box-shadow: 0 0 0 1px var(--red-edge);
+}
+
+.force-gem {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 22%;
+  height: 22%;
+  border-radius: 1px;
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.force-gem[hidden] {
+  display: none;
+}
+
+/* Above the board: "Available forces:" and the diamonds */
+.available-forces {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 1.6rem;
+  margin-top: 0.75rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}

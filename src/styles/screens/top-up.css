@@ -1,0 +1,342 @@
+/* Getting coins (screens/topUp.ts): the Top up button and popup, the coin packs, the free
+   video and its offer, and the test build's pretend ad. */
+
+/* This screen's own colors (the shared ones: tokens.css) */
+:root {
+  --video-tint: #eef7f0; /* the pale green behind a free video */
+  --tag-ink: #3b2a00; /* the text on the small gold tags (2x today, Best value) */
+}
+
+/* Top up: a quiet white square like Your look: a coin with a plus, and "Top up" */
+.top-up {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  width: calc(var(--look-board) + 2 * var(--look-pad)); /* as wide as Your look is tall: a square */
+  margin: 0;
+  padding: 0.5rem;
+  border: none;
+  border-radius: 16px;
+  background: var(--card);
+  box-shadow: var(--card-shadow);
+  color: var(--ink);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.top-up:not(:disabled):active {
+  transform: scale(0.96);
+}
+
+.top-up-coin {
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+
+.top-up-coin .coin {
+  width: 2.2rem;
+  height: 2.2rem;
+}
+
+.top-up-coin b {
+  position: absolute;
+  right: -0.45rem;
+  bottom: -0.25rem;
+  display: grid;
+  place-items: center;
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 50%;
+  background: var(--green);
+  color: var(--white);
+  font-size: 0.85rem;
+  line-height: 1;
+}
+
+/* The Top up popup: the free video in a row, then the packs */
+.top-up-body {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.top-up-free {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.6rem 0.7rem;
+  border-radius: 14px;
+  background: var(--video-tint);
+}
+
+.top-up-free .clapper {
+  flex: none;
+  width: 1.8rem;
+  height: 1.8rem;
+  fill: var(--green);
+  stroke: var(--video-tint);
+}
+
+.top-up-free-text {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+
+.top-up-free .ad-status {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.top-up-free .watch-ad {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 0.2rem;
+  white-space: nowrap;
+}
+
+.top-up-dialog .coin-packs {
+  margin: 0;
+}
+
+/* "Watch a video?" (the home screen's video button): what it gives, the facts, Not now / Watch */
+.ad-offer-body {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.ad-offer-reward {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.7rem;
+  padding: 0.7rem 0.8rem;
+  border-radius: 14px;
+  background: var(--video-tint);
+  font-size: 1.1rem;
+}
+
+.ad-offer-reward .clapper {
+  flex: none;
+  width: 2rem;
+  height: 2rem;
+  fill: var(--green);
+  stroke: var(--video-tint);
+}
+
+.ad-offer-reward strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  vertical-align: -0.15em;
+}
+
+.ad-offer-bonus {
+  margin: 0;
+  text-align: center;
+}
+
+.ad-offer-bonus .bonus-tag {
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+/* The videos ready, as a gray bar of segments: a ready one dark, the next one filling up (its
+   minutes left in it), the rest light */
+.ad-bar {
+  display: grid;
+  grid-auto-columns: 1fr;
+  grid-auto-flow: column;
+  gap: 4px;
+}
+
+.ad-segment {
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: 1.1rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #9ea3ab var(--fill, 0%), #e4e5e8 var(--fill, 0%));
+}
+
+/* (ready: the green of the clapperboard above it) */
+.ad-segment.ready {
+  background: var(--green);
+}
+
+/* (right above the bar, left: the bar's own caption) */
+.ad-bar-label {
+  margin: 0 0 -0.55rem 0.2rem;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: left;
+}
+
+.ad-segment small {
+  position: relative;
+  color: #3d424a;
+  font-size: 0.65rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.ad-offer-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+  margin-top: 0.4rem; /* (a little room under the bar) */
+}
+
+/* (Watch, with "9 left today" small under it) */
+.ad-offer-buttons .watch-ad {
+  display: grid;
+  justify-items: center;
+  line-height: 1.15;
+}
+
+.ad-offer-buttons .watch-ad small {
+  font-size: 0.68rem;
+  font-weight: 600;
+  opacity: 0.8;
+}
+
+/* The bonus in the popup ("2× today"): a small gold tag that asks to be used */
+.bonus-tag {
+  display: inline-block;
+  margin-left: 0.3rem;
+  padding: 0.05rem 0.45rem;
+  border-radius: 999px;
+  background: var(--gold);
+  color: var(--tag-ink);
+  font-size: 0.7rem;
+  font-weight: 800;
+  white-space: nowrap;
+  vertical-align: 0.1em;
+  animation: bonus-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes bonus-pulse {
+  50% {
+    transform: scale(1.07);
+  }
+}
+
+/* The coin packs: a row of four (two on narrow phones), the bigger the more coins per dollar */
+.coin-packs {
+  margin-bottom: 0.9rem;
+}
+
+.first-purchase {
+  margin: 0 0 0.5rem;
+  padding: 0.35rem 0.6rem;
+  border-radius: 10px;
+  background: #fff3d6;
+  color: #7a4d00;
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+.pack-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+@media (max-width: 380px) {
+  .pack-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.pack {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.9rem 0.3rem 0.5rem;
+  border: 2px solid var(--line);
+  border-radius: 14px;
+  background: var(--card);
+}
+
+.pack.has-badge {
+  border-color: var(--gold);
+}
+
+.pack-badge {
+  position: absolute;
+  top: -0.6rem;
+  padding: 0.05rem 0.45rem;
+  border-radius: 999px;
+  background: var(--gold);
+  color: var(--tag-ink);
+  font-size: 0.62rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.pack-coins {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 0.2rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.pack-coins s {
+  color: var(--muted);
+  font-weight: 400;
+  font-size: 0.8em;
+}
+
+.pack-bonus {
+  color: var(--green);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.pack .buy-pack {
+  width: 100%;
+  padding-inline: 0.2rem;
+  font-size: 0.85rem;
+}
+
+.pack-note {
+  margin: 0.4rem 0 0;
+  color: var(--muted);
+  font-size: 0.75rem;
+  text-align: center;
+}
+
+/* The test build's pretend ad (in the browser): a dark box with a countdown */
+.pretend-ad .dialog-box {
+  background: #111;
+  color: var(--white);
+  text-align: center;
+}
+
+.pretend-ad-label {
+  margin: 0;
+  color: #bbb;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.pretend-ad-count {
+  margin: 1rem 0;
+  font-size: 3rem;
+  font-weight: 800;
+}

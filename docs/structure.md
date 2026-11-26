@@ -41,7 +41,7 @@ an HTML element. Capacitor wraps the built web app (`dist/`) in the Android and 
 | `selfCheck.ts` | checks every level against its stored solutions (unit tests, and the debug screen on a phone) |
 | `dev.ts` | the two build switches: `DEV_MODE` and `TEST_BUILD` (both `false` for a release) |
 | `sw.js` | the service worker: the web version plays offline |
-| `styles.css` | the look of every screen |
+| `styles/` | the look of every screen. `index.css` says what is where: `tokens.css` (the colors, shadows and fonts used everywhere), `base.css`, `skin.css`, `components/` (buttons, icons, top bar, popups, forces, the result) and `screens/` (one file per screen, named as in `src/screens/`). A color used by one screen only is at the top of that screen's file |
 | `globals.d.ts` | types for the build's constants (`__APP_VERSION__`, `__BUILD__`) |
 
 ## Money: `src/`

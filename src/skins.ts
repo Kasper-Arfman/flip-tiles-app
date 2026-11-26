@@ -6,7 +6,7 @@
 // Together they set CSS variables on the page: --skin-zero and --skin-one (the colors), which the
 // board, the level grid's mini boards and the home screen's art take their colors from, and
 // --skin-shape (the shape, as a mask image, or none), which the board's tiles and the shop's
-// previews take their outline from (see styles.css). Stars and the logo keep their gold and green.
+// previews take their outline from (see styles/skin.css). Stars and the logo keep their gold and green.
 //
 // The hint and move marks (blue and red diamonds) have a dark edge and the replay's move badges a white
 // one, so they show on any color; still, avoid a red or light blue tile color. They sit in the

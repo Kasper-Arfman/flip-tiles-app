@@ -1,0 +1,601 @@
+/* The home screen (screens/home.ts): the art, the title, the stages, the round buttons, the
+   ranked card, and the coins of a completed stage flying into the pouch. */
+
+/* This screen's own colors (the shared ones: tokens.css) */
+:root {
+  --round-shadow: 0 4px 12px rgba(0, 0, 0, 0.3); /* under the round buttons in the top corners */
+  --on-art-shadow: 0 1px 3px rgba(0, 0, 0, 0.6); /* white text straight on the art (the footer) */
+}
+
+/* On a tier card: at the right edge, on open and locked cards alike */
+.tier-card .difficulty {
+  justify-self: end;
+}
+
+/* The art (homeArt.ts) fills the whole screen behind everything, and stays put when the page
+   scrolls */
+.home-art {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: var(--skin-zero); /* while the picture is drawn */
+}
+
+.home-art svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.home-art .art-grain {
+  opacity: 0.22;
+  mix-blend-mode: overlay;
+}
+
+.home-screen {
+  position: relative; /* for the ? button */
+}
+
+.home-header {
+  padding: calc(env(safe-area-inset-top) + 3.2rem) 0 1.2rem;
+  text-align: center;
+}
+
+/* The game's title: each letter on a puzzle tile, in a chunky rounded game font. The tiles have
+   a cream rim and a darker bottom edge (they look thick), a shadow under them, and each leans a
+   little, as if just put down. */
+.game-title {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+  position: relative;
+  isolation: isolate; /* so the glow (z-index -1) stays behind the tiles but in front of the art */
+  margin: 0;
+  font-family: var(--title-font);
+  font-weight: 400;
+  line-height: 1;
+}
+
+/* A dark glow behind the logo, so it pops out of the busy background */
+.game-title::before {
+  content: "";
+  position: absolute;
+  inset: -3rem -1rem -2.5rem; /* sideways only as far as the page's margin: to the screen's edge */
+  z-index: -1;
+  background: radial-gradient(closest-side, rgba(8, 20, 12, 0.78), rgba(8, 20, 12, 0.5) 60%, rgba(8, 20, 12, 0));
+  pointer-events: none;
+}
+
+.title-row {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.title-tile {
+  --face: var(--green);
+  --edge: #1d6e35; /* the tile's thickness, under it */
+  display: grid;
+  place-items: center;
+  width: 3.5rem;
+  height: 3.5rem;
+  border: 3px solid var(--cream);
+  border-radius: 12px;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0) 55%), var(--face);
+  box-shadow:
+    0 5px 0 var(--edge),
+    0 12px 22px rgba(0, 0, 0, 0.5),
+    0 0 14px rgba(0, 0, 0, 0.3);
+  color: var(--cream-light);
+  font-size: 2.5rem;
+  text-shadow: 0 3px 0 rgba(0, 0, 0, 0.28);
+  transform: rotate(var(--tilt, 0deg));
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.title-tile.gold {
+  --face: var(--gold);
+  --edge: var(--gold-edge);
+}
+
+/* Every tile leans its own way */
+.title-tile:nth-child(4n + 1) { --tilt: -5deg; }
+.title-tile:nth-child(4n + 2) { --tilt: 3deg; }
+.title-tile:nth-child(4n + 3) { --tilt: -2deg; }
+.title-tile:nth-child(4n + 4) { --tilt: 4deg; }
+
+/* Opening the screen: the tiles flip in one after the other (--i: the letter's place) */
+.title-tile.flip-in {
+  animation: title-flip-in 0.5s cubic-bezier(0.3, 1.4, 0.5, 1) calc(0.08s * var(--i)) both;
+}
+
+@keyframes title-flip-in {
+  from {
+    opacity: 0;
+    transform: perspective(300px) rotateY(-100deg) rotate(var(--tilt, 0deg));
+  }
+  to {
+    opacity: 1;
+    transform: perspective(300px) rotateY(0deg) rotate(var(--tilt, 0deg));
+  }
+}
+
+/* Tapped: it turns over, like a tile of the board */
+.title-tile.flipping {
+  animation: title-flip 0.4s ease-in-out both;
+}
+
+@keyframes title-flip {
+  0% {
+    transform: perspective(300px) rotateY(0deg) rotate(var(--tilt, 0deg));
+  }
+  50% {
+    transform: perspective(300px) rotateY(90deg) rotate(var(--tilt, 0deg)) scale(0.92);
+  }
+  100% {
+    transform: perspective(300px) rotateY(0deg) rotate(var(--tilt, 0deg));
+  }
+}
+
+/* The stars and coins: two small dark pills under the title */
+.wealth {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 1.1rem;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.9rem;
+  border-radius: 999px;
+  background: rgba(34, 37, 43, 0.85);
+  color: var(--light-ink);
+  font-size: 1.05rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- a completed stage's reward: its coins fly from the card into the pouch (home.ts) ------- */
+
+.flying-coin {
+  position: fixed;
+  z-index: 50;
+  width: 1.6rem;
+  height: 1.6rem;
+  pointer-events: none;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.4));
+}
+
+.flying-coin .coin {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* The pouch bumps as each coin lands */
+.coin-pill.bump {
+  animation: pouch-bump 0.25s ease-out;
+}
+
+@keyframes pouch-bump {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.14); box-shadow: 0 0 0 2px rgba(255, 210, 74, 0.6), 0 0 14px rgba(255, 196, 60, 0.5); }
+  100% { transform: scale(1); }
+}
+
+/* "+50" rising from the card */
+.reward-plus {
+  position: fixed;
+  z-index: 51;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: var(--gold-bright);
+  font-size: 1.5rem;
+  font-weight: 800;
+  text-shadow: 0 2px 0 #7a4e00, 0 0 10px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+  animation: reward-rise 1.6s ease-out forwards;
+}
+
+.reward-plus .coin {
+  width: 1.3rem;
+  height: 1.3rem;
+}
+
+@keyframes reward-rise {
+  0% { opacity: 0; transform: translate(-50%, 0) scale(0.6); }
+  20% { opacity: 1; transform: translate(-50%, -24px) scale(1.1); }
+  70% { opacity: 1; transform: translate(-50%, -40px) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -56px) scale(1); }
+}
+
+/* The card flashes as its coins burst out */
+.tier-card.paying {
+  animation: card-pay 0.6s ease-out;
+}
+
+@keyframes card-pay {
+  0% { transform: scale(1); }
+  30% { transform: scale(1.03); filter: brightness(1.25); }
+  100% { transform: scale(1); }
+}
+
+/* The round buttons in the top corners: the shop (a bag) on the left, how to play (?) on the
+   right */
+.round-button {
+  position: absolute;
+  top: calc(env(safe-area-inset-top) + 0.75rem);
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border: 3px solid var(--cream);
+  border-radius: 50%;
+  background: var(--anthracite);
+  box-shadow: var(--round-shadow);
+  color: var(--cream-light);
+  font-family: var(--title-font);
+  font-size: 1.5rem;
+  text-decoration: none;
+}
+
+.help-button {
+  right: 0;
+}
+
+/* The sound on/off, left of the ? */
+.sound-button {
+  right: 3.25rem;
+  padding: 0;
+}
+
+.sound-button svg {
+  width: 1.4rem;
+  height: 1.4rem;
+  fill: var(--cream-light);
+  stroke: var(--cream-light);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.shop-button {
+  left: 0;
+}
+
+.shop-button svg {
+  width: 1.35rem;
+  height: 1.35rem;
+  fill: var(--cream-light);
+  stroke: var(--cream-light);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+/* The coins pill is a link to the shop too */
+a.pill {
+  text-decoration: none;
+}
+
+/* The home screen's coins, as a button (Top up): the same dark pill as the stars (.pill above
+   wins over the default button's look; only its border and line height are left to undo) */
+button.pill {
+  border: none;
+  line-height: inherit;
+}
+
+/* The home screen's free video: a small round button, after the shop and the Codex */
+.ad-button {
+  left: 6.5rem;
+  padding: 0;
+}
+
+.ad-button .clapper {
+  width: 1.35rem;
+  height: 1.35rem;
+  fill: var(--cream-light);
+  stroke: var(--anthracite);
+}
+
+/* For a new player: gold, with a ring pulsing out of it, to say "start here" */
+.help-button.first-time {
+  background: var(--gold);
+  animation: help-pulse 1.8s ease-out 1.2s infinite;
+}
+
+@keyframes help-pulse {
+  0% {
+    box-shadow: var(--round-shadow), 0 0 0 0 rgba(255, 210, 74, 0.8);
+  }
+  70%,
+  100% {
+    box-shadow: var(--round-shadow), 0 0 0 14px rgba(255, 210, 74, 0);
+  }
+}
+
+/* Cards on the art: a shadow lifts them off it, and a faint light edge keeps them apart from a
+   dark skin's art */
+.home-screen .tier-card {
+  border-color: rgba(255, 255, 255, 0.14);
+  box-shadow: var(--lift-shadow);
+}
+
+.home-screen .tier-card.locked {
+  opacity: 1;
+  background: rgba(43, 47, 54, 0.6); /* faded by letting the art show through, not by fading the text */
+  color: #c5cad2;
+}
+
+.tiers {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tier-card {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 0.35rem 0.5rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--anthracite);
+  border-radius: 14px;
+  background: var(--anthracite);
+  text-decoration: none;
+  transition: transform 0.1s ease;
+}
+
+a.tier-card:active {
+  transform: scale(0.98);
+}
+
+/* A stage's Greek letter, before its name: gold, in a classic serif, like a letter in a formula */
+.stage-symbol {
+  color: var(--gold-bright);
+  font-family: "Times New Roman", Georgia, serif;
+  font-size: 1.3em;
+  font-style: italic;
+  font-weight: 400;
+  line-height: 1;
+}
+
+/* Between the letter and the name: a small, faint dot */
+.stage-dot {
+  margin: 0 0.35em;
+  opacity: 0.45;
+  font-weight: 400;
+}
+
+.tier-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.tier-meta {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.tier-stars {
+  justify-self: end;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The stars earned in the stage: blue while it is under way, gold once complete */
+.progress {
+  grid-column: 1 / -1;
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(to right, #4aa8f0 calc(var(--done) * 100%), var(--line) 0);
+}
+
+/* A completed stage (every star earned): a gold trim with a faint glow outside it (the card
+   itself stays dark), a gold bar, a crown with Complete, and now and then a sheen of light
+   sweeping over the card */
+.home-screen .tier-card.complete {
+  position: relative;
+  overflow: hidden; /* (for the sheen) */
+  border-color: var(--gold);
+  box-shadow: 0 0 0 1px var(--gold), 0 0 8px rgba(255, 196, 60, 0.18), var(--lift-shadow);
+}
+
+/* Its difficulty marks in gold too, like its crown */
+.tier-card.complete .difficulty svg {
+  fill: var(--gold-bright);
+}
+
+.tier-card.complete .progress {
+  background: linear-gradient(90deg, var(--gold-deep), var(--gold-bright) 50%, var(--gold-deep));
+}
+
+.complete-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--gold-bright);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.tier-card.complete::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 35%, rgba(255, 240, 190, 0.22) 50%, transparent 65%);
+  transform: translateX(-100%);
+  animation: sheen 5s ease-in-out 1s infinite;
+  pointer-events: none;
+}
+
+@keyframes sheen {
+  0% { transform: translateX(-100%); }
+  30%, 100% { transform: translateX(100%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tier-card.complete::after {
+    animation: none;
+    opacity: 0;
+  }
+}
+
+/* Locked: faded, so the open tiers stand out */
+.tier-card.locked {
+  opacity: 0.45;
+}
+
+.tier-card.locked .tier-meta {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.home-footer {
+  margin-top: 2.5rem;
+  text-align: center;
+}
+
+.reset-progress {
+  border: none;
+  background: transparent;
+  color: var(--white); /* on the art */
+  text-shadow: var(--on-art-shadow);
+  font-size: 0.85rem;
+  font-weight: 400;
+  text-decoration: underline;
+}
+
+/* The version, under Reset progress: small and quiet (tapped 5 times: the debug screen) */
+.app-version {
+  display: block;
+  margin: 0.25rem auto 0;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.7); /* on the art */
+  text-shadow: var(--on-art-shadow);
+  font-size: 0.75rem;
+  font-weight: 400;
+}
+
+.codex-button {
+  left: 3.25rem;
+}
+
+.codex-button svg {
+  width: 1.45rem;
+  height: 1.45rem;
+  fill: var(--cream-light);
+  stroke: var(--cream-light);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Codex to claim: a red notification bubble on the button's top right */
+.notification-bubble {
+  position: absolute;
+  top: -0.35rem;
+  right: -0.35rem;
+  display: grid;
+  place-items: center;
+  min-width: 1.3rem;
+  height: 1.3rem;
+  padding: 0 0.25rem;
+  border: 2px solid var(--cream);
+  border-radius: 999px;
+  box-sizing: border-box;
+  background: var(--red);
+  color: var(--white);
+  font-family: system-ui, sans-serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* The home screen's entry: a card like a stage's, with a stopwatch */
+.ranked-entry .tier-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.stopwatch {
+  width: 1.25rem;
+  height: 1.25rem;
+  stroke: var(--gold-bright);
+}
+
+/* (the home card's description under its title; Give up gone once the game is over) */
+.ranked-entry .tier-meta {
+  grid-column: 1 / -1;
+}
+
+/* The home screen's Ranked row: the card a little shorter, a gold leaderboard button on its
+   right, and the world's #1 on the card in gold, with a crown */
+.ranked-row {
+  display: flex;
+  gap: 0.6rem;
+  align-items: stretch;
+}
+
+.ranked-row .ranked-entry {
+  flex: 1;
+  min-width: 0;
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
+}
+
+.top-player {
+  display: inline-flex;
+  align-items: center;
+  justify-self: end;
+  gap: 0.3rem;
+  min-width: 0;
+  max-width: 100%; /* (never wider than its column: a name too long ends in "…", never over "Ranked") */
+  color: var(--gold-bright);
+  font-weight: 700;
+  text-shadow: 0 0 8px rgba(255, 210, 74, 0.45);
+}
+
+/* On a narrow phone, smaller: a name of the longest kind (NAME_MAX) stays clear of "Ranked" */
+@media (max-width: 432px) {
+  .top-player {
+    font-size: clamp(0.72rem, 3.7vw, 1rem); /* (the full 1rem at 432px, less below) */
+  }
+}
+
+.top-player[hidden] {
+  display: none;
+}
+
+.top-player .top-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* (a long name of the #1 shrinks with "…", never past the card) */
+.ranked-row .ranked-entry {
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 0.8rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .title-tile.flip-in,
+  .title-tile.flipping,
+  .help-button.first-time {
+    animation: none;
+  }
+}

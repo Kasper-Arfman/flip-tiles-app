@@ -1,0 +1,49 @@
+/* The page itself: the column the screens sit in (inside the phone's safe area), the font,
+   and the browser's own margins taken away. */
+
+* {
+  box-sizing: border-box;
+}
+
+/* The background on html only: a background on body too would be painted over the home
+   screen's art (which sits behind the page, see .home-art) */
+html {
+  background: var(--paper);
+}
+
+/* Nothing may stick out sideways: on a phone, the page must not be draggable left and right. The
+   page's column clips whatever would (clip, not hidden: it makes no scroll box, so the sticky top
+   bars keep working; and not on body, whose overflow the browser moves to the window). */
+main {
+  overflow-x: clip;
+}
+
+html,
+body {
+  margin: 0;
+  color: var(--ink);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  line-height: 1.5;
+  -webkit-tap-highlight-color: transparent; /* no grey flash on every tap */
+  overscroll-behavior: none; /* no rubber-band bounce of the whole page */
+}
+
+main {
+  max-width: 480px;
+  margin: 0 auto;
+  padding:
+    0
+    calc(env(safe-area-inset-right) + 16px)
+    calc(env(safe-area-inset-bottom) + 2rem)
+    calc(env(safe-area-inset-left) + 16px);
+}
+
+a {
+  color: inherit;
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}

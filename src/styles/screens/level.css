@@ -1,0 +1,221 @@
+/* A level (screens/level.ts): the goals, the hint bar, the board's place on the screen,
+   and its popups (Which hint?, the flips-only warning). */
+
+/* This screen's own colors (the shared ones: tokens.css) */
+:root {
+  --expert: #b4233c; /* the red of an Expert goal: its frame and its tag */
+}
+
+/* A level's free hint (a video): next to Hint, when there aren't enough coins for one */
+/* (:not([hidden]): a display here would otherwise show it also when it is hidden) */
+.hint-bar .ad-hint:not([hidden]) {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+/* ("9 left today", small under it) */
+.hint-bar .ad-hint small {
+  font-size: 0.65rem;
+  font-weight: 600;
+  opacity: 0.8;
+}
+
+.goals {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.goal {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 0.5rem 0.3rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--card);
+  text-align: center;
+  font-size: 0.85rem;
+  font-weight: 600;
+  line-height: 1.25;
+  transition: opacity 0.2s ease;
+}
+
+.goal .star {
+  width: 1.6rem;
+  height: 1.6rem;
+}
+
+/* A goal far harder than the rest of its stage (Alpha 2 and 3, flips only): a red "Expert" tag
+   on its top edge, and a red frame */
+.goal.expert {
+  position: relative;
+  border-color: var(--expert);
+}
+
+.expert-badge {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translate(-50%, -55%);
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--expert);
+  color: var(--white);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* A goal this attempt can't reach any more */
+.goal.missed {
+  opacity: 0.4;
+}
+
+/* The goals with hints are buttons: they fill their place in the row */
+button.goal {
+  width: 100%;
+  height: 100%;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.goal small {
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* Showing its hints: a gold frame */
+button.goal[aria-pressed="true"] {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 2px var(--gold);
+}
+
+button.goal[aria-pressed="true"] small {
+  color: var(--gold-text);
+}
+
+/* Under the board: what the hints show, buy one more, and replay the best solve */
+/* At the top, above the goals: the Hint button (and Replay, once there is a solve to watch),
+   on the right, no text around them */
+.hint-bar {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-bottom: 0.6rem;
+}
+
+/* Compact, so all three stay on one row on a narrow phone */
+.hint-bar button {
+  padding-inline: 0.6rem;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.hint-bar[hidden] {
+  display: none; /* (in the tutorial) */
+}
+
+.buy-hint:not([hidden]) {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+/* Which hint?: the two goals as big buttons, each with how many of its hints are shown */
+.hint-dialog-text {
+  margin: 0.25rem 0 0.75rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+/* The two hints to choose from, side by side */
+.hint-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+}
+
+.hint-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+  padding: 0.7rem 0.5rem;
+  border: 2px solid var(--line);
+  border-radius: 12px;
+  background: var(--card);
+  color: var(--ink);
+  text-align: center;
+}
+
+.hint-option:not(:disabled):active {
+  border-color: var(--gold);
+  background: #fff6dc;
+  color: var(--ink);
+}
+
+.hint-option span {
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 400;
+}
+
+.level-screen .flip-tiles {
+  margin: 0.5rem auto 0;
+}
+
+/* On a tall phone: the screen is at least the window's height, and what is under the stars
+   (Available forces, the board, its buttons) sits in the middle of the room left there: the space
+   is shared out evenly above and below it (auto margins in a flex column), with at least 0.75rem
+   on each side. On a short phone there is no room to share, and it stays right under the stars.
+   (main's 2rem at the bottom, under every screen, is left out here: it would make the room
+   below larger than above.) */
+main:has(.level-screen) {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.level-screen {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - env(safe-area-inset-bottom));
+  min-height: calc(100dvh - env(safe-area-inset-bottom));
+}
+
+.level-screen .available-forces {
+  margin-top: auto;
+  padding-top: 0.75rem; /* (its usual space under the stars, as the least) */
+}
+
+.level-screen .board-slot {
+  margin-bottom: auto;
+  padding-bottom: 0.75rem; /* (the same least space under the buttons) */
+}
+
+/* The screen shows its own count (with flips and forces) above the board; and no "Tap to flip,
+   tap and hold to force" under it: the tutorial teaches that */
+.level-screen .move-number,
+.level-screen .hint {
+  display: none;
+}
+
+/* The warning before a very hard flips-only level (flipsWarning.ts): two buttons side by side */
+.flips-warning-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+}
