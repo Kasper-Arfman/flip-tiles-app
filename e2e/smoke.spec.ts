@@ -98,6 +98,45 @@ test("a level with no forces refuses a force, one with forces takes them until t
   expect(await board()).toBe(after);
 });
 
+test.describe("on a touch screen", () => {
+  test.use({ hasTouch: true, isMobile: true });
+
+  test("quick taps and taps with several fingers each flip once, and a hold forces without a flip", async ({ page }) => {
+    await returningPlayer(page);
+    await page.goto("./#/level/1/2"); // (Alpha 2: one force)
+    await expect(tile(page, 0)).toBeVisible();
+    // Taps straight after each other: each one a flip (the tile counts the finger lifting, and
+    // skips the click that follows, so none counts twice)
+    for (const k of [0, 1, 2, 3]) await tile(page, k).tap();
+    await expect(page.locator(".level-screen .tile.flipped")).toHaveCount(4);
+    // Fingers on the screen at the same time (touch events straight to the browser): two fingers
+    // down together, then up together; then one down, a second down, the first up, the second up
+    const cdp = await page.context().newCDPSession(page);
+    const at = async (k: number, id: number) => {
+      const b = (await tile(page, k).boundingBox())!;
+      return { x: b.x + b.width / 2, y: b.y + b.height / 2, id };
+    };
+    const touch = (type: string, touchPoints: object[]) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints });
+    const [a, b, c, d] = [await at(10, 1), await at(14, 2), await at(20, 3), await at(22, 4)];
+    await touch("touchStart", [a, b]);
+    await touch("touchEnd", []);
+    await expect(page.locator(".level-screen .tile.flipped")).toHaveCount(6);
+    await touch("touchStart", [c]);
+    await touch("touchStart", [c, d]);
+    await touch("touchEnd", [d]); // (the points still down: c lifted)
+    await touch("touchEnd", []);
+    await expect(page.locator(".level-screen .tile.flipped")).toHaveCount(8);
+    // A hold: a force when the time is up, and no flip when the finger lifts
+    const box = (await tile(page, 24).boundingBox())!;
+    const point = { x: box.x + box.width / 2, y: box.y + box.height / 2, id: 9 };
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [point] });
+    await page.waitForTimeout(700);
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    await expect(page.locator(".level-screen .tile.forced")).toHaveCount(1);
+    await expect(page.locator(".level-screen .tile.flipped")).toHaveCount(8);
+  });
+});
+
 test("Top up: the smallest coin pack gives 100 coins, doubled the first time (test build)", async ({ page }) => {
   test.skip(!testBuild, "a release build: the coin packs are only in the apps, with the store");
   await returningPlayer(page, 10);

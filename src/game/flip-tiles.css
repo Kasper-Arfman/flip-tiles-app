@@ -63,7 +63,10 @@
   background: #ffffff; /* white gaps between the tiles, like the page */
   transition: background-color 0s; /* back to white at once, e.g. when going back a move */
   user-select: none;
-  touch-action: manipulation; /* no double-tap zoom while playing */
+  /* Every touch on the board is the game's: no double-tap zoom, no pinch, no scroll. So taps with
+     several fingers at once each count (with a pinch allowed, the phone could take two fingers
+     for a zoom and cancel both taps). A swipe outside the board still scrolls the page. */
+  touch-action: none;
 }
 
 .tile {

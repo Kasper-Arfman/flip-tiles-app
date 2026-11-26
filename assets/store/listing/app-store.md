@@ -25,9 +25,11 @@ Turn the whole board one color
 
 **Content rights**: *does not contain third-party content*.
 
-**Age rating** (the questionnaire): *None* for everything, *No* to unrestricted web access,
-gambling and contests. Result: 4+. (The ads are Google's to keep suitable; in AdMob, set the
-content rating of the ad units to *G* or *PG*.)
+**Age rating** (the questionnaire): **Yes** to *Advertising* (the rewarded video ads) and to
+*In-App Purchases* (the coin packs); *None* for all content (violence, mature themes, ...); *No*
+to unrestricted web access, gambling, contests, and user-generated content or messaging (other
+players only see a leaderboard name). Result: 4+. (The ads are Google's to keep suitable; in
+AdMob, set the content rating of the ad units to *G* or *PG*.)
 
 ## The version page
 
@@ -109,12 +111,15 @@ used as their *promotional image* (optional).
 
 ## App Privacy
 
-*Data collection: Yes.* Then, per data type (what to tick, from `docs/developer/deploy/stores.md`):
+*Data collection: Yes.* Then, per data type (what to tick, from `docs/developer/deploy/stores.md`;
+the AdMob rows follow Google's [Apple privacy disclosure](https://developers.google.com/admob/ios/privacy/data-disclosure),
+check it there when the SDK is updated):
 
 | Data type | Used for | Linked to the user | Tracking |
 | --- | --- | --- | --- |
-| Identifiers → Device ID | Third-Party Advertising | No | Yes (only after the player allows tracking) |
-| Usage Data → Advertising Data | Third-Party Advertising | No | Yes |
-| Diagnostics → Other Diagnostic Data (crash, performance) | Third-Party Advertising | No | No |
+| Identifiers → Device ID | Third-Party Advertising, Analytics, App Functionality | No | Yes (only after the player allows tracking) |
+| Location → Coarse Location (AdMob, from the IP address) | Third-Party Advertising | No | Yes |
+| Usage Data → Advertising Data (and Product Interaction) | Third-Party Advertising, Analytics | No | Yes |
+| Diagnostics → Crash, Performance, Other Diagnostic Data | Analytics, App Functionality | No | No |
 | User Content → Gameplay Content (ranked games, if joined) | App Functionality | No | No |
 | Contact Info → Name (leaderboard name, if joined) | App Functionality | No | No |

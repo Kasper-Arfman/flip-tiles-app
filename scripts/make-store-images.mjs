@@ -67,15 +67,15 @@ const DEVICES = [
   { file: "assets/store/android/phone", width: 360, height: 640, scale: 3 },
   // Google Play's tablet slots, at common tablet shapes (10:16, 2x): 7-inch (600x960 dp, 1200x1920)
   // and 10-inch (800x1280 dp, 1600x2560). On a tablet the app zooms the page in (MainActivity.java):
-  // as far as leaves a page of at least 440x700, so at this shape 440x704 (10:16) for both.
-  { file: "assets/store/android/tablet-7in", width: 440, height: 704, scale: 1200 / 440 },
-  { file: "assets/store/android/tablet-10in", width: 440, height: 704, scale: 1600 / 440 },
+  // as far as leaves a page of at least 440x780, so at this shape 488x780 (10:16) for both.
+  { file: "assets/store/android/tablet-7in", width: 488, height: 780, scale: 1200 / 488 },
+  { file: "assets/store/android/tablet-10in", width: 488, height: 780, scale: 1600 / 488 },
   // App Store Connect: the largest iPhone (6.9", 1290x2796) and iPad (13", 2064x2752); it scales
   // these down for the smaller ones. The iPad ones are needed because the app runs on iPads too.
   // On an iPad the app zooms the page in (the viewport script in index.html),
-  // by the same rule: the 13" iPad (1032x1376 points) gets a 525x700 page (3:4).
+  // by the same rule: the 13" iPad (1032x1376 points) gets a 585x780 page (3:4).
   { file: "assets/store/ios/iphone", width: 430, height: 932, scale: 3 },
-  { file: "assets/store/ios/ipad", width: 525, height: 700, scale: 2064 / 525 },
+  { file: "assets/store/ios/ipad", width: 585, height: 780, scale: 2064 / 585 },
 ];
 const server = await createServer({ server: { port: 4179, strictPort: true }, logLevel: "error" });
 await server.listen();

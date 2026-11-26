@@ -109,9 +109,11 @@ no longer "nothing":
   *Advertising* and *Fraud prevention*, not optional only in the sense that ads need them (ads
   themselves are optional). Google's own guide lists what AdMob collects:
   [AdMob data disclosure](https://developers.google.com/admob/android/privacy/play-data-disclosure).
-- Apple, *App Privacy*: *Identifiers → Device ID*, *Usage Data → Advertising Data*, *Diagnostics*,
-  used for **Third-Party Advertising**, and *linked to the user / used for tracking* only when the
-  player allowed tracking. Apple's guide: [App privacy details](https://developer.apple.com/app-store/app-privacy-details/).
+- Apple, *App Privacy*: *Identifiers → Device ID*, *Location → Coarse Location*, *Usage Data →
+  Advertising Data*, *Diagnostics*, collected by the AdMob SDK, mainly for **Third-Party
+  Advertising**; not linked to the user, and the first three count as *tracking*. The
+  leaderboard name and games only for *App Functionality*. Every tick is in
+  `assets/store/listing/app-store.md`. Apple's guide: [App privacy details](https://developer.apple.com/app-store/app-privacy-details/).
 - Target audience / age: not for children (under 13). An app for children may only show
   certified family-safe ads, with other rules (Google's *Families* policy).
 

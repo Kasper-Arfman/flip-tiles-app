@@ -182,46 +182,67 @@ class FlipTiles extends HTMLElement implements FlipTilesControls {
     };
 
     // With a mouse: click flips, right click or shift click forces. On a touch screen: a tap
-    // flips, a tap and hold forces. A hold that has forced swallows the click that follows
-    // when the finger lifts; moving the finger (to scroll) cancels the hold.
+    // flips, a tap and hold forces; moving the finger (to scroll) does neither.
+    // A tap counts when the finger lifts (pointerup), not on the click that follows: when taps
+    // come fast, or the next finger lands before the last one lifted, phones (iOS above all)
+    // leave out some of those clicks, and the taps were lost. The click a tap still makes is
+    // then skipped. (A click without a touch first, from a mouse or the keyboard, still counts.)
+    // Several fingers at once work too: each tile follows its own finger, and the taps are made
+    // one after the other, in the order the fingers lift (events never run at the same time).
+    let lastTouch = -Infinity; // when a touch last pressed or held a tile (ms, performance.now)
     tiles.forEach((tile, k) => {
       let holdTimer: number | undefined;
       let start = { x: 0, y: 0 };
-      let heldDown = false; // the current touch has already forced the tile
+      let touching = false; // a touch is down on this tile, and may still become a tap
       const cancelHold = () => {
         clearTimeout(holdTimer);
         holdTimer = undefined;
         tile.classList.remove("holding");
       };
       tile.addEventListener("pointerdown", (e) => {
-        heldDown = false;
-        if (e.pointerType === "mouse" || !allowForce) return; // no hold to force
+        if (e.pointerType === "mouse") return;
+        touching = true;
         start = { x: e.clientX, y: e.clientY };
+        if (!allowForce) return; // no hold to force
         tile.classList.add("holding");
         holdTimer = window.setTimeout(() => {
           cancelHold();
-          heldDown = true;
+          touching = false; // (the hold is the move: lifting the finger adds no flip)
+          lastTouch = performance.now();
           if (press(k, true)) navigator.vibrate?.(30); // a small buzz, where phones support it
         }, HOLD_MS);
       });
       tile.addEventListener("pointermove", (e) => {
-        if (holdTimer !== undefined && Math.hypot(e.clientX - start.x, e.clientY - start.y) > 10) cancelHold();
-      });
-      tile.addEventListener("pointerup", cancelHold);
-      tile.addEventListener("pointercancel", cancelHold);
-      tile.addEventListener("pointerleave", cancelHold);
-      tile.addEventListener("click", (e) => {
-        if (heldDown) {
-          heldDown = false; // the hold already forced it
-          return;
+        if (touching && Math.hypot(e.clientX - start.x, e.clientY - start.y) > 10) {
+          touching = false; // a swipe or a scroll, not a tap
+          cancelHold();
         }
+      });
+      tile.addEventListener("pointerup", (e) => {
+        cancelHold();
+        if (e.pointerType === "mouse" || !touching) return;
+        touching = false;
+        lastTouch = performance.now();
+        press(k, false);
+      });
+      const endTouch = () => {
+        touching = false;
+        cancelHold();
+      };
+      tile.addEventListener("pointercancel", endTouch); // (the browser took the touch, to scroll)
+      tile.addEventListener("pointerleave", (e) => {
+        // (a finger lifting also leaves the tile: after its pointerup, so nothing is lost)
+        if (e.pointerType === "mouse") cancelHold();
+      });
+      tile.addEventListener("click", (e) => {
+        if (performance.now() - lastTouch < 800) return; // a touch's click: already counted
         press(k, e.shiftKey);
       });
       // Right click forces. A long press on a touch screen also opens this menu on some phones
       // (Android): there, the hold does the forcing, so only stop the menu.
       tile.addEventListener("contextmenu", (e) => {
         e.preventDefault();
-        if (holdTimer === undefined && !heldDown) press(k, true);
+        if (holdTimer === undefined && !touching && performance.now() - lastTouch >= 800) press(k, true);
       });
     });
 

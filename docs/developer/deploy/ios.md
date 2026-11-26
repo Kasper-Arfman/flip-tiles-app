@@ -88,7 +88,8 @@ checks the lengths against Apple's limits after a change.
   and **Privacy Policy URL** (`.../privacy.html`). Both are online once the site is deployed
   with them.
 - **App Privacy** (the "nutrition label"): what to answer is in [Releasing to the stores](stores.md).
-- **Age rating**: a questionnaire; for this game everything is *None*, which gives 4+ (the ads
+- **Age rating**: a questionnaire; *Yes* to advertising and in-app purchases, *None* or *No* to
+  the rest (the answers are in `assets/store/listing/app-store.md`), which gives 4+ (the ads
   are Google's to keep suitable).
 - **Build**: pick the build that came through TestFlight; under *In-App Purchases* add the four
   coin packs; then **Add for Review**.
@@ -112,7 +113,8 @@ must say why (`NSUserTrackingUsageDescription` in `Info.plist`).
   in through its viewport (a small script at the top of `index.html`, with
   `preferredContentMode: "mobile"` in `capacitor.config.ts`): it is laid out smaller and drawn
   larger, so it fills the screen: as much zoom as leaves a page of at
-  least 440 x 700 (as wide as a big phone, and tall enough for the level screen). Android tablets
+  least 440 x 780 (as wide as a big phone, and tall enough that no screen scrolls: the level
+  screen needs 678, a stage 731, plus room for the status bar). Android tablets
   do the same (`MainActivity.java`).
 - Portrait only, on both platforms (`Info.plist`, `AndroidManifest.xml`). On an iPad Apple allows
   that only with `UIRequiresFullScreen` (no Split View). On Android 16 a tablet keeps the lock

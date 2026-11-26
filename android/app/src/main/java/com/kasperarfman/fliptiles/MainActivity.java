@@ -7,13 +7,13 @@ import com.getcapacitor.BridgeActivity;
 public class MainActivity extends BridgeActivity {
     // On a tablet the game, made for phones (a column of at most 480px), is zoomed in, like a
     // browser's zoom: the page is laid out smaller and drawn larger, so it fills the screen. As
-    // much zoom as leaves a page of at least 440 x 700 dp in portrait: as wide as a big phone, and
-    // tall enough for the level screen. The same rule as on an iPad (the viewport script in
+    // much zoom as leaves a page of at least 440 x 780 dp in portrait: as wide as a big phone, and
+    // tall enough that no screen scrolls (the level screen needs 678, a stage 731). The same rule as on an iPad (the viewport script in
     // index.html). Phones stay as they are. Set once, at the start, for the
     // portrait shape (the app is portrait only, see AndroidManifest.xml; where a tablet turns it
     // anyway, from Android 17, it keeps this zoom and the level screen scrolls).
     private static final float MIN_WIDTH = 440f;
-    private static final float MIN_HEIGHT = 700f;
+    private static final float MIN_HEIGHT = 780f;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {

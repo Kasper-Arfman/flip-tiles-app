@@ -191,4 +191,10 @@ Notes added as the project goes along: what was learned, problems hit, and how t
   screenshots, made in a browser at the zoomed size, couldn't show that). Now the page sets its
   own viewport on an iPad (`width=525, initial-scale=1.54`, worked out from the screen), the
   phone way of zooming, which iOS follows. Lesson: test on the real device; a simulated screen
-  only shows what the code *should* do.
+  only shows what the code *should* do. On the iPad it then still scrolled a little: the zoom
+  left a 700 px tall page and the level screen needs 678, too close once the status bar and
+  Safari's fonts take their share. Measured (a script that shrinks the browser until a screen
+  scrolls): now at least 780, which leaves room on every screen. And quick taps on the board got
+  lost on iOS: the board listened for `click`, and when taps come fast or overlap, the phone
+  leaves some clicks out. Now a tap counts when the finger lifts (`pointerup`), and its click is
+  skipped.

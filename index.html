@@ -6,9 +6,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
     <script>
       // In the iOS app on an iPad: the game, made for phones (a column of at most 480px), zoomed
-      // in to fill the screen. As much zoom as leaves a page of at least 440 x 700: as wide as a
-      // big phone, and tall enough for the level screen (on a 10" iPad: a 525 x 700 page, drawn
-      // 1.5x). Done here, through the viewport, before anything is drawn: iOS then lays the page
+      // in to fill the screen. As much zoom as leaves a page of at least 440 x 780: as wide as a
+      // big phone, and tall enough that no screen scrolls (the level screen needs 678, a stage
+      // 731, plus room for the status bar and for Safari's fonts; on a 10" iPad: a 585 x 780
+      // page, drawn 1.4x). Done here, through the viewport, before anything is drawn: iOS then lays the page
       // out at that width and scales it to the screen. (The web view's own zoom, pageZoom, only
       // drew it larger at the full width: too big, and scrolling.) The app is portrait only and
       // full screen (Info.plist), so the size never changes. Phones, and browsers, stay at 1x.
@@ -18,7 +19,7 @@
         if (!cap || !cap.getPlatform || cap.getPlatform() !== "ios") return;
         var w = Math.min(screen.width, screen.height);
         var h = Math.max(screen.width, screen.height);
-        var zoom = Math.min(w / 440, h / 700);
+        var zoom = Math.min(w / 440, h / 780);
         if (zoom <= 1.01) return;
         document.querySelector('meta[name="viewport"]').setAttribute("content",
           "width=" + Math.round(w / zoom) + ", initial-scale=" + zoom + ", minimum-scale=" + zoom +
