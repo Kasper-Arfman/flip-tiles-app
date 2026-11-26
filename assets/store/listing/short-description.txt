@@ -1,0 +1,1 @@
+Flip a tile and its neighbours. Turn the whole board one color!

@@ -2631,6 +2631,33 @@ button.goal[aria-pressed="true"] small {
   margin: 0.5rem auto 0;
 }
 
+/* On a tall phone: the screen is at least the window's height, and what is under the stars
+   (Available forces, the board, its buttons) sits in the middle of the room left there: the space
+   is shared out evenly above and below it (auto margins in a flex column), with at least 0.75rem
+   on each side. On a short phone there is no room to share, and it stays right under the stars.
+   (main's 2rem at the bottom, under every screen, is left out here: it would make the room
+   below larger than above.) */
+main:has(.level-screen) {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.level-screen {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - env(safe-area-inset-bottom));
+  min-height: calc(100dvh - env(safe-area-inset-bottom));
+}
+
+.level-screen .available-forces {
+  margin-top: auto;
+  padding-top: 0.75rem; /* (its usual space under the stars, as the least) */
+}
+
+.level-screen .board-slot {
+  margin-bottom: auto;
+  padding-bottom: 0.75rem; /* (the same least space under the buttons) */
+}
+
 /* The screen shows its own count (with flips and forces) above the board; and no "Tap to flip,
    tap and hold to force" under it: the tutorial teaches that */
 .level-screen .move-number,
@@ -3253,6 +3280,34 @@ button.goal[aria-pressed="true"] small {
   gap: 0.9rem;
 }
 
+/* The mode tabs: spaced by the screen's gap, like the rest (the shop's own margins would leave a
+   wide gap above the Difficulty card); a little more above, clear of the trophy, which reaches
+   down out of the top bar */
+.ranked-screen > .shop-tabs {
+  margin: 0.5rem 0 0;
+}
+
+/* A short phone (as 360x640): a little less room everywhere, so the whole lobby, How ranked works
+   included, fits without scrolling */
+@media (max-height: 700px) {
+  main:has(.ranked-screen) {
+    padding-bottom: calc(env(safe-area-inset-bottom) + 0.75rem);
+  }
+
+  .ranked-screen {
+    gap: 0.7rem;
+  }
+
+  /* (.ranked-screen in front: these win over the card's own rules, further down) */
+  .ranked-screen .ranked-card {
+    padding: 0.7rem 0.9rem;
+  }
+
+  .ranked-screen .ranked-card h2 {
+    margin-bottom: 0.45rem;
+  }
+}
+
 .ranked-card {
   padding: 0.85rem 1rem;
   border-radius: 14px;
@@ -3349,21 +3404,22 @@ button.goal[aria-pressed="true"] small {
 
 /* Your record, with a gold button on its right, the size of the home screen's: this
    leaderboard (a list of high scores). Top Ranked Players: the trophy, in the top bar, as on the home screen */
+/* The leaderboard button in the card's top right corner, over the card: the record takes the
+   card's whole width under it, so "Join the leaderboards" stays on one line (the rows beside
+   the button, the title and Games, are short) */
 .record-card {
-  display: flex;
-  gap: 1rem;
-  align-items: stretch;
+  position: relative;
 }
 
-.record-card .record-text {
-  flex: 1;
-  min-width: 0;
-}
-
-/* (in the top right corner of the card) */
 .record-card .leaderboard-button {
-  align-self: flex-start;
+  position: absolute;
+  top: 0.85rem;
+  right: 1rem;
   height: 3.4rem;
+}
+
+.ranked-position {
+  white-space: nowrap;
 }
 
 /* The trophy in the top bar: about the size of the high-scores button (a little smaller, for the bar) */

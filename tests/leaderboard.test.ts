@@ -172,6 +172,16 @@ describe("the leaderboard server", () => {
     expect((await board(store, "moves-4")).entries[0].value).toBe(199_000);
   });
 
+  it("shows the number of games the player's app reports (games lost on the way don't count)", async () => {
+    await post(store, { deviceId: "device-count", name: "Count", games: games(3, "moves", 4, 60_000), counts: { "moves-4": 99 } });
+    expect((await board(store, "moves-4")).entries[0]).toMatchObject({ name: "Count", games: 99 });
+    // Not a whole number above 0, or a leaderboard without their games: ignored
+    await post(store, { deviceId: "device-count", name: "Count", games: [], counts: { "moves-4": -1, "flips-9": 5 } });
+    forgetCache();
+    expect((await board(store, "moves-4")).entries[0].games).toBe(99);
+    expect((await board(store, "flips-9")).entries.map((e: { name: string }) => e.name)).toEqual([PETER_NAME]);
+  });
+
   it("ignores a reported score without games there, or that isn't a time from 0:00 to 5:00", async () => {
     await post(store, { deviceId: "device-odd", name: "Odd", games: games(2, "moves", 4, 60_000),
       scores: { "flips-9": 1_000, "moves-4": -5, "nonsense": 7 } });

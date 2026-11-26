@@ -24,6 +24,9 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<!-- Export compliance: no encryption beyond HTTPS, so App Store Connect doesn't ask for every build -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<!-- Ads (Google AdMob): the app id from your AdMob account. Until then Google's sample id, for
 	     test ads only (scripts/release-check.mjs refuses a release with it). See README, Monetization. -->
 	<key>GADApplicationIdentifier</key>
@@ -66,19 +69,20 @@
 	<array>
 		<string>armv7</string>
 	</array>
+	<!-- Portrait only: the game is laid out for an upright screen. (An iPad may also be upside
+	     down, still portrait.) Apple accepts that on an iPad only with UIRequiresFullScreen: the
+	     app then has the whole screen, no Split View. -->
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 	<key>UISupportedInterfaceOrientations~ipad</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
 		<string>UIInterfaceOrientationPortraitUpsideDown</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>UIRequiresFullScreen</key>
+	<true/>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
 </dict>

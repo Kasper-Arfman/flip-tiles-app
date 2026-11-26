@@ -7,7 +7,7 @@
 // shown to anyone: players are stored under a hash of it, and a leaderboard only says which
 // entry is "you" to the device that asks.
 //
-//   POST   /api/ranked/games        { deviceId, name, games }  -> { accepted, rejected }
+//   POST   /api/ranked/games        { deviceId, name, games, scores, counts }  -> { accepted, rejected }
 //   GET    /api/ranked/leaderboard?board=overall|moves-5&deviceId=...&offset=0&limit=25
 //                                    -> { board, entries, me, players, updated }
 //          (a page: `limit` entries, at most 100, from place offset + 1; without them the top 100)
@@ -41,10 +41,16 @@ interface Player {
   // older version of the scoring). Used only on a leaderboard where this server has a game of
   // theirs; without one, the score is worked out here from their games.
   scores?: Partial<Record<BoardId, number>>;
+  // The number of games the player's app counts, per leaderboard: shown in the same way as the
+  // scores, so the games on the leaderboard are the ones in the game (also when games were lost
+  // on the way here). Not checked: nothing is won by a higher count.
+  counts?: Partial<Record<BoardId, number>>;
 }
 
 // A score as an app reports it: a time from 0:00 to 5:00
 const validScore = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v) && v > 0 && v <= TIME_LIMIT;
+// A number of games as an app reports it
+const validCount = (v: unknown): v is number => Number.isInteger(v) && (v as number) > 0 && (v as number) <= 1_000_000;
 
 export interface Entry {
   rank: number;
@@ -113,7 +119,8 @@ async function allBoards(store: KeyValueStore, now: number) {
     for (const [id, s] of Object.entries(statsOf(player.games)) as [BoardId, Stats][]) {
       // (a leaderboard no longer in the game, e.g. a difficulty taken out, isn't shown)
       const score = validScore(player.scores?.[id]) ? player.scores![id]! : s.score;
-      boards.get(id)?.push({ key, name: player.name, value: score, games: s.games, score, boards: 1 });
+      const games = validCount(player.counts?.[id]) ? player.counts![id]! : s.games;
+      boards.get(id)?.push({ key, name: player.name, value: score, games, score, boards: 1 });
     }
   }
   // Peter Pathetic, a made-up player on every leaderboard with the worst score there is (and no
@@ -174,6 +181,13 @@ export async function handle(request: Request, store: KeyValueStore, now = Date.
         player.scores ??= {};
         for (const [id, v] of Object.entries(body.scores)) {
           if ((ALL_BOARDS as string[]).includes(id) && validScore(v)) player.scores[id as BoardId] = v;
+        }
+      }
+      // ... and its own numbers of games (see Player.counts)
+      if (body.counts && typeof body.counts === "object") {
+        player.counts ??= {};
+        for (const [id, v] of Object.entries(body.counts)) {
+          if ((ALL_BOARDS as string[]).includes(id) && validCount(v)) player.counts[id as BoardId] = v;
         }
       }
       const known = new Set(player.games.map((g) => g.id));

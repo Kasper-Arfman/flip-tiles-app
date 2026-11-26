@@ -113,7 +113,7 @@ test("a difficulty is locked until its levels have the mode's star; the popup sa
   await page.goto("about:blank");
   await page.goto("./#/ranked");
   await expect(page.locator(".play-ranked")).toBeDisabled();
-  await expect(page.locator(".ranked-screen")).toContainText("Tap a locked difficulty to see which stars open it.");
+  await expect(page.locator(".ranked-screen")).toContainText("Tap a lock to see which stars open it.");
 });
 
 test("a game won in the right number of moves", async ({ page }) => {

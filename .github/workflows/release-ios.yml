@@ -22,7 +22,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - if: ${{ !github.event.release.prerelease }} # (a pre-release is a test build for TestFlight)
+      # (only for a real release: a pre-release, or a run by hand, is a test build for TestFlight)
+      - if: ${{ github.event_name == 'release' && !github.event.release.prerelease }}
         run: npm run release-check -- --ios
       - name: Version from the tag
         if: github.event_name == 'release'

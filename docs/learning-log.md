@@ -163,3 +163,21 @@ Notes added as the project goes along: what was learned, problems hit, and how t
   background is stretched to the phone's shape, so the splash is now Android's own (a color and
   the icon, in `styles.xml`); and the Play Store can say "something went wrong" a few times
   while a first build is still being prepared.
+- **2026-11-25**: Getting ready for iOS while Google Play reviews, on the branch `ios-setup`.
+  Learned: the whole Apple setup is done in a browser, and the build runs on a GitHub cloud Mac,
+  so no Mac is needed. The order matters: register the bundle id first, then the app in App
+  Store Connect can use it. The API key for the cloud Mac needs *Admin* access, because Xcode
+  makes the distribution certificate itself. An app that also runs on iPads needs iPad
+  screenshots, so the screenshot script now makes each store's sizes from the same shots. And
+  `ITSAppUsesNonExemptEncryption = NO` saves answering the encryption question for every build.
+  Later the same day: the game fills an iPad. The iOS web view has its own zoom
+  (`WKWebView.pageZoom`, like a browser's zoom), so a few lines of Swift scale the phone layout
+  up on big screens, without touching the CSS. CSS `zoom` would have done it too, but it breaks
+  what measures the page (`100dvh` dialogs, an animation placed with `getBoundingClientRect`).
+  And Android tablets the same way: Android's web view has no `pageZoom`, but
+  `setInitialScale` starts the page zoomed in (counted in screen pixels, so times the screen's
+  density), in `MainActivity.java`. The store pictures are now sorted per store
+  (`assets/store/android/`, `assets/store/ios/`), named after the store's slot (phone, 7-inch
+  and 10-inch tablet, iPhone, iPad). Also: the level screen centers the board in the room under
+  the stars on tall phones (auto margins in a flex column), and the ranked lobby fits a small
+  phone (360x640) without scrolling: a `max-height` media query tightens it only where needed.

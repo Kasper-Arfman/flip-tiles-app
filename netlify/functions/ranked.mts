@@ -12,7 +12,10 @@ import { handle, type KeyValueStore } from "../leaderboard";
 export const storeName = (url: string) => (new URL(url).hostname.includes("--") ? "ranked-test" : "ranked");
 
 export default async (request: Request) => {
-  const blobs = getStore(storeName(request.url));
+  // Strong: a read always sees the last write. (By default Netlify Blobs may answer with a copy
+  // up to a minute old: two games sent soon after each other then both started from the same
+  // old player, and the second save threw away the first game.)
+  const blobs = getStore({ name: storeName(request.url), consistency: "strong" });
   const store: KeyValueStore = {
     get: (key) => blobs.get(key, { type: "text" }),
     set: async (key, value) => void (await blobs.set(key, value)),

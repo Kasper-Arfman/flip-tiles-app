@@ -44,8 +44,8 @@ export function sendGames(always = false): Promise<void> {
       const games = pendingGames().slice(0, 200);
       const result = await call("/games", {
         method: "POST",
-        // (with the scores shown in the game, which the leaderboards show too)
-        body: JSON.stringify({ deviceId: deviceId(), name: playerName(), games, scores: myScores() }),
+        // (with the scores and numbers of games shown in the game, which the leaderboards show too)
+        body: JSON.stringify({ deviceId: deviceId(), name: playerName(), games, scores: myScores(), counts: myCounts() }),
       });
       // (a refused game is never accepted later: it isn't sent again)
       markUploaded(result.accepted, result.rejected.map((r: { id: string }) => r.id));
@@ -113,3 +113,5 @@ export function startSending() {
 // The scores shown in the game, per leaderboard (sent with the games)
 const myScores = () =>
   Object.fromEntries(Object.entries(myStats()).map(([id, s]) => [id, Math.round(s!.score)]));
+// ... and the numbers of games
+const myCounts = () => Object.fromEntries(Object.entries(myStats()).map(([id, s]) => [id, s!.games]));

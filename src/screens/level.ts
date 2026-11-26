@@ -60,8 +60,10 @@ export function levelScreen(level: Level) {
   const tierHash = `#/tier/${level.difficulty}`;
   const nextIsOpen = () => next !== undefined && isLevelOpen(findTier(level.difficulty)!, next);
   const earnedBefore = (bit: number) => (starsOf(level) & bit) !== 0;
+  // The flips goal by what it asks (its count follows in its "(0/2)"). Before: "2 flips":
+  //   flips: plural(level.minFlips, "flip"),
   const goalNames: Record<HintGoal, string> = {
-    flips: plural(level.minFlips, "flip"), moves: plural(level.minMoves, "move"),
+    flips: "Flips-only", moves: plural(level.minMoves, "move"),
   };
   // A step of the tutorial (a new player's first two levels): a finger shows what to do, and the
   // only way on is Next level (no back arrow, hints or Retry)

@@ -13,7 +13,15 @@
             android:label="@string/title_activity_main"
             android:theme="@style/AppTheme.NoActionBarLaunch"
             android:launchMode="singleTask"
+            android:screenOrientation="portrait"
             android:exported="true">
+            <!-- Portrait only (screenOrientation above): the game is laid out for an upright
+                 screen. Android 16 ignores that on tablets and foldables for apps targeting SDK 36;
+                 this asks it to keep the lock anyway. It works through Android 16 only: from
+                 Android 17 a tablet can turn the app regardless. -->
+            <property
+                android:name="android.window.PROPERTY_COMPAT_ALLOW_RESTRICTED_RESIZABILITY"
+                android:value="true" />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

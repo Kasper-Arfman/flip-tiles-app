@@ -93,7 +93,10 @@ shows what is still missing):
    least 12 people (friends, family; each needs a Google account), and send them the join link.
    Then on *Internal testing*, the release → **Promote release → Closed testing**.
 2. Meanwhile, the console's *Dashboard → Set up your app*: store listing (icon:
-   `assets/store-icon-512.png`, a 1024x500 feature graphic, at least 2 phone screenshots,
+   `assets/store-icon-512.png`; the 1024x500 feature graphic and at least 2 phone screenshots,
+   and the 7-inch and 10-inch tablet ones: `assets/store/android/` (`phone-N`, `tablet-7in-N`,
+   `tablet-10in-N`), made by `node scripts/make-store-images.mjs`. (On a tablet the app zooms
+   the page in so the game fills the screen: `MainActivity.java`, the same as on an iPad);
    descriptions), content rating, data safety, ads (*yes*), target audience (13+), privacy policy
    URL. What to answer: [Releasing to the stores](stores.md).
 3. After 14 days with 12 testers who stayed opted in: *Production → Apply for production access*

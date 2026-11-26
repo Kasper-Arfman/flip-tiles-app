@@ -88,7 +88,7 @@ export function rankedLobby(rerender: () => void) {
           : `<button type="button" class="locked" data-locked="${d}"
               aria-label="${d}, locked: see which stars open it">${LOCK}</button>`).join("")}
       </div>
-      ${anyLocked ? `<p class="ranked-label">Tap a locked difficulty to see which stars open it.</p>` : ""}
+      ${anyLocked ? `<p class="ranked-label">Tap a lock to see which stars open it.</p>` : ""}
     </section>
     <section class="ranked-card record-card">
       <div class="record-text">

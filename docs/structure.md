@@ -106,6 +106,7 @@ an HTML element. Capacitor wraps the built web app (`dist/`) in the Android and 
 | --- | --- |
 | `public/` | copied into the build as is: the solution tables (`flip-tiles/*.bin.gz`), icons, the web manifest, `privacy.html`, `app-ads.txt` |
 | `assets/` | the source pictures for the native icons and splash screens |
+| `assets/store/` | the store listings: in `android/` Google Play's feature graphic and phone screenshots, in `ios/` the App Store's iPhone and iPad screenshots (`scripts/make-store-images.mjs`); the coin pack pictures (`make-pack-images.mjs`); and in `listing/` the texts pasted by hand into the stores: Google Play's title and descriptions, and `app-store.md` for App Store Connect (lengths checked by `scripts/check-listing.mjs`) |
 | `android/`, `ios/` | the native projects (made by Capacitor, kept in git: permissions, ad ids, signing) |
 | `capacitor.config.ts` | the app id and name |
 | `vite.config.ts`, `tsconfig.json`, `playwright.config.ts` | build, TypeScript and smoke test settings |

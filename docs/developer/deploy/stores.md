@@ -89,9 +89,9 @@ Generate Signed App Bundle*: create a *keystore* the first time (keep the file a
 safe and backed up, outside the project: every update must be signed with the same one), and
 upload the `.aab` in the Play Console, first to *Internal testing*.
 
-**Building for iOS (needs a Mac, or a cloud Mac such as Codemagic).** `npm run ios`; in Xcode,
-*Signing & Capabilities*: pick your team, and **+ Capability → In-App Purchase**. Then *Product →
-Archive* and upload; it appears in TestFlight.
+**Building for iOS (needs a Mac: GitHub lends one).** A GitHub release builds and uploads it to
+TestFlight on a cloud Mac; the setup is in [iOS](ios.md). On your own Mac: `npm run ios`; in
+Xcode, *Signing & Capabilities*: pick your team; then *Product → Archive* and upload.
 
 **App icon and splash screen.** Made from `public/icon.svg` by `npm run icons`
 (`scripts/make-icons.mjs`): it draws the pictures into `assets/`, then `@capacitor/assets` makes
