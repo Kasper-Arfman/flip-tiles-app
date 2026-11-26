@@ -1,0 +1,97 @@
+/* The board in the player's skin (skins.ts): its two colors and its tile shape, also while
+   tiles turn over and when the board is solved. The board itself: game/flip-tiles.css. */
+
+/* The board takes its colors from the skin (the widget's own CSS names them --zero and --one) */
+.flip-tiles {
+  --zero: var(--skin-zero);
+  --one: var(--skin-one);
+}
+
+/* No white behind the board: the gaps between the tiles (and around a shaped tile) are the
+   page's own background. (Once solved, the widget fills the board with the color it ended on.) */
+.board {
+  background: transparent;
+}
+
+/* The tiles in their shape: a heart, a paw, ... (what is outside the shape is cut away, and the
+   page shows there). It turns over with the tile. */
+.board .tile,
+.skin-preview span {
+  -webkit-mask-image: var(--skin-shape);
+  mask-image: var(--skin-shape);
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+}
+
+/* A two-color shape's detail (a daisy's core, a strawberry's leaves, ...): drawn over the tile
+   in its other color, as a background image the size of the tile, so it lines up with the shape.
+   (.board in front: these win over the widget's own background rules, also on hover and press.)
+   It changes with the tile's color: halfway through its turn, when it is edge-on (the same delay
+   as the color in flip-tiles.css; a discrete transition). */
+.board .tile,
+.board .tile:hover,
+.board .tile:active,
+.skin-preview span {
+  background-image: var(--skin-detail-zero);
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+}
+
+.board .tile.one,
+.board .tile.one:hover,
+.board .tile.one:active,
+.skin-preview span.one {
+  background-image: var(--skin-detail-one);
+}
+
+.board .tile {
+  transition:
+    background-color 0s linear calc(var(--flip-delay) + var(--flash-time) + var(--flip-time) / 2),
+    background-image 0s linear calc(var(--flip-delay) + var(--flash-time) + var(--flip-time) / 2),
+    transform 0.45s ease;
+  transition-behavior: allow-discrete;
+}
+
+/* Solved: as the wave of light reaches a tile, it turns back into a plain square (no shape, no
+   detail), so the wave and the wires play on square tiles. (Discrete transitions: they switch
+   off, at once, after their delay. Taking a move back brings them back at once.) */
+.flip-tiles.is-solved .board .tile,
+.flip-tiles.is-solved .board .tile:hover,
+.flip-tiles.is-solved .board .tile:active {
+  -webkit-mask-image: none;
+  mask-image: none;
+  background-image: none;
+  transition:
+    background-color 0s linear calc(var(--flip-delay) + var(--flash-time) + var(--flip-time) / 2),
+    transform 0.45s ease,
+    background-image 0s linear calc(var(--solved-delay, 0ms) + var(--wave-delay)),
+    -webkit-mask-image 0s linear calc(var(--solved-delay, 0ms) + var(--wave-delay)),
+    mask-image 0s linear calc(var(--solved-delay, 0ms) + var(--wave-delay));
+  transition-behavior: allow-discrete;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .board .tile {
+    transition: none;
+  }
+}
+
+/* Solved!: in the skin's other color (a board solved to --zero gets --one, and the other way
+   round), its hue turning very slightly (5 degrees) from left to right. oklch(from ...) keeps the color's
+   lightness and saturation and only changes its hue; a web view that doesn't know it uses the
+   plain color of the line before. */
+.flip-tiles .solved strong {
+  background-image: linear-gradient(90deg, var(--one), var(--one));
+  background-image: linear-gradient(90deg,
+    oklch(from var(--one) l c calc(h - 5)), var(--one), oklch(from var(--one) l c calc(h + 5)));
+}
+
+.flip-tiles.all-one .solved strong {
+  background-image: linear-gradient(90deg, var(--zero), var(--zero));
+  background-image: linear-gradient(90deg,
+    oklch(from var(--zero) l c calc(h - 5)), var(--zero), oklch(from var(--zero) l c calc(h + 5)));
+}

@@ -1,0 +1,38 @@
+/* The app's styles, around the game: its screens, in one centered column, inside the safe area
+   of the phone (notch, home bar). The board itself is styled in game/flip-tiles.css (shared with
+   the website), which also has the default button.
+
+   Where to change what:
+     tokens.css       the colors, fonts and other values used everywhere: change one here, and
+                      everything using it follows. Also the dark places (home cards, level grid).
+     base.css         the page: its column, the font, margins
+     skin.css         the board in the player's skin: its colors and tile shapes
+     components/      pieces used on several screens: buttons, icons, the top bar, popups, the
+                      forces row, the result over a solved board
+     screens/         one file per screen (its name as in src/screens/), and the popups that
+                      belong to only that screen
+
+   The order below matters where two rules style the same thing equally strongly: the later one
+   wins. So the general comes first and the screens last, and a screen can adjust a component. */
+@import "./tokens.css";
+@import "./base.css";
+@import "./skin.css";
+
+@import "./components/icons.css";
+@import "./components/buttons.css";
+@import "./components/topbar.css";
+@import "./components/dialogs.css";
+@import "./components/forces.css";
+@import "./components/result.css";
+
+@import "./screens/home.css";
+@import "./screens/shop.css";
+@import "./screens/top-up.css";
+@import "./screens/tier.css";
+@import "./screens/level.css";
+@import "./screens/tutorial.css";
+@import "./screens/codex.css";
+@import "./screens/replay.css";
+@import "./screens/how-to-play.css";
+@import "./screens/ranked.css";
+@import "./screens/debug.css";

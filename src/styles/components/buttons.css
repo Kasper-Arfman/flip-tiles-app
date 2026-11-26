@@ -1,0 +1,65 @@
+/* Buttons used on more than one screen. The default look of every button (navy outline,
+   filling on hover) is in game/flip-tiles.css; these change it. */
+
+/* This screen's own colors (the shared ones: tokens.css) */
+:root {
+  --trophy-ink: #5a3a00; /* the trophy on the gold leaderboard button */
+}
+
+/* A link that looks like a button; and the filled, main button of a screen */
+.button {
+  display: inline-block;
+  padding: 0.5rem 1.2rem;
+  border: 1.5px solid var(--ink);
+  border-radius: 6px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.primary {
+  background: var(--ink);
+  color: var(--white);
+}
+
+/* On a locked tier: open it now with coins */
+.unlock-button {
+  grid-column: 1 / -1;
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-top: 0.3rem;
+  border: 1.5px solid var(--gold-bright);
+  border-radius: 999px;
+  background: rgba(255, 210, 74, 0.12);
+  color: var(--gold-bright);
+  font-size: 0.9rem;
+}
+
+.unlock-button:not(:disabled):active {
+  background: rgba(255, 210, 74, 0.3);
+  color: var(--gold-bright);
+}
+
+.leaderboard-button {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 3.4rem;
+  border: 2px solid var(--cream);
+  border-radius: 14px;
+  background: linear-gradient(180deg, var(--gold-bright), var(--gold) 55%, var(--gold-deep));
+  box-shadow: var(--lift-shadow);
+  transition: transform 0.1s ease;
+}
+
+.leaderboard-button:active {
+  transform: scale(0.95);
+}
+
+.leaderboard-button svg {
+  width: 1.7rem;
+  height: 1.7rem;
+  fill: var(--trophy-ink);
+  stroke: var(--trophy-ink);
+}

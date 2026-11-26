@@ -33,12 +33,20 @@ import { bigStarGold, bigStarSocket, coin, notice, plural, screen, star, topbar 
 import { adsAvailable, watchAd } from "../ads";
 import { adOffer } from "../adRewards";
 
-// The result (stars and buttons over the board) comes this long after the solving move: once the
-// board's own solved animation (tiles turning, the wave of light, Solved!) has played
-const RESULT_DELAY_MS = 2600;
-// After the solve that completes a stage: how long its result shows (the stars landing, the
-// finale) before the game goes to the menu by itself
-const STAGE_DONE_MS = 3200;
+// The result's animation (stars and buttons over the solved board): its timing, in seconds, all
+// here to tweak. It starts together with the board's Solved! (the widget says when that is: a
+// little before its wave of light is through, STAMP_SHARE in src/game/FlipTilesElement.ts), and
+// the times count from then. The CSS (styles/components/result.css) takes them from here.
+const RESULT_TIMING = {
+  firstStar: 0, // the first star starts to drop
+  betweenStars: 0.45, // each next star drops this much later
+  starDrop: 0.55, // one star's drop: from big above the board to settled in its socket
+  finalePause: 0, // three stars: the finale (glow, jump, "Three stars!") this long after the last star settled
+  menuAfter: 1.35, // the solve that completes a stage: to the menu this long after the last star settled
+};
+// (a star touches its socket 55% into its drop, as in the star-land keyframes: the ring, the
+// sparks and the ding come then)
+const TOUCHDOWN = 0.55;
 
 // The tutorial's hand, the way casual games draw it: a white cartoon hand with a dark outline,
 // tilted a little, so it shows on any tile color (the dark skins included). Its outline is the
@@ -290,7 +298,7 @@ export function levelScreen(level: Level) {
 
   // --- the moves on the board ----------------------------------------------------------------
   let lastMoves = ""; // the widget also reports when nothing changed (e.g. new hint marks)
-  const update = ({ moves, solved }: FlipTilesChange) => {
+  const update = ({ moves, solved, celebrateIn }: FlipTilesChange) => {
     const key = moves.map((m) => `${m.kind}${m.tile}`).join(",");
     if (key === lastMoves && lastMoves !== "") return;
     lastMoves = key;
@@ -342,10 +350,17 @@ export function levelScreen(level: Level) {
     // left, flips only (the hardest) as the big one in the middle, fewest moves on the right. Each
     // drops into its socket, from easy to hard: left, right, then the middle.
     const landing = [STAR_SOLVED, STAR_MOVES, STAR_FLIPS].filter((s) => best & s);
+    // The timing (RESULT_TIMING, counted from the moment the result appears): when each star
+    // starts to drop, and when the last one has settled
+    const T = RESULT_TIMING;
+    const dropAt = (i: number) => T.firstStar + T.betweenStars * i;
+    const settled = landing.length ? dropAt(landing.length - 1) + T.starDrop : 0;
+    result.style.setProperty("--land", `${T.starDrop}s`);
+    result.style.setProperty("--touchdown", `${(TOUCHDOWN * T.starDrop).toFixed(3)}s`);
+    result.style.setProperty("--finale", `${(settled + T.finalePause).toFixed(3)}s`);
     result.querySelector(".result-stars")!.innerHTML = [STAR_SOLVED, STAR_FLIPS, STAR_MOVES].map((s) => {
       const kind = best & s ? "earned" : "empty";
-      // (counted from the moment the result appears)
-      const delay = kind === "earned" ? ` style="--delay: ${(0.4 + 0.45 * landing.indexOf(s)).toFixed(2)}s"` : "";
+      const delay = kind === "earned" ? ` style="--delay: ${dropAt(landing.indexOf(s)).toFixed(3)}s"` : "";
       const sparks = kind === "earned"
         ? Array.from({ length: 8 }, (_, i) => `<span class="spark" style="--angle: ${i * 45 + 22.5}deg"></span>`).join("")
         : "";
@@ -360,18 +375,20 @@ export function levelScreen(level: Level) {
       endsTutorial ? "Continue" : next === undefined ? "Menu" : nextIsOpen() ? "Next level" : "All levels";
     // (not called "solved": the widget's CSS already uses .solved for its Solved! banner)
     element.classList.add("level-complete");
-    // The decorations come once the board's own solved animation has played
+    // The decorations come together with the board's Solved!
     hideResult();
-    sound.solved(0.35); // (as Solved! appears)
+    sound.solved(0.35); // (the jingle, as the board lights up)
     resultTimer = window.setTimeout(() => {
       result.hidden = false; // (its animations start now)
-      // A ding as each star lands (in its socket, as its ring goes out: see the delays above),
-      // and a fanfare for the finale
-      landing.forEach((_, i) => sound.star(i, 0.4 + 0.45 * i + 0.3));
-      if (perfect || stageDone) sound.fanfare(1.85);
+      // A ding as each star touches its socket (as its ring goes out), and a fanfare for the finale
+      landing.forEach((_, i) => sound.star(i, dropAt(i) + TOUCHDOWN * T.starDrop));
+      if (perfect || stageDone) sound.fanfare(settled + T.finalePause);
       // (a move taken back before then clears this timer too: see hideResult)
-      if (stageDone) resultTimer = window.setTimeout(() => go("#/", true), STAGE_DONE_MS);
-    }, RESULT_DELAY_MS);
+      // (only while the level is still on screen: the player may have gone back already)
+      if (stageDone) {
+        resultTimer = window.setTimeout(() => element.isConnected && go("#/", true), (settled + T.menuAfter) * 1000);
+      }
+    }, celebrateIn);
   };
   widget.addEventListener("flip-tiles-change", (e) => update((e as CustomEvent<FlipTilesChange>).detail));
 

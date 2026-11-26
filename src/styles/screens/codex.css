@@ -1,0 +1,297 @@
+/* The Codex (screens/codex.ts): the entries, their small boards with the solution's marks,
+   the popup with all of them, and the editor where an entry is made. */
+
+/* This screen's own colors (the shared ones: tokens.css) */
+:root {
+  --flip-mark-edge: #4f3400; /* the dark outline around a gold flip diamond */
+}
+
+.codex-intro {
+  margin: 0 0 1rem;
+  color: var(--muted);
+  text-align: center;
+}
+
+.entry-cards {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.entry-card {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--card);
+}
+
+.entry-card.ready {
+  border: 2px solid var(--gold);
+}
+
+/* Ready to claim: the stage's name on the left, Discover on the right, in one row */
+.entry-card.ready > div {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.entry-card.locked {
+  border: 2px dashed var(--line);
+  color: var(--muted);
+}
+
+.entry-card.locked h2 {
+  color: var(--muted);
+}
+
+.entry-card .entry-board.empty {
+  width: 3.6rem;
+  padding: 3px;
+  gap: 1px;
+}
+
+.entry-card .entry-question {
+  font-size: 1.5rem;
+}
+
+.entry-card h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.entry-card p {
+  margin: 0.1rem 0 0.4rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.entry-card .lock {
+  width: 0.9em;
+  height: 0.9em;
+}
+
+.reset-all-entries {
+  display: block;
+  margin: 0 auto 0.8rem;
+}
+
+.entry-board {
+  display: grid;
+  flex: none;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 3px;
+  width: 7.5rem;
+}
+
+.entry-board span {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 3px;
+  background: var(--skin-zero);
+}
+
+.entry-board span.one {
+  background: var(--skin-one);
+}
+
+/* A flip of the solution: the same gold diamond as a flip hint */
+.entry-mark {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 42%;
+  height: 42%;
+  border: 2px solid var(--gold-bright);
+  border-radius: 2px;
+  box-sizing: border-box;
+  box-shadow: 0 0 0 1px var(--flip-mark-edge), inset 0 0 0 1px var(--flip-mark-edge);
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+/* A force of a min-moves solution: the same red diamond as a force hint */
+.entry-mark.force {
+  border-color: var(--red);
+  box-shadow: 0 0 0 1px var(--red-edge), inset 0 0 0 1px var(--red-edge);
+}
+
+/* A tile with a flip and a force: side by side */
+.entry-mark.both {
+  left: 30%;
+}
+
+.entry-mark.force.both {
+  left: 70%;
+}
+
+/* The popup on a level: every entry, 3 across and 4 down */
+.entry-all {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.7rem;
+}
+
+.entry-all .entry-board {
+  gap: 2px;
+  width: 100%;
+}
+
+.entry-all .entry-mark {
+  width: 56%;
+  height: 56%;
+  border-width: 1.5px;
+}
+
+.entry-all .entry-mark.both {
+  left: 25%;
+  width: 32%;
+  height: 32%;
+}
+
+.entry-all .entry-mark.force.both {
+  left: 75%;
+}
+
+/* Not discovered yet: the look of a skin not found yet */
+.entry-board.empty,
+.entry-all .entry-board.empty {
+  position: relative;
+  padding: 5px;
+  border: 2px dashed var(--unknown-zero);
+  border-radius: 10px;
+  box-sizing: border-box;
+}
+
+.entry-board.empty span {
+  background: var(--unknown-zero);
+  opacity: 0.6;
+}
+
+.entry-board.empty span.one {
+  background: var(--unknown-one);
+}
+
+.entry-question {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  font-family: var(--title-font);
+  font-size: 2.2rem;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.entry-all button.entry-unknown {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  transform: none;
+}
+
+/* The one switch: two halves of a pill, the chosen one dark */
+.solution-switch {
+  display: inline-flex;
+  padding: 3px;
+  border-radius: 999px;
+  background: var(--line);
+}
+
+.solution-switch button {
+  padding: 0.3rem 0.8rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--ink);
+  font-size: 0.85rem;
+  transform: none;
+}
+
+.solution-switch button[aria-checked="true"] {
+  background: var(--anthracite);
+  color: var(--cream-light);
+}
+
+.entry-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 5px;
+  width: min(100%, 17rem);
+  margin: 0 auto;
+}
+
+.entry-grid button.entry-tile:disabled {
+  opacity: 1;
+  background: #d9d6cf;
+  cursor: default;
+}
+
+.entry-grid button.entry-tile {
+  position: relative;
+  aspect-ratio: 1;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: var(--skin-zero);
+  box-shadow: none;
+  transform: none;
+}
+
+.entry-grid button.entry-tile.one {
+  background: var(--skin-one);
+}
+
+.entry-editor .force-slots {
+  width: min(100%, 17rem); /* (as wide as the board, to line up with it) */
+  margin: 1.85rem auto 0.3rem; /* (under the ×) */
+}
+
+/* The × up in the corner, so the whole row is free for the forces (12 fit on the narrowest phone) */
+.entry-editor .dialog-box {
+  position: relative;
+}
+
+.entry-editor .dialog-head {
+  display: block;
+}
+
+.entry-editor .dialog-head .close {
+  position: absolute;
+  top: 0.75rem; /* (the same distance from the corner as in the other popups) */
+  right: 1rem;
+}
+
+/* How many forces to use (the number is on Discover): on the right of the row */
+.force-stepper {
+  display: flex;
+  gap: 0.6rem;
+  margin-left: auto;
+}
+
+.force-stepper[hidden] {
+  display: none;
+}
+
+.entry-controls {
+  display: flex;
+  justify-content: center;
+  gap: 0.6rem;
+  margin: 0.8rem 0;
+}
+
+.entry-editor .discover {
+  display: block;
+  margin: 0 auto;
+}

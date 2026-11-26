@@ -1,7 +1,7 @@
 import { Capacitor } from "@capacitor/core";
 import "@fontsource/lilita-one/latin-400.css"; // the title's font, inside the app (works offline)
 import "./game/flip-tiles.css";
-import "./styles.css";
+import "./styles/index.css"; // (what is where: the top of that file)
 import { findLevel, findTier } from "./levels/levels";
 import { currentRoute, go, goUp, onNavigate } from "./nav";
 import { log, startLog } from "./log";

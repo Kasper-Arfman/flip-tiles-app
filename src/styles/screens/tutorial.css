@@ -1,0 +1,164 @@
+/* The tutorial (the first two levels, guided: screens/level.ts): the hand over the tile
+   to press, and its tap or hold. */
+
+/* No stepping back or Reset in the tutorial: the way on is Next level */
+.level-screen.guided .moves {
+  display: none;
+}
+
+/* The finger over the tile to press, its fingertip on the tile's middle (--x, --y), with a ring
+   that shows the press: a quick ripple for a tap, a ring that grows while holding */
+.touch-guide {
+  position: absolute;
+  left: var(--x);
+  top: var(--y);
+  z-index: 4;
+  width: 0;
+  height: 0;
+  pointer-events: none; /* the tile under it takes the press */
+}
+
+.touch-guide[hidden] {
+  display: none;
+}
+
+.touch-ring {
+  position: absolute;
+  left: -1.7rem;
+  top: -1.7rem;
+  width: 3.4rem;
+  height: 3.4rem;
+  border: 3px solid var(--white);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.25);
+  box-shadow: 0 0 12px rgba(255, 255, 255, 0.7);
+  opacity: 0;
+}
+
+/* The hand (an icon of 448 x 512, its fingertip at 168, 0; drawn 52px high): placed so the
+   fingertip is on the spot */
+.touch-finger {
+  position: absolute;
+  left: -17px;
+  top: -2px;
+  width: 45.5px;
+  height: 52px;
+  overflow: visible;
+  filter: drop-shadow(0 4px 5px rgba(0, 0, 0, 0.35));
+}
+
+/* What the move does, in white letters with a dark outline, under the hand */
+.touch-text {
+  position: absolute;
+  top: 3.6rem;
+  left: 0;
+  transform: translateX(-50%);
+  color: var(--white);
+  font-size: 1.05rem;
+  font-weight: 700;
+  white-space: nowrap;
+  text-shadow: var(--text-outline);
+}
+
+/* A tap: the finger comes, presses quickly, a ripple goes out, and it lifts */
+.touch-guide.tap .touch-finger {
+  animation: finger-tap 1.6s ease-in-out infinite;
+}
+
+.touch-guide.tap .touch-ring {
+  animation: ring-tap 1.6s ease-out infinite;
+}
+
+@keyframes finger-tap {
+  0% { opacity: 0; transform: translateY(14px); }
+  15% { opacity: 1; transform: translateY(14px); }
+  32% { transform: translateY(0) scale(0.92); }
+  45% { transform: translateY(8px); }
+  85% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(8px); }
+}
+
+@keyframes ring-tap {
+  0%, 30% { opacity: 0; transform: scale(0.3); }
+  33% { opacity: 0.9; }
+  70%, 100% { opacity: 0; transform: scale(1.5); }
+}
+
+/* A tap and hold, the way apps commonly show a hold: as the finger presses down, a hollow ring
+   appears around it, and a disc grows inside it until it fills the ring (like a loading
+   circle); then a short flash (that is the force), and the finger lifts */
+.hold-track {
+  position: absolute;
+  left: -1.9rem;
+  top: -1.9rem;
+  width: 3.8rem;
+  height: 3.8rem;
+  border: 3px solid var(--white);
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.15);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35), 0 0 10px rgba(0, 0, 0, 0.25);
+  opacity: 0;
+}
+
+.hold-fill {
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  background: var(--cream); /* cream, the rim color of the game's buttons and logo tiles */
+  transform: scale(0);
+}
+
+.touch-guide.hold .touch-finger {
+  animation: finger-hold 2.8s ease-in-out infinite;
+}
+
+.touch-guide.hold .hold-track {
+  animation: hold-track 2.8s linear infinite;
+}
+
+.touch-guide.hold .hold-fill {
+  animation: hold-fill 2.8s linear infinite;
+}
+
+@keyframes finger-hold {
+  0% { opacity: 0; transform: translateY(14px); }
+  12% { opacity: 1; transform: translateY(14px); }
+  20% { transform: translateY(0) scale(0.92); }
+  66% { transform: translateY(0) scale(0.92); }
+  76% { transform: translateY(8px); }
+  88% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(8px); }
+}
+
+/* The ring: there while the finger is down, then it flashes out */
+@keyframes hold-track {
+  0%, 19% { opacity: 0; transform: scale(0.85); }
+  21% { opacity: 1; transform: scale(1); }
+  62% { opacity: 1; transform: scale(1); }
+  70% { opacity: 0; transform: scale(1.25); }
+  100% { opacity: 0; transform: scale(1.25); }
+}
+
+/* The disc: grows steadily while the finger holds, until it fills the ring */
+@keyframes hold-fill {
+  0%, 21% { transform: scale(0); }
+  58% { transform: scale(1); }
+  100% { transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .touch-guide .touch-finger,
+  .touch-guide .touch-ring,
+  .touch-guide .hold-track,
+  .touch-guide .hold-fill {
+    animation: none;
+  }
+
+  .touch-guide.hold .hold-track {
+    opacity: 1;
+  }
+
+  .touch-guide.hold .hold-fill {
+    transform: scale(0.6);
+  }
+}

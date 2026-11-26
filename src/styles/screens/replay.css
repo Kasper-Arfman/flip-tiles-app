@@ -1,0 +1,120 @@
+/* Watching a solve again (screens/replayDialog.ts): the tabs, the board, and each move's
+   numbered badge. */
+
+/* The tabs: one pill split in parts, the chosen one filled */
+.tabs {
+  display: flex;
+  margin-top: 0.5rem;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.tabs [role="tab"] {
+  flex: 1;
+  padding: 0.35rem 0.4rem;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink);
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.tabs [role="tab"][aria-selected="true"] {
+  background: var(--ink);
+  color: var(--white);
+}
+
+.tab-count {
+  opacity: 0.7;
+  font-weight: 400;
+}
+
+/* A tab whose star isn't earned yet: locked */
+.tabs [role="tab"]:disabled {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  opacity: 0.45;
+}
+
+.replay-board .flip-tiles {
+  margin: 0.75rem auto 0;
+}
+
+/* In a replay the tiles make no moves (replayDialog.ts stops their presses); only the tile of
+   the next move can be tapped, to step forward. No Reset or "tap to flip" either. */
+.replay-board .tile {
+  cursor: default;
+}
+
+.replay-board .tile.next-tile {
+  cursor: pointer;
+}
+
+.replay-board .reset,
+.replay-board .hint {
+  display: none;
+}
+
+.replay-caption {
+  min-height: 1.5em;
+  margin-top: 0.5rem;
+  color: var(--muted);
+  text-align: center;
+  font-size: 0.9rem;
+}
+
+/* A move on its tile: its number in a circle, gold for a flip, red for a force. A tile with
+   both has the flip on the left and the force on the right. */
+.move-badge {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: grid;
+  place-items: center;
+  width: 46%;
+  aspect-ratio: 1;
+  border: 2px solid var(--white);
+  border-radius: 50%;
+  color: var(--white);
+  font-family: var(--title-font);
+  font-size: clamp(0.9rem, 4.5vw, 1.25rem);
+  line-height: 1;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.move-badge.flip {
+  background: #ffc232;
+  color: #3a2600;
+}
+
+.move-badge.force {
+  background: var(--red);
+}
+
+.two-badges .move-badge {
+  width: 40%;
+}
+
+.two-badges .move-badge.flip {
+  left: 28%;
+}
+
+.two-badges .move-badge.force {
+  left: 72%;
+}
+
+/* Made already: faded. Next: bigger, with a white ring around it */
+.move-badge.made {
+  opacity: 0.3;
+}
+
+.move-badge.next {
+  transform: translate(-50%, -50%) scale(1.15);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.9), 0 3px 8px rgba(0, 0, 0, 0.4);
+}

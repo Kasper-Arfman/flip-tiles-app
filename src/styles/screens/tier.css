@@ -1,0 +1,145 @@
+/* A stage's levels (screens/tier.ts): the grid of level tiles, in groups, on a dark screen. */
+
+/* Always 4 levels in a row (a group of 8 is two full rows), on any phone */
+.level-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Between two grades of a tier: a thin line across the grid */
+.grade-divider {
+  grid-column: 1 / -1;
+  height: 1px;
+  margin: 4px 12px;
+  background: var(--line);
+}
+
+/* Above a locked group: the line with what opens it in the middle */
+.grade-divider.locked {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  height: auto;
+  margin: 6px 0;
+  background: none;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.grade-divider.locked::before,
+.grade-divider.locked::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+
+.grade-divider.locked span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  white-space: nowrap;
+}
+
+/* Under the line of the group next in line: the button to unlock it with coins */
+.grade-buy {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: center;
+  margin: -4px 0 4px;
+}
+
+.grade-buy .unlock-button {
+  margin-top: 0;
+}
+
+/* A level of a locked group: faded, its board in grey */
+.level-tile.locked {
+  opacity: 0.35;
+}
+
+.level-tile.locked .mini-board {
+  filter: grayscale(1);
+}
+
+.level-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 8px 6px;
+  border: 2px solid var(--blush);
+  border-radius: 12px;
+  background: var(--blush);
+  text-decoration: none;
+  transition: transform 0.1s ease;
+}
+
+.level-tile:active {
+  transform: scale(0.95);
+}
+
+/* All three stars (a level with fewer has no border) */
+.level-tile.perfect {
+  border-color: var(--gold);
+  box-shadow: inset 0 0 0 1px var(--gold); /* 1px more inside the border: 3px in all, the tile's size unchanged */
+}
+
+/* Empty stars on a level tile: white inside, with the warm grey outline */
+.level-tile .star:not(.earned) {
+  fill: var(--white);
+}
+
+.level-number {
+  font-weight: 700;
+  font-size: 0.9rem;
+  line-height: 1;
+}
+
+/* A tier's levels: a narrow first column with each group's number of moves, written upwards
+   along the group's side (screens/tier.ts), then the 4 columns of levels */
+.tier-screen .level-grid {
+  grid-template-columns: 1.1rem repeat(4, minmax(0, 1fr));
+}
+
+.grade-label {
+  grid-column: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  scroll-margin-top: 5rem; /* scrolled to (from ranked's popup): just under the sticky top bar */
+}
+
+/* A group scrolled to from ranked's popup: its levels flash gold twice */
+.level-tile.flash {
+  animation: grade-flash 0.7s ease-in-out 0.35s 2;
+}
+
+@keyframes grade-flash {
+  50% {
+    border-color: var(--gold);
+    box-shadow: 0 0 0 3px var(--gold), 0 0 18px rgba(224, 177, 58, 0.6);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .level-tile.flash {
+    animation-duration: 1.2s;
+    animation-iteration-count: 1;
+  }
+}
+
+.grade-label span {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg); /* (read from the bottom up) */
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
