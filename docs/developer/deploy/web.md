@@ -20,6 +20,24 @@ the Netlify command line (or from git). Once:
 4. Check it: open `https://<your site>.netlify.app/api/ranked/leaderboard?board=overall` in a
    browser. It should answer `{"board":"overall","entries":[],...}`.
 
+### On every release, by itself
+
+The site is not connected to git: pushing to `main` changes nothing online. Instead, publishing a
+GitHub release (tag `v1.2.3`, not a *pre-release*) runs `.github/workflows/release-web.yml`, which
+does step 2 for you on a GitHub computer, at the same moment the apps are built. So the site, its
+support and privacy pages and the leaderboards' server always match the apps of that release.
+(*Actions → Release website → Run workflow* deploys by hand, from a branch you pick.)
+
+Once, two GitHub secrets (*Settings → Secrets and variables → Actions → Secrets*):
+
+| Secret | What |
+| --- | --- |
+| `NETLIFY_AUTH_TOKEN` | a token that lets GitHub deploy: [app.netlify.com](https://app.netlify.com) → your avatar → *User settings → Applications → Personal access tokens → New access token* (name it *GitHub releases*; pick an expiry, and make a new one when it runs out) |
+| `NETLIFY_SITE_ID` | the site's id: on Netlify, the site → *Project configuration → General → Project information → Project ID* (also in `.netlify/state.json` after `npx netlify link`) |
+
+`npx netlify deploy --prod` on your own computer still works, e.g. for a fix to a page between
+releases.
+
 Netlify's free plan includes functions and Blobs; a small game stays far inside its limits. The
 leaderboards are worked out from all players' data at most every 30 seconds; with many thousands
 of players that would need a smarter store (the function is written so the storage can be

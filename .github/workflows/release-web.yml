@@ -1,0 +1,44 @@
+# Publishing a GitHub release (tag v1.2.3) puts the website online on Netlify, the same moment
+# the Android and iOS apps are built: the web version, its pages (support.html, privacy.html) and
+# the leaderboards' server (netlify/functions). Setup and the secrets it needs:
+# docs/developer/deploy/web.md.
+# A pre-release is not deployed: it is a test build, and the live site is for players.
+name: Release website
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch: # (or start it by hand, from the Actions tab)
+
+jobs:
+  web:
+    if: ${{ github.event_name == 'workflow_dispatch' || !github.event.release.prerelease }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      # Not a test build, the privacy contact filled in, ... (scripts/release-check.mjs)
+      - run: npm run release-check
+      - run: npx tsc --noEmit && npx vitest run
+
+      # The version from the release's tag (v1.2.3 -> 1.2.3): the version the site shows
+      - name: Version from the tag
+        if: github.event_name == 'release'
+        run: npm version "${GITHUB_REF_NAME#v}" --no-git-tag-version --allow-same-version
+
+      # Builds the site (netlify.toml says how) and puts it and the function online, as
+      # `npx netlify deploy --prod` does on your own computer
+      - name: Deploy to Netlify (production)
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+        run: npx --yes netlify-cli deploy --prod --message "Release ${GITHUB_REF_NAME}"
+
+      - name: Summary
+        if: success()
+        run: echo "## Website ${GITHUB_REF_NAME}"$'\n'"Online at https://fliptilespuzzle.netlify.app" >> "$GITHUB_STEP_SUMMARY"

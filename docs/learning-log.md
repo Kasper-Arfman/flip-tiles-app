@@ -198,3 +198,9 @@ Notes added as the project goes along: what was learned, problems hit, and how t
   lost on iOS: the board listened for `click`, and when taps come fast or overlap, the phone
   leaves some clicks out. Now a tap counts when the finger lifts (`pointerup`), and its click is
   skipped.
+- **2026-11-26**: The first real release build (1.0.4: `TEST_BUILD` off, the iOS AdMob ids). A
+  test build had gone to App Review because a run started by hand skips the release check, so it
+  was pulled back. Learned: AdMob and in-app purchases are separate (the coin packs live only in
+  App Store Connect; AdMob needs its own app per platform), and the Netlify site isn't connected
+  to git, so merging into `main` put nothing online. Now a release deploys the site too
+  (`release-web.yml`).

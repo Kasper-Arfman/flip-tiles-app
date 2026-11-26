@@ -110,7 +110,7 @@ an HTML element. Capacitor wraps the built web app (`dist/`) in the Android and 
 | `android/`, `ios/` | the native projects (made by Capacitor, kept in git: permissions, ad ids, signing) |
 | `capacitor.config.ts` | the app id and name |
 | `vite.config.ts`, `tsconfig.json`, `playwright.config.ts` | build, TypeScript and smoke test settings |
-| `.github/workflows/` | GitHub Actions: the checks on every push, and the store releases |
+| `.github/workflows/` | GitHub Actions: the checks on every push, and on a release the store builds and the website |
 | `docs/` | this documentation (GitHub Pages) |
 | `CLAUDE.md` | notes on the puzzle and the project's origin, for AI assistants |
 | `TODO.md` | the current to-do list |
