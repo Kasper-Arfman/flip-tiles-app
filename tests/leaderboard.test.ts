@@ -1,8 +1,8 @@
 // The online leaderboards' server (netlify/leaderboard.ts), with a Map as its storage: what
 // it accepts, how it ranks, and that a device id never leaks.
 import { beforeEach, describe, expect, it } from "vitest";
-import { PETER_NAME, cleanName, forgetCache, handle, type KeyValueStore } from "../netlify/leaderboard";
-import { storeName } from "../netlify/functions/ranked.mts";
+import { PETER_NAME, cleanName, forgetCache, handle, rebuild, type KeyValueStore } from "../netlify/leaderboard";
+import { storeName } from "../netlify/blobStore";
 import { solveFlips } from "../src/game/flipTiles";
 import { fewestForcesSolution, makePuzzle, type RankedMode } from "../src/ranked/puzzles";
 import { FORCE, SCORE_UPDATE_RATE, TIME_LIMIT, type GameRecord } from "../src/ranked/rules";
@@ -23,8 +23,10 @@ function memoryStore(): KeyValueStore & { data: Map<string, string> } {
 const URL_BASE = "https://example.netlify.app/api/ranked";
 const post = (store: KeyValueStore, body: unknown) =>
   handle(new Request(`${URL_BASE}/games`, { method: "POST", body: JSON.stringify(body) }), store).then((r) => r.json());
+// (worked out on each read, as on the local test server: the tests don't wait for the schedule)
 const board = (store: KeyValueStore, id: string, deviceId?: string) =>
-  handle(new Request(`${URL_BASE}/leaderboard?board=${id}${deviceId ? `&deviceId=${deviceId}` : ""}`), store).then((r) => r.json());
+  handle(new Request(`${URL_BASE}/leaderboard?board=${id}${deviceId ? `&deviceId=${deviceId}` : ""}`), store, Date.now(), { rebuildOnRead: true })
+    .then((r) => r.json());
 
 let counter = 0;
 // A real game: a fresh puzzle, won in `time` with its best solution, or lost
@@ -137,7 +139,21 @@ describe("the leaderboard server", () => {
     expect(lb.entries.map((e: { name: string }) => e.name)).toEqual(["Quick", "Slow", PETER_NAME]);
   });
 
-  it("never shows a device id; there is no way to remove a player", async () => {
+  it("a player who leaves is deleted: their data, and from the leaderboards", async () => {
+    await post(store, { deviceId: "device-leaver", name: "Lea", games: games(MANY, "moves", 4, 10_000) });
+    await post(store, { deviceId: "device-stayer", name: "Sam", games: games(MANY, "moves", 4, 12_000) });
+    expect((await board(store, "moves-4")).entries.length).toBe(3);
+    const leave = (deviceId: string) =>
+      handle(new Request(`${URL_BASE}/leave`, { method: "POST", body: JSON.stringify({ deviceId }) }), store);
+    expect((await leave("device-leaver")).status).toBe(200);
+    await rebuild(store);
+    const names = (await board(store, "moves-4")).entries.map((e: { name: string }) => e.name);
+    expect(names).toEqual(["Sam", PETER_NAME]);
+    expect([...store.data.values()].join()).not.toContain("Lea");
+    expect((await leave("x")).status).toBe(400); // (not a device id)
+  });
+
+  it("never shows a device id; no one else can remove a player", async () => {
     await post(store, { deviceId: "secret-device-id", name: "Zed", games: games(MANY, "moves", 4, 10_000) });
     const response = await handle(new Request(`${URL_BASE}/leaderboard?board=moves-4`), store);
     expect(await response.clone().text()).not.toContain("secret-device-id");
@@ -157,7 +173,7 @@ describe("the leaderboard server", () => {
   it("Peter Pathetic is on every leaderboard, last, with the worst score; below even a player who only lost", async () => {
     for (const id of ["overall", "moves-4", "flips-12"]) {
       const lb = await board(store, id);
-      expect(lb.entries).toEqual([{ rank: 1, name: PETER_NAME, value: id === "overall" ? 1 : TIME_LIMIT, games: 0, me: false }]);
+      expect(lb.entries).toEqual([{ rank: 1, id: "0000000000000000", name: PETER_NAME, value: id === "overall" ? 1 : TIME_LIMIT, games: 0, me: false }]);
     }
     await post(store, { deviceId: "device-loser", name: "Lou", games: [game("moves", 4, 0, false)] });
     expect((await board(store, "moves-4")).entries.map((e: { name: string }) => e.name)).toEqual(["Lou", PETER_NAME]);

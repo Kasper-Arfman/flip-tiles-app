@@ -19,7 +19,7 @@ export function warnsAboutFlips(level: Level): boolean {
 export function confirmFlips(play: () => void) {
   const dialog = popup("flips-warning", `<h2>Flips only?</h2>`, `
     <p class="hint-dialog-text">The flips-only solution is very hard, are you sure you are ready?</p>
-    <div class="flips-warning-buttons">
+    <div class="dialog-buttons">
       <button type="button" class="practice">Practice first</button>
       <button type="button" class="primary play-anyway">Yes, play</button>
     </div>`);

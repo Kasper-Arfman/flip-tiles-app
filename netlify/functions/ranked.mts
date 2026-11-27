@@ -1,28 +1,21 @@
 // The online leaderboards, as a Netlify Function at /api/ranked/... (see netlify/leaderboard.ts
-// for what it does). Its data is kept in Netlify Blobs, the site's own key-value storage: no
-// database or account elsewhere is needed. It goes online with the site: `npx netlify deploy`
-// (see README, "Ranked mode").
-import { getStore } from "@netlify/blobs";
+// for what it does, and docs/developer/leaderboards.md). It goes online with the site (see
+// docs/developer/deploy/web.md).
 import type { Config } from "@netlify/functions";
-import { handle, type KeyValueStore } from "../leaderboard";
+import { blobStore, storeName } from "../blobStore";
+import { handle } from "../leaderboard";
 
-// The live site keeps the real leaderboards. A test deploy (`npx netlify deploy` without --prod)
-// gets its own store, so test games never reach them: Netlify gives every such deploy an address
-// with "--" in it (<id>--fliptilespuzzle.netlify.app), the live site's address has none.
-export const storeName = (url: string) => (new URL(url).hostname.includes("--") ? "ranked-test" : "ranked");
+// (Netlify runs functions on Node; this project has no Node types for the app's own code)
+declare const process: { env: Record<string, string | undefined> };
 
 export default async (request: Request) => {
-  // Strong: a read always sees the last write. (By default Netlify Blobs may answer with a copy
-  // up to a minute old: two games sent soon after each other then both started from the same
-  // old player, and the second save threw away the first game.)
-  const blobs = getStore({ name: storeName(request.url), consistency: "strong" });
-  const store: KeyValueStore = {
-    get: (key) => blobs.get(key, { type: "text" }),
-    set: async (key, value) => void (await blobs.set(key, value)),
-    delete: (key) => blobs.delete(key),
-    list: async (prefix) => (await blobs.list({ prefix })).blobs.map((b) => b.key),
-  };
-  return handle(request, store);
+  const name = storeName(request.url);
+  return handle(request, blobStore(name), Date.now(), {
+    // No schedule runs on the local test server (`npm run serve`) or a test deploy: there the
+    // leaderboards are worked out on each request
+    rebuildOnRead: name === "ranked-test" || process.env.NETLIFY_DEV === "true",
+    adminToken: process.env.RANKED_ADMIN_TOKEN || undefined,
+  });
 };
 
 export const config: Config = {

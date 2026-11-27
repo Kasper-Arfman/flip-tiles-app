@@ -13,7 +13,9 @@ import {
   activeGame, elapsed, hasJoined, join, lastChoice, lastGame, loseGame, myStats, playerName, startGame,
   takeCutOff, trySolve,
 } from "../ranked/ranked";
-import { fetchLeaderboard, sendGames } from "../ranked/online";
+import { fetchLeaderboard, isReported, leaveLeaderboards, reportName, sendGames } from "../ranked/online";
+import { isOffensive } from "../ranked/names";
+import type { Entry } from "../../netlify/leaderboard";
 import {
   FORCE, HINT_AFTER, HINT_EVERY, NAME_MAX, RECOVER_GAMES, SCORE_UPDATE_RATE, hintsAt, TIME_LIMIT, boardId, formatScore, formatTime, type BoardId,
 } from "../ranked/rules";
@@ -392,6 +394,24 @@ export function rankedPlay(rerender: () => void) {
 
 let shownBoard: BoardId = "overall";
 const PAGE = 10; // entries on a page of a leaderboard
+const NAME_REFUSED = "That name can't be used on the leaderboards. Please pick another one.";
+
+// A tap on someone's name: report it as offensive? (It is hidden for you at once: see reportName.)
+function confirmReport(id: string, name: string, done: () => void) {
+  const dialog = popup("report-dialog", `<h2>Report this name?</h2>`, `
+    <p class="hint-dialog-text">Is “${escape(name)}” offensive? It will be hidden for you right away,
+      and for everyone once it has been checked.</p>
+    <div class="dialog-buttons">
+      <button type="button" class="cancel">Cancel</button>
+      <button type="button" class="primary report">Report</button>
+    </div>`);
+  dialog.querySelector(".cancel")!.addEventListener("click", () => dialog.close());
+  dialog.querySelector(".report")!.addEventListener("click", () => {
+    dialog.close();
+    void reportName(id);
+    done();
+  });
+}
 
 // The leaderboard the leaderboards screen opens on (the lobby: its mode and difficulty; the home
 // screen's gold button: Top Ranked Players)
@@ -412,11 +432,14 @@ export function rankedLeaderboard(rerender: () => void) {
       <h2>Join the online leaderboards</h2>
       <p>Pick a name (others may have the same one). Your ranked games, your name and a random
         number for this device are sent to the game's server, nothing else.</p>
+      <p>Offensive names aren't allowed. Tap a name on a leaderboard to report it.</p>
       <form class="join-form"><input name="name" maxlength="${NAME_MAX}" required placeholder="Your name" autocomplete="nickname" />
         <button type="submit" class="primary">Join</button></form>
+      <p class="name-error" role="alert" hidden>${NAME_REFUSED}</p>
     </section>`}
     <label class="board-choice">Leaderboard <select>${options}</select></label>
-    <div class="leaderboard" aria-live="polite"><p class="ranked-label">Loading…</p></div>`);
+    <div class="leaderboard" aria-live="polite"><p class="ranked-label">Loading…</p></div>
+    ${hasJoined() ? `<button type="button" class="ranked-rules-link leave-leaderboards">Leave the leaderboards</button>` : ""}`);
 
   const select = element.querySelector("select")!;
   select.value = shownBoard;
@@ -432,8 +455,15 @@ export function rankedLeaderboard(rerender: () => void) {
       if (shownBoard !== board || offset !== from || !element.isConnected) return;
       // (Top Ranked Players: the name and games only; a leaderboard also the score)
       const value = (v: number) => (board === "overall" ? "" : `<span class="value">${formatScore(v)}</span>`);
-      const row = (e: { rank: number; name: string; value: number; games: number; me: boolean }) =>
-        `<li class="${[e.me ? "me" : "", e.rank === 1 ? "first" : ""].join(" ").trim()}"><span class="rank">${e.rank}${e.rank === 1 ? CROWN : ""}</span><span class="name">${escape(e.name)}${e.me ? " (you)" : ""}</span>` +
+      // (a name: a button to report it, except your own and Peter's, the made-up player with no
+      // games; a name you reported is hidden for you)
+      const name = (e: Entry) =>
+        e.me ? `<span class="name">${escape(e.name)} (you)</span>`
+          : isReported(e.id) ? `<span class="name reported">Hidden name</span>`
+            : e.id && e.games > 0 ? `<button type="button" class="name" data-id="${e.id}" data-name="${escape(e.name)}">${escape(e.name)}</button>`
+              : `<span class="name">${escape(e.name)}</span>`;
+      const row = (e: Entry) =>
+        `<li class="${[e.me ? "me" : "", e.rank === 1 ? "first" : ""].join(" ").trim()}"><span class="rank">${e.rank}${e.rank === 1 ? CROWN : ""}</span>${name(e)}` +
         `${value(e.value)}<span class="games">${plural(e.games, "game")}</span></li>`;
       if (!data.entries.length) {
         list.innerHTML = `<p class="ranked-label">No one is ranked here yet.</p>`;
@@ -464,6 +494,9 @@ export function rankedLeaderboard(rerender: () => void) {
       list.querySelector(".page-top")?.addEventListener("click", () => turnTo(0));
       // Around me: your place in the middle of the page
       list.querySelector(".page-me")?.addEventListener("click", () => turnTo(Math.max(0, data.me!.rank - 1 - Math.floor(PAGE / 2))));
+      for (const button of list.querySelectorAll<HTMLButtonElement>("button.name")) {
+        button.addEventListener("click", () => confirmReport(button.dataset.id!, button.dataset.name!, () => void show()));
+      }
       // When the server last worked the leaderboards out (in the phone's own time)
       if (data.updated) {
         const time = new Date(data.updated).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
@@ -488,11 +521,43 @@ export function rankedLeaderboard(rerender: () => void) {
     e.preventDefault();
     const name = new FormData(e.target as HTMLFormElement).get("name") as string;
     if (!name.trim()) return;
+    if (isOffensive(name)) {
+      element.querySelector<HTMLElement>(".name-error")!.hidden = false;
+      return;
+    }
     join(name);
     rerender();
   });
+  element.querySelector(".leave-leaderboards")?.addEventListener("click", () => confirmLeave(rerender));
   void show();
   return element;
+}
+
+// Leave the leaderboards: your name and games deleted from the server (they stay in your own
+// record on this device). You can join again later, as a new player.
+function confirmLeave(rerender: () => void) {
+  const dialog = popup("leave-dialog", `<h2>Leave the leaderboards?</h2>`, `
+    <p class="hint-dialog-text">Your name and ranked games are deleted from the game's server, and
+      you are taken off every leaderboard. Your own record stays on this device. You can join again
+      later, as a new player.</p>
+    <p class="name-error" role="alert" hidden>Couldn't reach the server. Check your connection and try again.</p>
+    <div class="dialog-buttons">
+      <button type="button" class="cancel">Cancel</button>
+      <button type="button" class="primary leave">Delete and leave</button>
+    </div>`);
+  dialog.querySelector(".cancel")!.addEventListener("click", () => dialog.close());
+  const button = dialog.querySelector<HTMLButtonElement>(".leave")!;
+  button.addEventListener("click", async () => {
+    button.disabled = true;
+    try {
+      await leaveLeaderboards();
+      dialog.close();
+      rerender();
+    } catch {
+      dialog.querySelector<HTMLElement>(".name-error")!.hidden = false;
+      button.disabled = false;
+    }
+  });
 }
 
 // "Welcome <name> ✎" (the pencil: change the name), on the Ranked screen for a player who joined the leaderboards
@@ -500,6 +565,10 @@ function welcomeLine(rerender: () => void, element: HTMLElement) {
   element.querySelector(".rename")?.addEventListener("click", () => {
     const name = prompt("Your name on the leaderboards", playerName());
     if (!name?.trim()) return;
+    if (isOffensive(name)) {
+      alert(NAME_REFUSED);
+      return;
+    }
     join(name);
     // (the name goes along with the next games sent; send now so it shows at once)
     void sendGames(true).then(rerender);

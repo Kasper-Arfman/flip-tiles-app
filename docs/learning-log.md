@@ -212,3 +212,11 @@ Notes added as the project goes along: what was learned, problems hit, and how t
   the default button's hover is written with `:where()`, which has no weight in the cascade, so
   a button's own color already wins over it: the many `:hover` copies repeating that color could
   go. And the solved animation's timing is now a few numbers at the top of `screens/level.ts`.
+- **2026-11-27**: App Review answered the first iOS submission with *Guideline 2.1 - Information
+  Needed*: not a bug, but questions (a screen recording from launch on a real iPhone, the app's
+  purpose, how to use it, the external services, regional differences). The answers are in the
+  *Notes* of *App Review Information* (the text is in `assets/store/listing/app-store.md`).
+  Learned: Apple counts leaderboard nicknames as user-generated content, so the app needs a
+  filter on names, a way to report one and to block it (the leaderboards' Report), and, because
+  joining stores a player on the server, a way to delete it from inside the app (Guideline
+  5.1.1(v)): now *Leave the leaderboards*, at the bottom of the Leaderboards screen.
