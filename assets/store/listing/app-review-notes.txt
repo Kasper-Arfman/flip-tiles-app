@@ -1,0 +1,28 @@
+1. SCREEN RECORDING
+Recorded on a physical iPhone with the latest iOS: <LINK OR "attached">. It starts at launch and shows: the tutorial levels, a regular level, a hint, the shop and Top up (the coin packs, a purchase in the sandbox, a rewarded video), ranked mode, joining the leaderboards with a nickname, reporting a name (hiding it), and leaving the leaderboards (deleting the player's data).
+
+2. PURPOSE AND AUDIENCE
+Flip Tiles is a single-player logic puzzle for teens and adults (not made for children). A 5x5 board of green and yellow tiles: tapping a tile flips it and its four neighbours; the goal is to make all tiles one color. 223 levels in 12 stages teach the patterns step by step, from a short tutorial to puzzles that need real reasoning. It offers a calm, ad-free-by-default brain teaser: ads play only when the player chooses to watch one.
+
+3. HOW TO USE THE MAIN FEATURES
+No account, login or sample files are needed; everything works offline.
+- Levels: tap a stage on the home screen, then a level. Tap a tile to flip it; in levels that allow it, tap and hold a tile to "force" it (changes only that tile).
+- Hints: in a level, tap a goal ("N moves" or "N flips") to buy hints, which mark moves of a best solution on the board, for coins.
+- Coins: the coin counter or Top up in the shop. Four consumable in-app purchases (coins_pack_1 to coins_pack_4), or an optional rewarded video ad. Coins buy hints and cosmetic colors and tile shapes in the shop; nothing else is paid.
+- Codex (the light bulb on the home screen): each completed stage earns an entry; draw a pattern and see its solution.
+- Ranked: the Ranked button on the home screen. Timed random puzzles, played offline.
+- Leaderboards (optional): the trophy on the Ranked screen. To appear on them a player picks a nickname and taps Join; only the nickname, a random id made by the app, and the ranked games are sent. There is no password, email or other personal data.
+- User-generated content: the nickname is the only content a player creates. Offensive names are refused when typed (a word filter in the app and on the server). Tapping another player's name on a leaderboard reports it: it is hidden (blocked) for the reporter at once, and for everyone after several reports or when the developer hides it (reports are checked by the developer within 24 hours).
+- Deleting the player's data: "Leave the leaderboards" at the bottom of the Leaderboards screen deletes the nickname and ranked games from the server at once.
+
+4. EXTERNAL SERVICES
+- Apple In-App Purchase (StoreKit), for the coin packs.
+- Google AdMob (Google Mobile Ads SDK), for the optional rewarded video ads, with Google's User Messaging Platform for consent and Apple's App Tracking Transparency prompt before the first ad.
+- Netlify (hosting and serverless functions), for the optional online leaderboards: the game's own server, no third-party account system.
+No analytics, login, AI or data provider services are used.
+
+5. REGIONAL DIFFERENCES
+The app works the same in all regions. The only difference: in the EEA, the UK and other regions where the law requires it, Google's consent form is shown before the first ad.
+
+6. REGULATED INDUSTRY / THIRD-PARTY MATERIAL
+Not applicable: the app is not in a regulated industry and contains no protected third-party material. The game, levels, art and sounds are the developer's own; the font (Lilita One) is under the SIL Open Font License.

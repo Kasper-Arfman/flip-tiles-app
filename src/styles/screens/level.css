@@ -212,10 +212,3 @@ main:has(.level-screen) {
 .level-screen .hint {
   display: none;
 }
-
-/* The warning before a very hard flips-only level (flipsWarning.ts): two buttons side by side */
-.flips-warning-buttons {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.6rem;
-}

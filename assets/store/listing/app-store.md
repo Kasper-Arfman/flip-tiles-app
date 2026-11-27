@@ -2,16 +2,14 @@
 
 What App Store Connect asks for, ready to paste: *your app → App Information* (name, subtitle,
 category, age rating), *the version page* (texts, URLs, screenshots, review notes), *App Privacy*.
-The limits are Apple's; `node scripts/check-listing.mjs` counts them. The Google Play texts are in
-this folder too (`title.txt`, `short-description.txt`, `full-description.txt`).
+The limits are Apple's; `node scripts/check-listing.mjs` counts them. A text shared with Google
+Play is kept once, in its own file in this folder, and linked here: copy it from there. (Google
+Play uses [title.txt](title.txt), [short-description.txt](short-description.txt) and
+[full-description.txt](full-description.txt).)
 
 ## App Information
 
-**Name** (30):
-
-```
-Flip Tiles - Color Puzzle
-```
+**Name** (30): [title.txt](title.txt)
 
 If Apple says the name is taken, try `Flip Tiles: Logic Puzzle` or `Flip Tiles Puzzle`.
 
@@ -45,34 +43,7 @@ Flip a tile and its four neighbours flip too. 223 hand-picked puzzles, three sta
 logic,brain,teaser,grid,tile,flip,mind,iq,strategy,relaxing,offline,math,switch,game,levels
 ```
 
-**Description** (4000):
-
-```
-Tap a tile and it flips, together with its four neighbours. Your goal: make every tile on the 5x5 board the same color, all green or all gold. Easy to learn, surprisingly deep to master.
-
-223 HAND-PICKED PUZZLES
-Twelve stages, from Alpha to Mu, each one a step harder. We checked all 33 million possible boards and selected 223 of the most interesting puzzles, all unique, and all waiting to be solved!
-
-THREE STARS PER LEVEL
-• Solve it, any way you like
-• Solve it in the fewest flips possible
-• Solve it in even fewer moves, but using "forces" to change individual tiles
-
-RANKED MODE
-Race the clock on freshly generated puzzles. Choose your difficulty, beat your best time and, if you like, climb the online leaderboards.
-
-MAKE IT YOURS
-Collect 24 color themes and 13 tile shapes with the coins you earn.
-
-PLAY YOUR WAY
-• Plays fully offline, no account needed
-• Stuck? Use a hint, or open the Codex to learn the patterns
-• No forced ads: watch a short video only when you want extra coins
-• Relaxing sounds, and quick levels that fit in any spare minute
-• Made for iPhone and iPad
-
-A modern take on a classic logic puzzle. How few moves do you need?
-```
+**Description** (4000): [full-description.txt](full-description.txt)
 
 **Support URL**: `https://fliptilespuzzle.netlify.app/support.html` (`public/support.html`)
 
@@ -90,15 +61,16 @@ A modern take on a classic logic puzzle. How few moves do you need?
 them in App Store Connect's preview: the board (and the words) must stay inside the safe area.
 
 **App Review Information**: no sign-in needed (leave *Sign-in required* off). Contact: your name,
-phone and email. **Notes**:
+phone and email. **Notes** (4000): [app-review-notes.txt](app-review-notes.txt). They answer the questions of App
+Review's *Guideline 2.1 - Information Needed*, the first submission's rejection. Attach the screen
+recording (see below) to the reply, or put its link where the notes say so.
 
-```
-No account or sign-in is needed. Tap a tile to flip it and its four neighbours; make all tiles one color. In levels that allow it, tap and hold a tile to "force" it (changes only that tile). The first two levels are a short tutorial.
-
-Coins: the four coin packs are consumable in-app purchases (Top up, in the shop). A rewarded video ad is optional and only plays when the player taps to watch one, for coins; the App Tracking Transparency prompt appears before the first ad.
-
-Ranked mode (home screen) works offline; joining the online leaderboard is optional and only asks for a display name.
-```
+The screen recording: on the iPhone, *Settings → Control Center*, add *Screen Recording*; then
+start it from Control Center, and launch the app from the home screen. Follow the order of point
+1 (about 2-3 minutes). For the purchase, sign in to a *Sandbox Apple Account* (*Settings →
+Developer*, or App Store Connect → *Users and Access → Sandbox*) so nothing is really paid. Upload
+it (e.g. as an unlisted YouTube video or a shared iCloud link) and put the link in the Notes, or
+attach the file in the reply in App Store Connect.
 
 ## In-App Purchases (each coin pack)
 

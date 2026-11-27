@@ -330,6 +330,29 @@
   white-space: nowrap;
 }
 
+/* Someone else's name is a button (tap: report it), but looks like the plain text around it */
+.leaderboard-list button.name {
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+/* A name you reported: hidden for you */
+.leaderboard-list .name.reported {
+  color: var(--muted);
+  font-style: italic;
+}
+
+/* Join: "That name can't be used"; Leave: "Couldn't reach the server" */
+.join-card .name-error,
+.leave-dialog .name-error {
+  color: var(--danger);
+  font-weight: 600;
+}
+
 .leaderboard-list .games {
   grid-column: 4; /* (also on Top Ranked Players, which has no score column) */
   color: var(--muted);

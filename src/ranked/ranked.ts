@@ -152,6 +152,17 @@ export function join(name: string) {
   save();
 }
 
+// Off the leaderboards (after the server deleted the player: online.ts, leaveLeaderboards). The
+// games stay on the device for the player's own record; a new device id, so joining again later
+// starts a new player (and sends the games again).
+export function leave() {
+  saved.name = "";
+  saved.joined = false;
+  saved.deviceId = randomId();
+  saved.uploaded = [...saved.refused];
+  save();
+}
+
 export const pendingGames = () => saved.games.filter((g) => !saved.uploaded.includes(g.id));
 
 export function markUploaded(ids: string[], refused: string[] = []) {

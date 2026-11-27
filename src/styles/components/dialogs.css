@@ -68,3 +68,10 @@
   background: var(--line);
   color: var(--ink);
 }
+
+/* Two buttons side by side at the bottom of a popup (Practice first / Yes, play; Cancel / Report) */
+.dialog-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+}
