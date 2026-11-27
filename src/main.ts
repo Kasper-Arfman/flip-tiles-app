@@ -5,14 +5,16 @@ import "./styles/index.css"; // (what is where: the top of that file)
 import { findLevel, findTier } from "./levels/levels";
 import { currentRoute, go, goUp, onNavigate } from "./nav";
 import { log, startLog } from "./log";
-import { activeLook, isLevelOpen, loadProgress, starsToUnlock, tutorialStep } from "./progress";
+import { activeLook, isFinalGoalOpen, isLevelOpen, isTierOpen, loadProgress, tutorialStep } from "./progress";
 import { initPurchases } from "./purchases";
 import { initAds } from "./ads";
 import { loadAdRewards } from "./adRewards";
+import { TEST_BUILD } from "./dev";
 import { startSending } from "./ranked/online";
 import { activeGame, loadRanked, loseGame } from "./ranked/ranked";
 import { codexScreen } from "./screens/codex";
 import { debugScreen } from "./screens/debug";
+import { finalPlay, finalScreen } from "./screens/final";
 import { homeScreen } from "./screens/home";
 import { howToPlayScreen } from "./screens/howToPlay";
 import { levelScreen } from "./screens/level";
@@ -41,8 +43,8 @@ function render() {
 
   // A new player plays the tutorial first (the debug screen is always reachable)
   const step = tutorialStep();
-  if (step && route.screen !== "debug" && !(route.screen === "level" && route.difficulty === step.difficulty && route.number === step.number)) {
-    go(`#/level/${step.difficulty}/${step.number}`, true);
+  if (step && route.screen !== "debug" && !(route.screen === "level" && route.tier === step.tier && route.number === step.number)) {
+    go(`#/level/${step.tier}/${step.number}`, true);
     return;
   }
 
@@ -55,17 +57,26 @@ function render() {
   else if (route.screen === "ranked-play") next = rankedPlay(render);
   else if (route.screen === "ranked-leaderboard") next = rankedLeaderboard(render);
   else if (route.screen === "home") next = homeScreen(render);
+  else if (route.screen === "final") next = finalScreen();
+  else if (route.screen === "final-play") {
+    // (a goal not open yet: to the challenge's screen, which says what opens it)
+    if (!isFinalGoalOpen(route.goal)) {
+      go("#/final", true);
+      return;
+    }
+    next = finalPlay(route.goal, render);
+  }
   else {
     // A tier or level that doesn't exist, or isn't unlocked yet: back home
-    const tier = findTier(route.difficulty);
-    const level = route.screen === "level" ? findLevel(route.difficulty, route.number) : undefined;
-    if (!tier || starsToUnlock(tier) > 0 || (route.screen === "level" && !level)) {
+    const tier = findTier(route.tier);
+    const level = route.screen === "level" ? findLevel(route.tier, route.number) : undefined;
+    if (!tier || !isTierOpen(tier) || (route.screen === "level" && !level)) {
       go("#/", true); // the address changes, and that renders the home screen
       return;
     }
     // A level whose group isn't open yet: to its tier
     if (level && !isLevelOpen(tier, level)) {
-      go(`#/tier/${tier.difficulty}`, true);
+      go(`#/tier/${tier.id}`, true);
       return;
     }
     next = level ? levelScreen(level) : tierScreen(tier, render);
@@ -112,4 +123,7 @@ startLog().then(loadProgress).then(loadRanked).then(loadSound).then(loadAdReward
     if (["shop", "home"].includes(currentRoute().screen)) render();
   });
   startSending(); // (ranked games waiting for the online leaderboard)
+  // Console commands for testing (devConsole.ts: type ft.help() in the console). Only while
+  // developing and in test builds: in a release build this is false, and the file left out.
+  if (import.meta.env.DEV || TEST_BUILD) void import("./devConsole").then((m) => m.installDevConsole(render));
 });

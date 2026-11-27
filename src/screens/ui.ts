@@ -37,16 +37,22 @@ const BIG = (() => {
 export const bigStarSocket = () =>
   `<svg class="socket" viewBox="0 0 100 100" aria-hidden="true"><path d="${BIG.outline}" stroke-width="3" /></svg>`;
 
-export const bigStarGold = () =>
-  `<svg class="gold" viewBox="0 0 100 100" aria-hidden="true">
-    <defs><linearGradient id="star-gold" x1="0" y1="0" x2="0.3" y2="1">
-      <stop offset="0" stop-color="#ffe680" /><stop offset="0.5" stop-color="#f6bc22" /><stop offset="1" stop-color="#d98a06" />
+// (blue: a bonus level's, the same star in the blue of the bonus levels)
+export const bigStarGold = (blue = false) => {
+  const [light, middle, deep, edge] = blue
+    ? ["#bfe5ff", "#4aa8f0", "#1f6fae", "#174f80"]
+    : ["#ffe680", "#f6bc22", "#d98a06", "#a96a00"];
+  const id = blue ? "star-blue" : "star-gold";
+  return `<svg class="gold" viewBox="0 0 100 100" aria-hidden="true">
+    <defs><linearGradient id="${id}" x1="0" y1="0" x2="0.3" y2="1">
+      <stop offset="0" stop-color="${light}" /><stop offset="0.5" stop-color="${middle}" /><stop offset="1" stop-color="${deep}" />
     </linearGradient></defs>
-    <path d="${BIG.outline}" fill="url(#star-gold)" />
+    <path d="${BIG.outline}" fill="url(#${id})" />
     ${BIG.facets}
-    <path d="${BIG.outline}" fill="none" stroke="#a96a00" stroke-width="3" stroke-linejoin="round" />
+    <path d="${BIG.outline}" fill="none" stroke="${edge}" stroke-width="3" stroke-linejoin="round" />
     <ellipse cx="47.6" cy="27" rx="2.2" ry="7" transform="rotate(14 47.6 27)" fill="#ffffff" opacity="0.6" />
   </svg>`;
+};
 
 // A reward star: gold when earned, an outline when not
 export const star = (earned: boolean, extra = "") =>

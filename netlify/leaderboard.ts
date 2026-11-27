@@ -8,8 +8,8 @@
 // entry is "you" to the device that asks. Each entry has a public id instead (another hash), to
 // report a name with.
 //
-//   POST   /api/ranked/games        { deviceId, name, games, scores, counts }  -> { accepted, rejected }
-//   GET    /api/ranked/leaderboard?board=overall|moves-5&deviceId=...&offset=0&limit=25
+//   POST   /api/ranked/games        { deviceId, name, games, scores, counts, bonusStars }  -> { accepted, rejected }
+//   GET    /api/ranked/leaderboard?board=overall|moves-5|bonus&deviceId=...&offset=0&limit=25
 //                                    -> { board, entries, me, players, updated }
 //          (a page: `limit` entries, at most 100, from place offset + 1; without them the top 100)
 //   POST   /api/ranked/report       { deviceId, id }  -> { ok }   (a name reported as offensive)
@@ -32,6 +32,11 @@
 // the game; it counts only on a leaderboard where this server has a real game of theirs, and
 // only as a time from 0:00 to 5:00. A changed app could report a better score than its games
 // earned: the price of showing exactly the game's own score.
+//
+// One leaderboard isn't ranked games: "bonus", the stars a player earned on the bonus levels, as
+// their app reports them (Player.bonusStars; most first, only players with at least one). It
+// can't be checked (the levels are played offline, nothing of them is sent), and it doesn't
+// count towards the overall leaderboard.
 import {
   ALL_BOARDS, TIME_LIMIT, checkGame, statsOf,
   type BoardId, type GameRecord, type Stats,
@@ -48,10 +53,10 @@ export interface KeyValueStore {
 }
 
 // What is stored where:
-//   players/<hash>        a player: name, games, scores, counts (POST /games)
+//   players/<hash>        a player: name, games, scores, counts, bonus stars (POST /games)
 //   changed/<hash>        a mark: that player changed since the last rebuild
 //   changed/moderation    a mark: a name was hidden or shown again
-//   index                 every player in short (name, and per leaderboard the score and games):
+//   index                 every player in short (name, per leaderboard the score and games, bonus stars):
 //                         the rebuild's own, kept up to date with the marked players
 //   boards/<board>        a leaderboard as worked out by the last rebuild (GET /leaderboard)
 //   reports/<id>          the reports on a player's name (by public id)
@@ -75,7 +80,14 @@ interface Player {
   // scores, so the games on the leaderboard are the ones in the game (also when games were lost
   // on the way here). Not checked: nothing is won by a higher count.
   counts?: Partial<Record<BoardId, number>>;
+  // The stars the player earned on the bonus levels, as their app reports them (the "bonus"
+  // leaderboard)
+  bonusStars?: number;
 }
+
+// A number of bonus stars as an app reports it (far more than the game has, as a sanity limit)
+const MAX_BONUS_STARS = 100_000;
+const validBonus = (v: unknown): v is number => Number.isInteger(v) && (v as number) >= 0 && (v as number) <= MAX_BONUS_STARS;
 
 // A score as an app reports it: a time from 0:00 to 5:00
 const validScore = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v) && v > 0 && v <= TIME_LIMIT;
@@ -86,8 +98,8 @@ export interface Entry {
   rank: number;
   id: string; // the player's public id (to report their name with)
   name: string;
-  value: number; // a leaderboard: the score (ms, see statsOf); overall: the average place (1 = first)
-  games: number;
+  value: number; // a leaderboard: the score (ms, see statsOf); overall: the average place (1 = first); bonus: the stars
+  games: number; // (bonus: 0)
   me: boolean;
 }
 
@@ -132,11 +144,12 @@ const json = (body: unknown, status = 200) =>
 
 // --- the rebuild: the leaderboards worked out ----------------------------------------------
 
-// A player in short, as the index keeps them: per leaderboard [score, games]
+// A player in short, as the index keeps them: per leaderboard [score, games], and their bonus stars
 interface Summary {
   id: string;
   name: string;
   boards: Partial<Record<BoardId, [number, number]>>;
+  bonus?: number;
 }
 interface Index {
   fullAt: number; // when the index was last made from all players
@@ -154,7 +167,8 @@ async function summarize(key: string, player: Player): Promise<Summary> {
   }
   // (also a name stored before names were checked)
   const name = cleanName(player.name);
-  return { id: await publicId(key), name: isOffensive(name) ? HIDDEN_NAME : name, boards };
+  const bonus = validBonus(player.bonusStars) && player.bonusStars > 0 ? player.bonusStars : undefined;
+  return { id: await publicId(key), name: isOffensive(name) ? HIDDEN_NAME : name, boards, ...(bonus ? { bonus } : {}) };
 }
 
 // A row of a stored leaderboard. k: the player's key (never sent: only to find "me")
@@ -219,6 +233,17 @@ function rank(index: Index, hidden: Map<string, string>): Map<BoardId, Row[]> {
   const row = ({ k, id, name, value, games }: Row): Row => ({ k, id, name, value, games });
   for (const [id, list] of boards) result.set(id, list.map(row));
   result.set("overall", [...overall.map(row), { ...PETER, value: mean(peterPlaces) }]);
+
+  // Bonus stars: every player with at least one, the most first (equal: by name, then id, so the
+  // order stays the same between rebuilds). No Peter: it's no contest of times, and an empty one
+  // simply says so.
+  const bonus: Row[] = [];
+  for (const [k, p] of Object.entries(index.players)) {
+    if (!p.bonus) continue;
+    bonus.push({ k, id: p.id, name: hidden.get(p.id) === p.name ? HIDDEN_NAME : p.name, value: p.bonus, games: 0 });
+  }
+  bonus.sort((a, b) => b.value - a.value || a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
+  result.set("bonus", bonus);
   return result;
 }
 
@@ -280,9 +305,16 @@ async function readBoard(store: KeyValueStore, id: BoardId, now: number): Promis
     await rebuild(store, now, { full: true });
     text = await store.get(boardKey(id));
   }
-  const board: StoredBoard = text ? JSON.parse(text) : { updated: now, rows: [{ ...PETER }] };
+  const board: StoredBoard = text ? JSON.parse(text) : { updated: now, rows: id === "bonus" ? [] : [{ ...PETER }] };
   cache.set(id, { at: now, board });
   return board;
+}
+
+// A player's row by public id: on the overall leaderboard (anyone with a ranked game), or else on
+// the bonus stars (a player with bonus stars and no ranked games)
+async function findRow(store: KeyValueStore, id: string, now: number): Promise<Row | undefined> {
+  return (await readBoard(store, "overall", now)).rows.find((r) => r.id === id)
+    ?? (await readBoard(store, "bonus", now)).rows.find((r) => r.id === id);
 }
 
 export interface Options {
@@ -323,6 +355,8 @@ export async function handle(request: Request, store: KeyValueStore, now = Date.
           if ((ALL_BOARDS as string[]).includes(id) && validCount(v)) player.counts[id as BoardId] = v;
         }
       }
+      // ... and its bonus stars (see Player.bonusStars; not sent by older apps)
+      if (validBonus(body.bonusStars)) player.bonusStars = body.bonusStars;
       const known = new Set(player.games.map((g) => g.id));
       const accepted: string[] = [];
       const rejected: { id: string; reason: string }[] = [];
@@ -349,7 +383,7 @@ export async function handle(request: Request, store: KeyValueStore, now = Date.
     if (request.method === "GET" && path === "/leaderboard") {
       const params = new URL(request.url).searchParams;
       const board = params.get("board") as BoardId;
-      if (board !== "overall" && !ALL_BOARDS.includes(board)) return json({ error: "no such leaderboard" }, 404);
+      if (board !== "overall" && board !== "bonus" && !ALL_BOARDS.includes(board)) return json({ error: "no such leaderboard" }, 404);
       if (options.rebuildOnRead) await rebuild(store, now);
       const deviceId = params.get("deviceId");
       const myKey = validId(deviceId) ? await playerKey(deviceId) : null;
@@ -370,7 +404,7 @@ export async function handle(request: Request, store: KeyValueStore, now = Date.
       const body = await request.json();
       if (!validId(body?.deviceId) || !validPublicId(body.id) || body.id === PETER_ID) return json({ error: "bad request" }, 400);
       const reporter = await playerKey(body.deviceId);
-      const row = (await readBoard(store, "overall", now)).rows.find((r) => r.id === body.id);
+      const row = await findRow(store, body.id, now);
       if (!row) return json({ error: "no such player" }, 404);
       if (row.k === reporter || row.name === HIDDEN_NAME) return json({ ok: true });
       const report = await readReport(store, body.id, row.name);
@@ -414,7 +448,7 @@ export async function handle(request: Request, store: KeyValueStore, now = Date.
       if (request.method === "POST" && (path === "/admin/hide" || path === "/admin/show")) {
         const body = await request.json();
         if (!validPublicId(body?.id)) return json({ error: "bad request" }, 400);
-        const row = (await readBoard(store, "overall", now)).rows.find((r) => r.id === body.id);
+        const row = await findRow(store, body.id, now);
         const report = await readReport(store, body.id, row?.name ?? "");
         if (path === "/admin/hide") {
           // (the name as the player has it now; a hidden name shows as Player, so the report's)

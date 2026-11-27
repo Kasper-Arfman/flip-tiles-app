@@ -361,6 +361,19 @@
   white-space: nowrap;
 }
 
+/* Bonus stars: in the games' column, the stars instead, blue, a little bolder */
+.leaderboard-list .games.bonus-count {
+  color: var(--ink);
+  font-size: 0.9rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.leaderboard-list .bonus-count .star {
+  width: 0.95em;
+  height: 0.95em;
+}
+
 .ranked-play.ranked-over .give-up {
   visibility: hidden;
 }

@@ -13,6 +13,7 @@
   --gold-deep: #c98a12; /* the dark end of the gold gradients (gold bars and buttons) */
   --gold-edge: #a86f05; /* the dark edge of gold things (a gold title tile, the gold padlock) */
   --gold-text: #b87a00; /* gold text on white (in use, a goal showing its hints) */
+  --bonus-blue: #4aa8f0; /* the bonus levels: their stars and bars */
   --cream: #fff4dc; /* the rim of the game's buttons and title tiles */
   --cream-light: #fff8e6; /* the letters and icons on the dark round buttons and title tiles */
   --red: #e0453a; /* forces (their diamonds and badges) and the notification bubble */

@@ -39,6 +39,24 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   </head>
   <body>
+    <!-- Shared by the small earned stars (icons.css): their fill, a round gradient lit from the
+         top left, so they look domed and shiny: gold, and blue for the bonus levels' -->
+    <svg width="0" height="0" style="position: absolute" aria-hidden="true" focusable="false">
+      <defs>
+        <radialGradient id="gold-star" cx="0.38" cy="0.32" r="0.75">
+          <stop offset="0" stop-color="#fff6c9" />
+          <stop offset="0.3" stop-color="#ffd24a" />
+          <stop offset="0.7" stop-color="#f0a417" />
+          <stop offset="1" stop-color="#c47a06" />
+        </radialGradient>
+        <radialGradient id="bonus-star" cx="0.38" cy="0.32" r="0.75">
+          <stop offset="0" stop-color="#e8f9ff" />
+          <stop offset="0.3" stop-color="#7fd0ff" />
+          <stop offset="0.7" stop-color="#3a8ff0" />
+          <stop offset="1" stop-color="#2450c4" />
+        </radialGradient>
+      </defs>
+    </svg>
     <main id="app"></main>
     <script type="module" src="./src/main.ts"></script>
   </body>

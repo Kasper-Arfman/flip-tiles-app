@@ -27,6 +27,7 @@ import {
   type HintGoal,
 } from "../progress";
 import { openCodex } from "./codex";
+import { showBonusTabOf } from "./tier";
 import { confirmFlips, warnsAboutFlips } from "./flipsWarning";
 import { openReplays } from "./replayDialog";
 import { bigStarGold, bigStarSocket, coin, notice, plural, screen, star, topbar } from "./ui";
@@ -64,9 +65,10 @@ const HAND = `<svg class="touch-finger" viewBox="0 0 448 512" aria-hidden="true"
 </svg>`;
 
 export function levelScreen(level: Level) {
+  showBonusTabOf(level); // (back on its stage's screen: the bonus tab of this level)
   const next = nextLevel(level);
-  const tierHash = `#/tier/${level.difficulty}`;
-  const nextIsOpen = () => next !== undefined && isLevelOpen(findTier(level.difficulty)!, next);
+  const tierHash = `#/tier/${level.tier}`;
+  const nextIsOpen = () => next !== undefined && isLevelOpen(findTier(level.tier)!, next);
   const earnedBefore = (bit: number) => (starsOf(level) & bit) !== 0;
   // The flips goal by what it asks (its count follows in its "(0/2)"). Before: "2 flips":
   //   flips: plural(level.minFlips, "flip"),
@@ -77,8 +79,10 @@ export function levelScreen(level: Level) {
   // only way on is Next level (no back arrow, hints or Retry)
   const guided = tutorialStep() === level;
   const endsTutorial = guided && level.number === 2; // solving it finishes the tutorial
+  // A bonus level: its stars are blue (blue-stars, in icons.css), the big ones of the result too
+  const bonusLevel = findTier(level.tier)?.main !== undefined;
 
-  const element = screen(`level-screen${guided ? " guided" : ""}`, `
+  const element = screen(`level-screen${guided ? " guided" : ""}${bonusLevel ? " blue-stars" : ""}`, `
     ${topbar(levelName(level), guided ? undefined : tierHash, `${coin()} <span class="coin-count">${coins()}</span>`)}
     <div class="hint-bar"${guided ? " hidden" : ""}>
       <button type="button" class="replay" hidden>▶ Replay</button>
@@ -324,7 +328,7 @@ export function levelScreen(level: Level) {
     const earned = STAR_SOLVED |
       (forces === 0 && flips === level.minFlips ? STAR_FLIPS : 0) |
       (moves.length === level.minMoves ? STAR_MOVES : 0);
-    const tier = findTier(level.difficulty)!;
+    const tier = findTier(level.tier)!;
     const wasComplete = isTierComplete(tier);
     const fresh = award(level, earned);
     // This solve earned the stage's last star: once its stars have landed, the game goes to the
@@ -365,7 +369,7 @@ export function levelScreen(level: Level) {
         ? Array.from({ length: 8 }, (_, i) => `<span class="spark" style="--angle: ${i * 45 + 22.5}deg"></span>`).join("")
         : "";
       return `<span class="result-star ${kind}"${delay}>${bigStarSocket()}` +
-        `${kind === "empty" ? "" : bigStarGold()}${sparks}</span>`;
+        `${kind === "empty" ? "" : bigStarGold(bonusLevel)}${sparks}</span>`;
     }).join("");
     result.querySelector(".result-stars")!.setAttribute("aria-label", `${countStars(best)} of 3 stars`);
     // (after this solve's stars: they may just have opened the next group)
@@ -407,7 +411,7 @@ export function levelScreen(level: Level) {
     // this level in the history (back from the next level goes to the tier): the next level;
     // when its group isn't open yet, the tier, where it says what opens it.
     if (endsTutorial || next === undefined) return go("#/", true);
-    go(nextIsOpen() ? `#/level/${next!.difficulty}/${next!.number}` : tierHash, true);
+    go(nextIsOpen() ? `#/level/${next!.tier}/${next!.number}` : tierHash, true);
   });
 
   showHints();

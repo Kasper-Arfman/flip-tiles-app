@@ -9,6 +9,13 @@
    screen's art (which sits behind the page, see .home-art) */
 html {
   background: var(--paper);
+  /* No scrollbar for the page: phones show none (it only appears on a computer, where it would
+     narrow the screen as it comes and goes); the page still scrolls with the wheel or a drag */
+  scrollbar-width: none;
+}
+
+html::-webkit-scrollbar {
+  display: none;
 }
 
 /* Nothing may stick out sideways: on a phone, the page must not be draggable left and right. The

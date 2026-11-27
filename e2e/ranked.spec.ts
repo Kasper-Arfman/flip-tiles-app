@@ -107,7 +107,8 @@ test("a difficulty is locked until its levels have the mode's star; the popup sa
   // ... scrolled to and flashing: the 4-move levels, not the others
   await expect(page.locator('li[data-moves="4"] .level-tile.flash').first()).toBeVisible();
   await expect(page.locator('li[data-moves="3"] .level-tile.flash')).toHaveCount(0);
-  await expect(page.locator('.grade-label[data-moves="4"]')).toBeInViewport();
+  await expect(page.locator('.grade-section[data-moves="4"] .level-grid')).toBeInViewport();
+  await expect(page.locator(".grade-name")).toHaveText("4 moves");
   // A new player: everything locked, Play too
   await page.evaluate(() => localStorage.removeItem("CapacitorStorage.progress-v1"));
   await page.goto("about:blank");
@@ -373,8 +374,80 @@ test("a very hard flips-only level asks first, once its fewest-moves star is ear
   await expect(page.locator(".flips-warning")).toHaveCount(0);
 });
 
-test("a tier's groups of levels show their number of moves along their side", async ({ page }) => {
+test("a stage's head shows the group in view; its arrow scrolls to the next group, its levels right under the head", async ({ page }) => {
   await expect(page.locator(".home-screen")).toBeVisible();
-  await page.locator('.tier-card[data-difficulty="1"]').click();
-  await expect(page.locator(".grade-label").first()).toHaveText(/\d+ moves?/);
+  await page.locator('.tier-card[data-tier="1"]').click();
+  await expect(page.locator(".grade-name")).toHaveText(/\d+ moves?/);
+  // (a stage with more groups)
+  await page.goto("./#/tier/5");
+  await expect(page.locator(".grade-name")).toHaveText("3 moves");
+  await page.locator('.grade-arrow[data-step="1"]').click();
+  await expect(page.locator(".grade-name")).toHaveText("4 moves");
+  const grid = page.locator(".grade-section").nth(1).locator(".level-grid");
+  await expect(async () => {
+    const head = (await page.locator(".grade-head").boundingBox())!;
+    const levels = (await grid.boundingBox())!;
+    expect(Math.abs(levels.y - (head.y + head.height))).toBeLessThan(2);
+  }).toPass();
+});
+
+test("a complete stage's bonus levels are bought on its screen; then they open first: a page per group, swiped or picked by its dot", async ({ page }) => {
+  // (every stage is complete in this test's save, and its rewards paid: coins enough)
+  await expect(page.locator('.tier-card[data-tier="5"] .bonus-progress')).toHaveCount(0); // (not bought yet)
+  await expect(page.locator(".wealth .bonus-pill")).toHaveCount(0);
+  // Offered on the home screen, under the card, with the price (the strip opens the same offer)
+  await expect(page.locator('.bonus-strip[data-bonus="105"]')).toContainText("Unlock for 200");
+  await page.locator('.bonus-strip[data-bonus="105"]').click();
+  await expect(page.locator(".bonus-offer-dialog")).toBeVisible();
+  await page.locator(".bonus-offer-dialog .close").click();
+  await page.locator('.tier-card[data-tier="5"]').click();
+  await expect(page).toHaveURL(/#\/tier\/5$/);
+  // The button with a lock: the offer, and buying it opens the bonus levels
+  await page.locator(".tier-swap.for-sale").click();
+  await expect(page.locator(".bonus-offer-dialog")).toBeVisible();
+  await page.locator(".bonus-offer-dialog .buy-bonus").click();
+  await expect(page).toHaveURL(/#\/tier\/105$/);
+  // Home: now its card has the bonus bar, the bonus stars are counted apart, and it opens on them
+  await page.goto("./#/");
+  await expect(page.locator('.tier-card[data-tier="5"] .bonus-progress')).toBeVisible();
+  await expect(page.locator('.tier-card[data-tier="1"] .bonus-progress')).toHaveCount(0); // (Alpha has none)
+  await expect(page.locator(".wealth .bonus-pill")).toBeVisible();
+  await page.locator('.tier-card[data-tier="5"]').click();
+  await expect(page).toHaveURL(/#\/tier\/105$/);
+  await expect(page.locator(".tier-swap")).toHaveAttribute("aria-label", "Main levels");
+  const tabs = page.locator(".grade-dot");
+  await expect(page.locator(".grade-name")).toHaveText((await tabs.first().getAttribute("aria-label"))!);
+  await expect(tabs.first()).toHaveAttribute("aria-selected", "true");
+  await expect(page.locator('.grade-arrow[data-step="-1"]')).toBeDisabled();
+  // A swipe (a scroll sideways) to the next page lights up its dot
+  await page.locator(".grade-pages").evaluate((p) => p.scrollTo({ left: p.clientWidth }));
+  await expect(tabs.nth(1)).toHaveAttribute("aria-selected", "true");
+  // The arrows, and with a mouse a drag: a page back, a page on (without opening a level)
+  await page.locator('.grade-arrow[data-step="-1"]').click();
+  await expect(tabs.first()).toHaveAttribute("aria-selected", "true");
+  const box = (await page.locator(".grade-pages").boundingBox())!;
+  await page.mouse.move(box.x + box.width * 0.8, box.y + 60);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width * 0.5, box.y + 60, { steps: 8 });
+  await page.mouse.up();
+  await expect(tabs.nth(1)).toHaveAttribute("aria-selected", "true");
+  await expect(page).toHaveURL(/#\/tier\/105$/);
+  // Tapping the first tab goes back; a level there, and back up: the same page again
+  await tabs.first().click();
+  await expect(tabs.first()).toHaveAttribute("aria-selected", "true");
+  await tabs.nth(1).click();
+  await expect(tabs.nth(1)).toHaveAttribute("aria-selected", "true");
+  await page.locator(".grade-page").nth(1).locator(".level-tile").first().click();
+  await expect(page).toHaveURL(/#\/level\/105\/\d+$/);
+  await expect(page.locator(".topbar h1")).toHaveText(/^Bonus Epsilon \d+$/);
+  await page.locator(".topbar .up").click();
+  await expect(page).toHaveURL(/#\/tier\/105$/);
+  await expect(tabs.nth(1)).toHaveAttribute("aria-selected", "true");
+  // The button in the top bar: the stage itself, and from there back to the bonus levels
+  await page.locator(".tier-swap").click();
+  await expect(page).toHaveURL(/#\/tier\/5$/);
+  await expect(page.locator(".grade-section").first()).toBeVisible();
+  await expect(page.locator(".tier-swap")).toHaveAttribute("aria-label", "Bonus levels");
+  await page.locator(".tier-swap").click();
+  await expect(page).toHaveURL(/#\/tier\/105$/);
 });

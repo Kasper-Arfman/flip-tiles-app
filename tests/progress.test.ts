@@ -7,7 +7,7 @@ import { readSaved, restartApp, saved, startApp } from "./helpers";
 const ALL = 7; // all three stars (STAR_SOLVED | STAR_FLIPS | STAR_MOVES)
 
 describe("a new player", () => {
-  it("starts with 100 coins, no stars, the tutorial, and only Alpha open", async () => {
+  it("starts with no coins, no stars, the tutorial, and only Alpha open", async () => {
     const app = await startApp();
     expect(app.coins()).toBe(app.STARTING_COINS);
     expect(app.totalStars()).toBe(0);
@@ -80,14 +80,72 @@ describe("unlocking", () => {
   });
 
   it("a stage can be bought with coins, only with enough of them", async () => {
-    const app = await startApp();
+    const app = await startApp({ "wallet-v1": { coins: 100 } });
     const beta = app.TIERS[1];
     expect(app.buyTier(beta)).toBe(true);
-    expect(app.coins()).toBe(app.STARTING_COINS - app.UNLOCK_COST);
+    expect(app.coins()).toBe(100 - app.UNLOCK_COST);
     expect(app.starsToUnlock(beta)).toBe(0);
     expect(app.buyTier(app.TIERS[2])).toBe(false); // (0 coins left)
     expect((await restartApp()).starsToUnlock((await restartApp()).TIERS[1])).toBe(0);
   });
+
+  it("a stage's bonus levels can be bought once it is complete, all groups at once; completing them pays back", async () => {
+    const app = await startApp({ "wallet-v1": { coins: 1_000 } });
+    const bonus = app.BONUS_TIERS[0];
+    const main = bonus.main!;
+    // Not before the stage is complete, and not as a stage (buyTier)
+    expect(app.starsToUnlock(bonus)).toBe(app.maxStars(main));
+    expect(app.canBuyBonus(bonus)).toBe(false);
+    expect(app.buyBonus(bonus)).toBe(false);
+    expect(app.buyTier(bonus)).toBe(false);
+    expect(app.coins()).toBe(1_000);
+    for (const level of main.levels.slice(1)) app.award(level, ALL);
+    expect(app.starsToUnlock(bonus)).toBe(3); // (one level of the stage left)
+    app.award(main.levels[0], ALL);
+    // Complete: for sale, still closed until bought
+    expect(app.starsToUnlock(bonus)).toBe(0);
+    expect(app.isTierOpen(bonus)).toBe(false);
+    app.payStageRewards(); // (the stage's own reward: tested under coins)
+    const coins = app.coins();
+    expect(app.buyBonus(bonus)).toBe(true);
+    expect(app.coins()).toBe(coins - app.BONUS_UNLOCK_COST);
+    expect(app.isTierOpen(bonus)).toBe(true);
+    expect(app.canBuyBonus(bonus)).toBe(false); // (once)
+    expect(bonus.levels.every((l) => app.isLevelOpen(bonus, l))).toBe(true);
+    // Their stars: in the total, not towards the next stage
+    const next = app.TIERS[app.TIERS.indexOf(main) + 1];
+    const needed = app.starsToUnlock(next);
+    const total = app.totalStars();
+    app.award(bonus.levels[0], ALL);
+    expect(app.totalStars()).toBe(total + 3);
+    expect(app.starsToUnlock(next)).toBe(needed);
+    // Every bonus star: BONUS_REWARD, once (also after a restart)
+    expect(app.payStageRewards()).toEqual([]);
+    for (const level of bonus.levels) app.award(level, ALL);
+    const before = app.coins();
+    expect(app.payStageRewards()).toEqual([bonus]);
+    expect(app.coins()).toBe(before + app.BONUS_REWARD);
+    expect((await restartApp()).payStageRewards()).toEqual([]);
+  });
+
+  it("bonus levels added in an update: open to whoever bought them, and their reward isn't paid twice", async () => {
+    // A player who bought Gamma's bonus levels and was paid for completing them, before more were
+    // added: now some of them have no stars yet (here: none of the last one), then they get them
+    const probe = await startApp();
+    const bonus = probe.BONUS_TIERS[0];
+    const stars = Object.fromEntries([...bonus.main!.levels, ...bonus.levels.slice(0, -1)].map((l) => [l.key, ALL]));
+    const app = await startApp({
+      "progress-v1": stars,
+      "wallet-v1": { coins: 0, unlocked: [bonus.id], rewarded: [bonus.main!.id, bonus.id] },
+    });
+    const added = app.BONUS_TIERS[0].levels.at(-1)!;
+    expect(app.isLevelOpen(app.BONUS_TIERS[0], added)).toBe(true); // (no need to buy again)
+    app.award(added, ALL);
+    expect(app.isTierComplete(app.BONUS_TIERS[0])).toBe(true);
+    expect(app.payStageRewards()).toEqual([]);
+    expect(app.coins()).toBe(0);
+  });
+
 });
 
 describe("coins", () => {
@@ -103,12 +161,12 @@ describe("coins", () => {
   });
 
   it("a hint costs 5 coins, and there are no more hints than moves in the solution", async () => {
-    const app = await startApp();
+    const app = await startApp({ "wallet-v1": { coins: 100 } });
     const level = app.TIERS[0].levels[0];
     const moves = app.solutionFor(level, "moves").length;
     for (let i = 0; i < moves; i++) expect(app.buyHint(level, "moves")).toBe(true);
     expect(app.buyHint(level, "moves")).toBe(false);
-    expect(app.coins()).toBe(app.STARTING_COINS - moves * app.HINT_COST);
+    expect(app.coins()).toBe(100 - moves * app.HINT_COST);
   });
 });
 

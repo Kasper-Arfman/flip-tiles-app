@@ -52,7 +52,7 @@ export function howToPlayScreen() {
         Your rank is your score: an average time that starts at 5:00 and moves a little towards each
         game's time, so it takes many good games to climb. Each difficulty opens when you complete the
         stage of its number. Join the online leaderboards to compare with the world.</p>
-      <a class="button primary start-playing" href="#/tier/${TIERS[0].difficulty}">Start playing</a>
+      <a class="button primary start-playing" href="#/tier/${TIERS[0].id}">Start playing</a>
     </div>`);
 
   const demos = {

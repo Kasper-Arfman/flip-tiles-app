@@ -1,0 +1,14 @@
+{
+  "_about": "The final challenge (src/screens/final.ts): a 6x6 board found by scripts/final-puzzle-three.mjs, and a solution per goal, for its hints: flips only (the only one, 18 flips), fewest moves (the only one, 6 flips + 5 forces), and Solve it (at most solveFlips flips and solveForces forces: 13 ways, neither of the others among them, nor any chase). Tile k = row * 6 + column, from the top left. Board rows: 1 = yellow, 0 = green, the first digit the left tile. (The board before: git history.)",
+  "size": 6,
+  "board": ["100101", "100010", "111011", "000100", "100111", "010101"],
+  "minMoves": 11,
+  "minFlips": 18,
+  "solveFlips": 8,
+  "solveForces": 4,
+  "solutions": {
+    "solve": { "flips": [6, 13, 16, 21, 25, 26, 33, 35], "forces": [3, 5, 12, 28] },
+    "moves": { "flips": [7, 10, 19, 22, 27, 33], "forces": [2, 6, 10, 15, 30] },
+    "flips": { "flips": [1, 4, 5, 7, 8, 11, 13, 15, 16, 19, 22, 23, 24, 26, 27, 28, 31, 35], "forces": [] }
+  }
+}

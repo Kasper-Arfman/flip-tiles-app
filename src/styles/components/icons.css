@@ -12,9 +12,20 @@
   vertical-align: -0.15em;
 }
 
+/* An earned star: gold, filled with a round gradient lit from the top left (#gold-star, in
+   index.html; plain gold where that can't be found), with a deeper gold outline */
 .star.earned {
-  fill: var(--gold);
-  stroke: var(--gold);
+  fill: url(#gold-star) var(--gold);
+  stroke: #c98a12;
+}
+
+/* The bonus levels' stars: blue, wherever they are shown (their screens, their levels, their
+   count on the home screen): the same, in blue (#bonus-star) */
+.blue-stars .star.earned {
+  fill: url(#bonus-star) var(--bonus-blue);
+  /* (a deeper blue edge around the light fill, like ice; not much darker, or on a dark background
+     the edge disappears and the star looks smaller than a gold one of the same size) */
+  stroke: #1f5ccc;
 }
 
 .star-row {

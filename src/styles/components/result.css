@@ -333,6 +333,25 @@
   background: var(--skin-one);
 }
 
+/* A bonus level's result: its stars are blue (bigStarGold(true)), and so are their ring, their
+   sparks and the glow behind them */
+.blue-stars .result-star.earned::after {
+  border-color: var(--bonus-blue);
+}
+
+.blue-stars .spark {
+  background: #8fcbff;
+  box-shadow: 0 0 4px #bfe5ff;
+}
+
+.blue-stars .spark:nth-child(odd) {
+  background: var(--white);
+}
+
+.blue-stars .result.perfect .result-stars::before {
+  background: radial-gradient(closest-side, rgba(74, 168, 240, 0.6), rgba(74, 168, 240, 0));
+}
+
 /* Pressed: it goes down onto its edge */
 .result-buttons button:not(:disabled):active {
   transform: translateY(3px);

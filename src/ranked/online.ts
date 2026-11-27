@@ -1,11 +1,13 @@
 // The online leaderboards (the server: netlify/leaderboard.ts). Only for a player who joined
-// them (ranked.ts, join): then their name, their random device id and their ranked games are
-// sent; nothing else, and nothing at all before joining.
+// them (ranked.ts, join): then their name, their random device id, their ranked games and their
+// number of bonus stars (the Bonus stars leaderboard) are sent; nothing else, and nothing at all
+// before joining.
 //
 // Offline is normal: games wait on the device (pendingGames) and are sent at the next chance
 // (when the app starts, after each game, when the connection comes back).
 import { Capacitor } from "@capacitor/core";
 import { log } from "../log";
+import { bonusStars } from "../progress";
 import type { Entry } from "../../netlify/leaderboard";
 import { deviceId, hasJoined, leave, markUploaded, myStats, pendingGames, playerName } from "./ranked";
 import type { BoardId } from "./rules";
@@ -34,19 +36,25 @@ async function call(path: string, init?: RequestInit) {
 }
 
 let sending: Promise<void> | null = null;
+// The number of bonus stars the server last got (in this session; -1: none yet): sent again when
+// it changed, also with no games waiting
+let sentBonus = -1;
 
 // Send the games the server doesn't have yet (one send at a time); quietly does nothing offline.
 // `always`: also with no games waiting (to send a new name).
 export function sendGames(always = false): Promise<void> {
-  if (!hasJoined() || (!always && !pendingGames().length)) return sending ?? Promise.resolve();
+  if (!hasJoined() || (!always && !pendingGames().length && bonusStars() === sentBonus)) return sending ?? Promise.resolve();
   sending ??= (async () => {
     try {
       const games = pendingGames().slice(0, 200);
+      const bonus = bonusStars();
       const result = await call("/games", {
         method: "POST",
-        // (with the scores and numbers of games shown in the game, which the leaderboards show too)
-        body: JSON.stringify({ deviceId: deviceId(), name: playerName(), games, scores: myScores(), counts: myCounts() }),
+        // (with the scores and numbers of games shown in the game, which the leaderboards show too,
+        // and the bonus stars)
+        body: JSON.stringify({ deviceId: deviceId(), name: playerName(), games, scores: myScores(), counts: myCounts(), bonusStars: bonus }),
       });
+      sentBonus = bonus;
       // (a refused game is never accepted later: it isn't sent again)
       markUploaded(result.accepted, result.rejected.map((r: { id: string }) => r.id));
       for (const r of result.rejected) log("warn", `Ranked: the server refused game ${r.id}: ${r.reason}`);
@@ -116,6 +124,7 @@ export async function leaveLeaderboards() {
   await sending; // (not while games are on their way: they would make the player again)
   await call("/leave", { method: "POST", body: JSON.stringify({ deviceId: deviceId() }) });
   leave();
+  sentBonus = -1;
   try {
     localStorage.removeItem(TOP_KEY);
   } catch {

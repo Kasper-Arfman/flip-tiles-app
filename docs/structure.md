@@ -34,7 +34,7 @@ an HTML element. Capacitor wraps the built web app (`dist/`) in the Android and 
 | `main.ts` | starts the app: loads what is saved, shows the screen the address asks for, starts the store and the ads |
 | `nav.ts` | the screens' addresses (`#/tier/4`, `#/level/4/7`, ...) and going back |
 | `progress.ts` | what the player has, saved on the device: stars, coins, hints, skins, which stages are open, the tutorial |
-| `levels/levels.ts`, `levels/levels.json` | the levels (made by `scripts/curate-levels.mjs`: don't edit the JSON by hand), grouped in stages |
+| `levels/levels.ts`, `levels/levels.json` | the levels (made by `scripts/curate-levels.mjs`: don't edit the JSON by hand), grouped in stages, and each stage's bonus levels |
 | `skins.ts` | the colors (skins) and tile shapes sold in the shop, and putting a look on |
 | `sound.ts` | the sounds, made in code (Web Audio), and the sound on/off setting |
 | `log.ts` | a small log on the device (errors, purchases), shown on the debug screen |

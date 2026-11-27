@@ -5,7 +5,7 @@
 //
 // Each check returns the problems it found, as text: an empty list means all is well.
 import { MASKS, N, apply, isSolved, solveFlips, solveMoves, type Move } from "./game/flipTiles";
-import { TIERS, type Level } from "./levels/levels";
+import { BONUS_TIERS, TIERS, type Level } from "./levels/levels";
 
 // A level's board as a number: tile k (row by row from the top left, as written) is bit k
 export function boardOf(level: Level): number {
@@ -58,12 +58,15 @@ export function checkFewestMoves(level: Level): string[] {
 export function checkLevels(): string[] {
   const problems: string[] = [];
   const keys = new Map<string, string>();
-  TIERS.forEach((tier, t) => {
+  // (the bonus stages too: in the same order, and no puzzle in two places)
+  for (const list of [TIERS, BONUS_TIERS]) list.forEach((tier, t) => {
     if (!tier.levels.length) problems.push(`${tier.name}: has no levels`);
-    if (t > 0 && tier.difficulty <= TIERS[t - 1].difficulty) problems.push(`${tier.name}: not after ${TIERS[t - 1].name}`);
+    if (t > 0 && tier.difficulty <= list[t - 1].difficulty) problems.push(`${tier.name}: not after ${list[t - 1].name}`);
+    if (tier.main && tier.main.difficulty !== tier.difficulty) problems.push(`${tier.name}: opened by ${tier.main.name}`);
     tier.levels.forEach((level, i) => {
       problems.push(...checkLevel(level));
       if (level.number !== i + 1) problems.push(`${level.id}: number ${level.number} at place ${i + 1}`);
+      if (level.tier !== tier.id) problems.push(`${level.id}: in tier ${tier.id}, but its tier is ${level.tier}`);
       if (level.difficulty !== tier.difficulty) problems.push(`${level.id}: difficulty ${level.difficulty} in tier ${tier.difficulty}`);
       if (!tier.grades[level.grade]?.includes(level)) problems.push(`${level.id}: not in its grade ${level.grade}`);
       const same = keys.get(level.key);

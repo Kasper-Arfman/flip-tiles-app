@@ -220,3 +220,12 @@ Notes added as the project goes along: what was learned, problems hit, and how t
   filter on names, a way to report one and to block it (the leaderboards' Report), and, because
   joining stores a player on the server, a way to delete it from inside the app (Guideline
   5.1.1(v)): now *Leave the leaderboards*, at the bottom of the Leaderboards screen.
+- **2026-11-27**: Bonus levels: 1440 more puzzles, up to 40 per grade, in every stage from Gamma
+  on, opening when the stage is complete. Each grade is a page you swipe through. Learned: a
+  swipe between pages needs no code, only CSS (`scroll-snap-type` on a sideways scrolling row, and
+  `scroll-snap-align` on each page); the code only lights up the dot of the page in view. But
+  only for touch: a mouse can't swipe a scrolling row, so on a computer the code drags the row
+  itself (pointer events) and lets it snap on release. A stage got the same head, kept at the top
+  with `position: sticky`; the code watches the scrolling to show the group in view. And a
+  stage's place in the addresses and saves was its difficulty, which the bonus levels share: they
+  got an id of their own (100 + the difficulty), so nothing saved before had to change.

@@ -153,6 +153,28 @@ describe("the leaderboard server", () => {
     expect((await leave("x")).status).toBe(400); // (not a device id)
   });
 
+  it("bonus stars: the most first, only players with one or more, also without ranked games; not in overall", async () => {
+    expect((await board(store, "bonus")).entries).toEqual([]); // (no Peter here)
+    await post(store, { deviceId: "device-bonus-a", name: "Ada", games: [], bonusStars: 12 });
+    await post(store, { deviceId: "device-bonus-b", name: "Bo", games: games(MANY, "moves", 4, 10_000), bonusStars: 40 });
+    await post(store, { deviceId: "device-bonus-c", name: "Cy", games: games(MANY, "moves", 4, 11_000), bonusStars: 0 });
+    await post(store, { deviceId: "device-bonus-d", name: "Di", games: [], bonusStars: -3 }); // (not a number of stars)
+    const lb = await board(store, "bonus", "device-bonus-a");
+    expect(lb.entries.map((e: { name: string; value: number }) => [e.name, e.value])).toEqual([["Bo", 40], ["Ada", 12]]);
+    expect(lb.me).toMatchObject({ rank: 2, name: "Ada", value: 12 });
+    // Overall is ranked games only: Ada (no games) isn't there; Bo and Cy are, by their games
+    const overall = (await board(store, "overall")).entries.map((e: { name: string }) => e.name);
+    expect(overall).toEqual(["Bo", "Cy", PETER_NAME]);
+    // More stars later: the new count
+    await post(store, { deviceId: "device-bonus-a", name: "Ada", games: [], bonusStars: 60 });
+    expect((await board(store, "bonus")).entries[0]).toMatchObject({ name: "Ada", value: 60 });
+    // A name only on this leaderboard can be reported too
+    const report = await handle(new Request(`${URL_BASE}/report`, {
+      method: "POST", body: JSON.stringify({ deviceId: "device-bonus-b", id: lb.entries[1].id }),
+    }), store);
+    expect(await report.json()).toEqual({ ok: true });
+  });
+
   it("never shows a device id; no one else can remove a player", async () => {
     await post(store, { deviceId: "secret-device-id", name: "Zed", games: games(MANY, "moves", 4, 10_000) });
     const response = await handle(new Request(`${URL_BASE}/leaderboard?board=moves-4`), store);

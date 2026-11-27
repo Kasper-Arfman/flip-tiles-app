@@ -53,8 +53,9 @@ export function acceptsSolve(
   return moves.length === puzzle.difficulty;
 }
 
-// The leaderboards: one per mode and difficulty ("moves-5"), and the overall one
-export type BoardId = `${RankedMode}-${number}` | "overall";
+// The leaderboards: one per mode and difficulty ("moves-5"), the overall one, and the bonus
+// stars (not ranked: the stars a player earned on the bonus levels, see netlify/leaderboard.ts)
+export type BoardId = `${RankedMode}-${number}` | "overall" | "bonus";
 export const boardId = (mode: RankedMode, difficulty: number): BoardId => `${mode}-${difficulty}`;
 export const ALL_BOARDS = (["moves", "flips"] as RankedMode[])
   .flatMap((mode) => DIFFICULTIES[mode].map((d) => boardId(mode, d)));

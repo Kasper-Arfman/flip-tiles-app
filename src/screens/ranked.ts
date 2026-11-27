@@ -23,7 +23,7 @@ import { STAR_NAME, earned, isDifficultyOpen, requirements } from "../ranked/unl
 import { openCodex, popup } from "./codex";
 import { starsToUnlock } from "../progress";
 import { showGrade } from "./tier";
-import { LOCK, plural, screen, topbar } from "./ui";
+import { LOCK, plural, screen, star, topbar } from "./ui";
 
 const MODE_NAMES: Record<RankedMode, string> = { moves: "Fewest moves", flips: "Flips only" };
 const unit = (mode: RankedMode) => (mode === "flips" ? "flip" : "move");
@@ -180,7 +180,7 @@ function showUnlock(mode: RankedMode, d: number) {
       return `<li class="stage-locked"><span class="unlock-row" ${bar} aria-label="${name}, stage locked">${LOCK}${inner}</span></li>`;
     }
     if (complete) return `<li class="complete"><span class="unlock-row" aria-label="${name}, complete">${inner}</span></li>`;
-    return `<li><a class="unlock-row" ${bar} href="#/tier/${r.tier.difficulty}" data-i="${i}">${inner}</a></li>`;
+    return `<li><a class="unlock-row" ${bar} href="#/tier/${r.tier.id}" data-i="${i}">${inner}</a></li>`;
   }).join("");
   const dialog = popup("unlock-dialog", `<h2>${MODE_NAMES[mode]} · ${label(mode, d)}</h2>`, `
     <p class="hint-dialog-text">${mode === "flips"
@@ -422,6 +422,8 @@ export function showLeaderboard(board: BoardId) {
 export function rankedLeaderboard(rerender: () => void) {
   const options = [
     `<option value="overall">Top Ranked Players</option>`,
+    // (not ranked: the stars earned on the bonus levels; only players with at least one)
+    `<option value="bonus">Bonus stars</option>`,
     ...RANKED_MODES.map((m) => `<optgroup label="${MODE_NAMES[m]}">${DIFFICULTIES[m]
       .map((d) => `<option value="${boardId(m, d)}">${plural(d, unit(m))}</option>`).join("")}</optgroup>`),
   ].join("");
@@ -430,8 +432,9 @@ export function rankedLeaderboard(rerender: () => void) {
     ${topbar("Leaderboards", previousHash() === "#/" ? "#/" : "#/ranked")}
     ${hasJoined() ? "" : `<section class="ranked-card join-card">
       <h2>Join the online leaderboards</h2>
-      <p>Pick a name (others may have the same one). Your ranked games, your name and a random
-        number for this device are sent to the game's server, nothing else.</p>
+      <p>Pick a name (others may have the same one). Your ranked games, your number of bonus stars,
+        your name and a random number for this device are sent to the game's server, nothing
+        else.</p>
       <p>Offensive names aren't allowed. Tap a name on a leaderboard to report it.</p>
       <form class="join-form"><input name="name" maxlength="${NAME_MAX}" required placeholder="Your name" autocomplete="nickname" />
         <button type="submit" class="primary">Join</button></form>
@@ -453,20 +456,25 @@ export function rankedLeaderboard(rerender: () => void) {
     try {
       const data = await fetchLeaderboard(board, { offset: from, limit: PAGE });
       if (shownBoard !== board || offset !== from || !element.isConnected) return;
-      // (Top Ranked Players: the name and games only; a leaderboard also the score)
-      const value = (v: number) => (board === "overall" ? "" : `<span class="value">${formatScore(v)}</span>`);
+      // (Top Ranked Players: the name and games only; a leaderboard also the score; Bonus stars:
+      // the name and the stars, blue, instead of games)
+      const bonus = board === "bonus";
+      const value = (v: number) => (board === "overall" || bonus ? "" : `<span class="value">${formatScore(v)}</span>`);
+      const games = (e: Entry) => bonus
+        ? `<span class="games bonus-count blue-stars">${star(true)} ${e.value}</span>`
+        : `<span class="games">${plural(e.games, "game")}</span>`;
       // (a name: a button to report it, except your own and Peter's, the made-up player with no
       // games; a name you reported is hidden for you)
       const name = (e: Entry) =>
         e.me ? `<span class="name">${escape(e.name)} (you)</span>`
           : isReported(e.id) ? `<span class="name reported">Hidden name</span>`
-            : e.id && e.games > 0 ? `<button type="button" class="name" data-id="${e.id}" data-name="${escape(e.name)}">${escape(e.name)}</button>`
+            : e.id && (e.games > 0 || bonus) ? `<button type="button" class="name" data-id="${e.id}" data-name="${escape(e.name)}">${escape(e.name)}</button>`
               : `<span class="name">${escape(e.name)}</span>`;
       const row = (e: Entry) =>
         `<li class="${[e.me ? "me" : "", e.rank === 1 ? "first" : ""].join(" ").trim()}"><span class="rank">${e.rank}${e.rank === 1 ? CROWN : ""}</span>${name(e)}` +
-        `${value(e.value)}<span class="games">${plural(e.games, "game")}</span></li>`;
+        `${value(e.value)}${games(e)}</li>`;
       if (!data.entries.length) {
-        list.innerHTML = `<p class="ranked-label">No one is ranked here yet.</p>`;
+        list.innerHTML = `<p class="ranked-label">${bonus ? "No one has bonus stars yet." : "No one is ranked here yet."}</p>`;
         return;
       }
       const first = data.entries[0].rank;
@@ -477,7 +485,8 @@ export function rankedLeaderboard(rerender: () => void) {
       const mine = data.me
         ? data.me.rank <= PAGE || data.entries.some((e) => e.me) ? ""
           : `<ol class="leaderboard-list mine">${row(data.me)}</ol>`
-        : hasJoined() ? `<p class="ranked-label my-position">You're not on this leaderboard yet.</p>` : "";
+        : hasJoined() ? `<p class="ranked-label my-position">${bonus
+          ? "Earn a bonus star to be on this leaderboard." : "You're not on this leaderboard yet."}</p>` : "";
       list.innerHTML = `<ol class="leaderboard-list">${data.entries.map(row).join("")}</ol>
         ${mine}
         <nav class="pager" aria-label="Pages">

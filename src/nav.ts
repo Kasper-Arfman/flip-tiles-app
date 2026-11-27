@@ -5,8 +5,10 @@
 //   #/codex             the Codex: one entry per completed stage
 //   #/debug             the debug screen (tap the version on the home screen 5 times)
 //   #/ranked            ranked mode: the lobby; #/ranked/play a game; #/ranked/leaderboard
-//   #/tier/4            the levels of difficulty 4
-//   #/level/4/7         level 7 of difficulty 4
+//   #/tier/4            the levels of the tier with id 4 (a stage: its difficulty; a bonus
+//                       stage: 100 + its difficulty, see Tier.id)
+//   #/level/4/7         level 7 of tier 4
+//   #/final             the final puzzle (7x7): its two stars; #/final/moves, #/final/flips a try
 // Going to a screen adds it to the browser's history, so the back button (in the browser, and
 // Android's back button in the app) goes back a screen. On the first screen, Android's back
 // button closes the app.
@@ -25,8 +27,10 @@ export type Route =
   | { screen: "ranked" }
   | { screen: "ranked-play" }
   | { screen: "ranked-leaderboard" }
-  | { screen: "tier"; difficulty: number }
-  | { screen: "level"; difficulty: number; number: number };
+  | { screen: "tier"; tier: number }
+  | { screen: "level"; tier: number; number: number }
+  | { screen: "final" }
+  | { screen: "final-play"; goal: "solve" | "flips" | "moves" };
 
 export function currentRoute(): Route {
   const parts = location.hash.replace(/^#\/?/, "").split("/");
@@ -38,8 +42,10 @@ export function currentRoute(): Route {
   if (parts[0] === "ranked" && parts[1] === "play") return { screen: "ranked-play" };
   if (parts[0] === "ranked" && parts[1] === "leaderboard") return { screen: "ranked-leaderboard" };
   if (parts[0] === "ranked") return { screen: "ranked" };
-  if (parts[0] === "tier" && a) return { screen: "tier", difficulty: a };
-  if (parts[0] === "level" && a && b) return { screen: "level", difficulty: a, number: b };
+  if (parts[0] === "final" && (parts[1] === "solve" || parts[1] === "flips" || parts[1] === "moves")) return { screen: "final-play", goal: parts[1] };
+  if (parts[0] === "final") return { screen: "final" };
+  if (parts[0] === "tier" && a) return { screen: "tier", tier: a };
+  if (parts[0] === "level" && a && b) return { screen: "level", tier: a, number: b };
   return { screen: "home" };
 }
 

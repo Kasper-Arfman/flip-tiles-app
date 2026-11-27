@@ -1,0 +1,708 @@
+/* The final puzzle (screens/final.ts): darker and more ominous than anything before it. Near
+   black with a deep red glow, the title's chunky font, and a slow pulse, like a heartbeat. */
+
+/* This screen's own colors (the shared ones: tokens.css) */
+:root {
+  --final-black: #0b0709;
+  --final-red: #c8212f;
+  --final-ember: #ff5a4a;
+}
+
+/* --- on the home screen, under every stage: the card that leads to it ---------------------- */
+.final-card {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  justify-items: center;
+  gap: 0.25rem;
+  margin: 1.4rem 0 0;
+  padding: 1.4rem 1rem 1.2rem;
+  border: 1px solid rgba(255, 90, 74, 0.55);
+  border-radius: 14px;
+  background:
+    radial-gradient(120% 90% at 50% 110%, rgba(200, 33, 47, 0.55), transparent 65%),
+    repeating-linear-gradient(45deg, rgba(255, 90, 74, 0.05) 0 1px, transparent 1px 12px),
+    var(--final-black);
+  box-shadow: 0 0 0 1px rgba(200, 33, 47, 0.35), 0 0 18px rgba(200, 33, 47, 0.45), var(--lift-shadow);
+  color: var(--light-ink);
+  text-align: center;
+  text-decoration: none;
+  animation: final-pulse 2.4s ease-in-out infinite;
+}
+
+.final-card:active {
+  transform: scale(0.98);
+}
+
+.final-card-eyebrow {
+  color: #e88a82;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+/* Solved in the goal's moves: the star, big and blue above Solved!, popping in and then turning
+   around its own axis, on and on, with a blue glow; and "The star is yours!" in dark grey */
+.final-play .result-stars {
+  top: 8%;
+  perspective: 500px;
+}
+
+/* (3D: the face in front, the darker copies behind it, each 1.2px further back; the whole star
+   turns, with its layers kept in depth: preserve-3d, and no filter on it, which would flatten it) */
+.final-prize {
+  position: relative;
+  display: inline-block;
+  width: 6rem;
+  height: 6rem;
+  transform-style: preserve-3d;
+  animation:
+    prize-in 0.5s cubic-bezier(0.3, 1.6, 0.5, 1) both,
+    prize-spin 3.2s linear 0.5s infinite;
+}
+
+.prize-layer,
+.prize-face {
+  position: absolute;
+  inset: 0;
+}
+
+.prize-layer {
+  transform: translateZ(calc(var(--z) * -1.2px));
+  filter: brightness(0.45) saturate(1.2);
+}
+
+.prize-face {
+  filter: drop-shadow(0 0 12px rgba(92, 184, 255, 0.8));
+}
+
+.final-prize svg {
+  width: 100%;
+  height: 100%;
+}
+
+@keyframes prize-in {
+  from {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes prize-spin {
+  from {
+    transform: rotateY(0deg);
+  }
+  to {
+    transform: rotateY(360deg);
+  }
+}
+
+.final-play .result-title {
+  color: #5cb8ff; /* (the star's blue) */
+  text-shadow: 0 0 10px rgba(92, 184, 255, 0.55);
+}
+
+/* (Solve it: its star gold, as the stages' stars, the glow and the words too) */
+.final-prize.gold .prize-face {
+  filter: drop-shadow(0 0 12px rgba(255, 210, 74, 0.8));
+}
+
+.final-play .result.gold .result-title {
+  color: var(--gold-bright);
+  text-shadow: 0 0 10px rgba(255, 210, 74, 0.55);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .final-prize {
+    animation: none;
+  }
+}
+
+/* --- Solve it's run: the timeline, the counter, the warm-ups ---------------------------------- */
+/* The timeline: a circle per warm-up (done: gold; the one on now: a ring, pulsing), and the
+   boss, the board, at the end (Digamma's letter, glowing red); the gold star counter beside it */
+.run-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  margin: 0.3rem 0 0.2rem;
+}
+
+.run-line {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.run-dot {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 50%;
+  border: 1.5px solid #6a4a4e;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.run-dot.done {
+  border-color: var(--gold-bright);
+  background: var(--gold-bright);
+  box-shadow: 0 0 6px rgba(255, 210, 74, 0.7);
+}
+
+.run-dot.current,
+.run-boss.current {
+  border-color: #fff;
+  animation: run-pulse 1s ease-in-out infinite alternate;
+}
+
+@keyframes run-pulse {
+  from { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.5); }
+  to { box-shadow: 0 0 0 4px rgba(255, 255, 255, 0); }
+}
+
+.run-boss {
+  display: grid;
+  place-items: center;
+  width: 1.7rem;
+  height: 1.7rem;
+  margin-left: 4px;
+  border: 1.5px solid var(--final-ember);
+  border-radius: 50%;
+  background: #1d0b0e;
+  color: var(--final-ember);
+  font-family: "Times New Roman", Georgia, serif;
+  font-size: 1.1rem;
+  font-style: italic;
+  text-shadow: 0 0 8px rgba(255, 90, 74, 0.8);
+}
+
+.run-boss.done {
+  border-color: var(--gold-bright);
+  color: var(--gold-bright);
+  text-shadow: 0 0 8px rgba(255, 210, 74, 0.8);
+}
+
+/* The counter: the stages' gold stars, going up 3 with each warm-up, 1 more with the board */
+.run-stars {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: var(--gold-bright);
+  font-size: 1.15rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.run-stars.bump {
+  animation: run-bump 0.4s ease-out;
+}
+
+@keyframes run-bump {
+  40% { transform: scale(1.25); }
+}
+
+/* A warm-up's stars flying into the counter (the coins' flight: home.css, .flying-coin) */
+.flying-star .star {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* The warm-ups: shown while they last; the board, its forces, its goal and its buttons hidden
+   until the warm-ups are done */
+.run-warmup {
+  display: none;
+}
+
+.final-play.warming .run-warmup {
+  display: block;
+}
+
+.final-play.warming :is(.final-tiles, .available-forces, .final-goal-star, .final-actions) {
+  display: none;
+}
+
+.run-label {
+  margin: 0.2rem 0 0.5rem;
+  text-align: center;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+/* (the warm-up's board: the levels' own, without its tip) */
+.run-slot .hint {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .run-dot.current,
+  .run-boss.current,
+  .run-stars.bump {
+    animation: none;
+  }
+}
+
+/* A try's top bar: the name in the middle of the room between the back arrow and the hint button
+   (the same space on both sides), as on the stages' screens */
+.final-play .topbar {
+  grid-template-columns: auto 1fr auto;
+}
+
+.final-play .topbar h1 {
+  justify-self: center;
+}
+
+/* (digamma, ϝ, at the top of its screens: in the stages' letter style, but glowing red) */
+.final-screen .stage-symbol {
+  color: var(--final-ember);
+  text-shadow: 0 0 8px rgba(255, 90, 74, 0.8);
+}
+
+.final-card-title {
+  font-family: "Lilita One", system-ui, sans-serif;
+  font-size: 2rem;
+  line-height: 1.1;
+  letter-spacing: 0.02em;
+  color: #fff;
+  text-shadow: 0 0 14px rgba(255, 90, 74, 0.85), 0 2px 0 #5a0b12;
+}
+
+/* (three: Solve it's gold, then the two blue) */
+.final-card-stars,
+.final-card-stars .blue-stars {
+  display: flex;
+  gap: 0.3rem;
+  --empty-star: rgba(255, 138, 130, 0.7);
+}
+
+.final-card-stars {
+  margin-top: 0.2rem;
+}
+
+.final-card-stars .star {
+  width: 1.2rem;
+  height: 1.2rem;
+}
+
+/* (the heartbeat: the glow swells twice, then rests) */
+@keyframes final-pulse {
+  0%, 30%, 100% { box-shadow: 0 0 0 1px rgba(200, 33, 47, 0.35), 0 0 18px rgba(200, 33, 47, 0.45), var(--lift-shadow); }
+  12% { box-shadow: 0 0 0 1px rgba(255, 90, 74, 0.7), 0 0 30px rgba(255, 70, 60, 0.75), var(--lift-shadow); }
+  22% { box-shadow: 0 0 0 1px rgba(255, 90, 74, 0.55), 0 0 24px rgba(255, 70, 60, 0.6), var(--lift-shadow); }
+}
+
+/* --- its screens: dark all over -------------------------------------------------------------- */
+.final-screen {
+  --paper: var(--final-black);
+  --ink: var(--light-ink);
+  --muted: #b9a3a5;
+  --line: #3a2528;
+  --empty-star: #8a6a6d;
+  color: var(--ink);
+}
+
+html:has(.final-screen) {
+  background:
+    radial-gradient(90% 60% at 50% 100%, rgba(200, 33, 47, 0.28), transparent 70%) fixed,
+    var(--final-black);
+}
+
+.final-intro {
+  margin: 1.2rem 0 1.6rem;
+  text-align: center;
+}
+
+.final-intro h2 {
+  margin: 0.2rem 0 0.6rem;
+  font-family: "Lilita One", system-ui, sans-serif;
+  font-size: 2.6rem;
+  font-weight: 400;
+  line-height: 1.05;
+  color: #fff;
+  text-shadow: 0 0 18px rgba(255, 90, 74, 0.8), 0 3px 0 #5a0b12;
+}
+
+/* (on one line, also on a narrow phone, 360px: smaller as the screen is narrower) */
+.final-intro p:last-child {
+  margin: 0 auto;
+  color: var(--muted);
+  font-size: clamp(0.78rem, 3.7vw, 1rem);
+  white-space: nowrap;
+}
+
+/* The two levels: big tiles, a question mark where the board would be */
+/* (one under the other, each as wide as the screen) */
+.final-levels {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.2rem;
+  margin: 0;
+  padding: 0 0.4rem;
+  list-style: none;
+}
+
+/* A level: a square button, its name and star under it */
+.final-level-item {
+  display: grid;
+  justify-items: center;
+  gap: 0.35rem;
+}
+
+/* (until its star is earned: dark, a red glow rising from below, and a big glowing question mark;
+   nothing that tells the board's size) */
+.final-level {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  aspect-ratio: 1;
+  overflow: hidden; /* (the picture inside the rounded corners) */
+  border: 1px solid rgba(255, 90, 74, 0.45);
+  border-radius: 14px;
+  background:
+    radial-gradient(90% 70% at 50% 100%, rgba(200, 33, 47, 0.35), transparent 70%),
+    #170c0f;
+  box-shadow: 0 0 14px rgba(200, 33, 47, 0.3);
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.final-level:active {
+  transform: scale(0.97);
+}
+
+/* Its star earned: the button becomes the board, as played with every hint shown (the picture,
+   square like the button, set by final.ts): square corners, its edges fading into the dark */
+.final-level.won {
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  background-color: transparent;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  -webkit-mask-image:
+    linear-gradient(to right, transparent, #000 1.2%, #000 98.8%, transparent),
+    linear-gradient(to bottom, transparent, #000 1.2%, #000 98.8%, transparent);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    linear-gradient(to right, transparent, #000 1.2%, #000 98.8%, transparent),
+    linear-gradient(to bottom, transparent, #000 1.2%, #000 98.8%, transparent);
+  mask-composite: intersect;
+}
+
+.final-question {
+  font-family: "Lilita One", system-ui, sans-serif;
+  font-size: 4rem;
+  line-height: 1;
+  color: #fff;
+  text-shadow: 0 0 20px rgba(255, 90, 74, 0.9), 0 3px 0 #5a0b12;
+  animation: final-flicker 3.2s ease-in-out infinite;
+}
+
+@keyframes final-flicker {
+  0%, 100% { opacity: 1; }
+  45% { opacity: 0.75; }
+  50% { opacity: 0.95; }
+}
+
+.final-level-item .star {
+  width: 1.3rem;
+  height: 1.3rem;
+}
+
+.final-level-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 700;
+}
+
+/* --- a try ------------------------------------------------------------------------------------ */
+.final-clock {
+  margin-top: 0.6rem;
+  text-align: center;
+  font-size: 3rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: #fff;
+  text-shadow: 0 0 16px rgba(255, 90, 74, 0.6);
+}
+
+/* (the last half minute: red, and beating) */
+.final-clock.late {
+  color: var(--final-ember);
+  animation: final-beat 1s ease-in-out infinite;
+}
+
+@keyframes final-beat {
+  0%, 100% { transform: scale(1); }
+  15% { transform: scale(1.08); }
+}
+
+/* The hint button, at the top right: dark, with a red rim and the coin in gold */
+.final-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.3rem 0.75rem;
+  border: 1px solid rgba(255, 90, 74, 0.55);
+  border-radius: 999px;
+  background: linear-gradient(180deg, #2a1418, #170b0e);
+  box-shadow: 0 0 10px rgba(200, 33, 47, 0.35);
+  color: #f3d9d6;
+  font-size: 0.85rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.final-hint:not(:disabled):hover,
+.final-hint:not(:disabled):active {
+  background: linear-gradient(180deg, #3a1a1f, #200e12);
+  color: #fff;
+}
+
+.final-hint:disabled {
+  opacity: 0.45;
+}
+
+/* Its popup ("This hint costs 100, more than usual. Proceed?"): dark too */
+.app-dialog.final-dark {
+  border: 1px solid rgba(255, 90, 74, 0.45);
+  background: linear-gradient(180deg, #1d1114, #0f080a);
+  box-shadow: 0 0 30px rgba(200, 33, 47, 0.45), 0 20px 60px rgba(0, 0, 0, 0.6);
+  color: var(--light-ink);
+  --ink: var(--light-ink);
+  --muted: #b9a3a5;
+}
+
+.final-dark .dialog-head h2 {
+  color: #fff;
+}
+
+.final-dark .close {
+  color: var(--light-ink);
+}
+
+.final-dark .coin {
+  width: 1.05em;
+  height: 1.05em;
+  vertical-align: -0.18em;
+}
+
+.final-dark .final-balance {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.final-dark .dialog-buttons .cancel {
+  border-color: #6a4a4e;
+  background: transparent;
+  color: var(--light-ink);
+}
+
+.final-dark .dialog-buttons .primary {
+  border-color: var(--final-ember);
+  background: var(--final-red);
+  color: #fff;
+}
+
+/* At the top, side by side: the clock, and the goal's star (blue, to earn) with its name and
+   progress under it, as on a level, without the box */
+/* (space-around: the same room on both sides of each, so the space between them is twice the
+   space at the edges) */
+.final-top {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  margin: 0.4rem 0 0.6rem;
+}
+
+.final-top .final-clock {
+  margin: 0;
+  font-size: 3.6rem;
+  line-height: 1.1;
+}
+
+/* (as tall as the clock beside it: a small star, the name and the progress in small type) */
+.final-goal-star {
+  display: grid;
+  justify-items: center;
+  gap: 0.05rem;
+  text-align: center;
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.2;
+  transition: opacity 0.2s ease;
+}
+
+.final-goal-star .star {
+  width: 1.75rem;
+  height: 1.75rem;
+}
+
+/* (not earned yet: a hollow grey star, as an empty star anywhere; earned: blue) */
+.final-goal-star .star:not(.earned) {
+  stroke: #8a8f98;
+}
+
+.final-goal-name small {
+  display: block;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* (past the goal's moves: the star can't be earned this try) */
+.final-goal-star.missed {
+  opacity: 0.4;
+}
+
+.final-play .available-forces {
+  margin: 0 0 0.6rem;
+  text-align: center;
+}
+
+/* The board: the levels' board (game/flip-tiles.css: the same tiles, ripple and solved wave),
+   6 wide, in its own devilish skin whatever the player's: blood red and black, square tiles (no
+   shape, no detail) */
+.final-tiles {
+  width: 100%;
+  --skin-zero: #161013;
+  --skin-one: #b3121f;
+  --skin-shape: none;
+  --skin-detail-zero: none;
+  --skin-detail-one: none;
+}
+
+.final-tiles .board {
+  grid-template-columns: repeat(6, 1fr);
+  padding: 6px;
+  border-radius: 10px;
+  box-shadow: 0 0 0 1px rgba(255, 90, 74, 0.35), 0 0 26px rgba(200, 33, 47, 0.45);
+}
+
+/* A texture on the tiles, only just visible: irregular cobblestones, as on a video game's floor,
+   repeating seamlessly, a little darker on the red tiles and a little redder on the black ones
+   (made by scripts/make-final-texture.mjs; the skin's "detail", skin.css: a picture over the
+   tile, which turns with it) */
+.final-tiles .tile {
+  --skin-detail-one: url("./final-texture-red.svg");
+  --skin-detail-zero: url("./final-texture-black.svg");
+}
+
+
+/* The flash before a tile turns over: on the levels a brightness filter (flip-tiles.css, glow),
+   which does nothing for black, so here a burst of light over the tile instead (its ::before, the
+   solved wave's flash layer), at the same moment: the flash time, from the tile's ripple delay */
+.final-tiles .tile.flipping::before {
+  animation: final-flash var(--flash-time) ease-in-out var(--flip-delay) both;
+}
+
+@keyframes final-flash {
+  0%, 100% { opacity: 0; }
+  50% { opacity: 0.25; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .final-tiles .tile.flipping::before {
+    animation: none;
+  }
+}
+
+/* (the black tiles: a faint red rim, so they show on the near-black page) */
+.final-tiles .tile:not(.one) {
+  box-shadow: inset 0 0 0 1px rgba(255, 90, 74, 0.28);
+}
+
+.final-actions {
+  display: flex;
+  justify-content: center;
+  gap: 0.6rem;
+  margin-top: 0.9rem;
+}
+
+.final-actions button {
+  padding: 0.35rem 1.1rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink);
+}
+
+.final-play:is(.over, .solved-final) .final-actions {
+  display: none;
+}
+
+.final-again {
+  margin-top: 1rem;
+  text-align: center;
+}
+
+/* Time's up: the tiles of the board in play go dark and grey, and over them, as Solved! over a
+   solved board, "Time's up" in glowing red, popping in, with "The puzzle wins this time." under it */
+.final-play.over .board .tile {
+  filter: grayscale(1) brightness(0.45);
+}
+
+/* (and the warm-up board's own buttons go: nothing more to do on it) */
+.final-play.over .run-slot .moves {
+  visibility: hidden;
+}
+
+.time-up {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: grid;
+  place-content: center;
+  gap: 0.3rem;
+  text-align: center;
+  pointer-events: none;
+}
+
+.time-up strong {
+  font-size: clamp(2.2rem, 10vw, 3.5rem);
+  line-height: 1.1;
+  color: var(--final-ember);
+  text-shadow: 0 0 16px rgba(255, 90, 74, 0.75), 0 2px 6px rgba(0, 0, 0, 0.6);
+  animation: pop 0.3s ease-out both;
+}
+
+.time-up span {
+  color: var(--light-ink);
+  font-size: 1.1rem;
+  font-weight: 700;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
+}
+
+.final-retry {
+  padding: 0.5rem 1.4rem;
+  border: 1px solid var(--final-ember);
+  border-radius: 999px;
+  background: var(--final-red);
+  color: #fff;
+  font-weight: 700;
+}
+
+.final-retry:not(:disabled):hover,
+.final-retry:not(:disabled):active {
+  background: #a3151f;
+  color: #fff;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .final-card,
+  .final-question,
+  .final-clock.late {
+    animation: none;
+  }
+}

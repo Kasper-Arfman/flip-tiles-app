@@ -10,7 +10,8 @@ export interface Level {
   solutionMoves: { flips: number[]; forces: number[] }; // a solution in minMoves moves, with the
   //                       fewest forces of all such solutions: its hints
   maxForces: number; // the forces the player has on this level: as many as solutionMoves uses
-  difficulty: number; // its tier: equal to minFlips (the flips-only star is the hard one)
+  difficulty: number; // its tier's difficulty: equal to minFlips (the flips-only star is the hard one)
+  tier: number; // its tier's id (see Tier.id): in the addresses, #/level/<tier>/<number>
   number: number; // its place in the tier, from 1
   grade: number; // its group in the tier, from 0: the levels with the same minMoves
   key: string; // the board's standard form: the same for all its rotations, mirror images and
@@ -49,13 +50,20 @@ function standardForm(board: string): string {
 }
 
 export interface Tier {
+  // Its id, in the addresses (#/tier/<id>) and in what is saved about it (bought, its groups
+  // bought): a stage's difficulty; a bonus stage's is BONUS_ID + its difficulty
+  id: number;
   difficulty: number;
-  name: string; // what the player sees: "Alpha", "Beta", ...
-  stage: string; // the stage's own name: "Alpha", "Beta", ...
+  name: string; // what the player sees: "Alpha", "Beta", ..., "Bonus Epsilon"
+  stage: string; // the stage's own name: "Alpha", "Beta", ... (a bonus stage: its stage's)
   symbol: string; // its Greek letter, lower case: "α", "β", ...
   levels: Level[];
   grades: Level[][]; // the levels in groups, easiest first (the levels are sorted by minMoves)
+  // A bonus stage: the stage of the same difficulty, which opens it when complete
+  main?: Tier;
 }
+
+export const BONUS_ID = 100;
 
 // The tiers are called stages, after the Greek letters, easiest first: their names and letters
 const STAGES = [
@@ -63,31 +71,55 @@ const STAGES = [
   ["Eta", "η"], ["Theta", "θ"], ["Iota", "ι"], ["Kappa", "κ"], ["Lambda", "λ"], ["Mu", "μ"], ["Nu", "ν"],
 ];
 
-export const TIERS: Tier[] = data.tiers.map((tier, t) => {
+type TierData = (typeof data.tiers)[number];
+
+function makeTier(tier: TierData, id: number, name: string, stage: string, symbol: string, main?: Tier): Tier {
   const grades: Level[][] = [];
   const levels = tier.levels.map((level, i): Level => {
     if (i === 0 || level.minMoves !== tier.levels[i - 1].minMoves) grades.push([]);
     const full = {
-      ...level, difficulty: tier.difficulty, number: i + 1, grade: grades.length - 1, key: standardForm(level.board),
+      ...level, difficulty: tier.difficulty, tier: id, number: i + 1, grade: grades.length - 1, key: standardForm(level.board),
       expertFlips: level.minFlips > tier.difficulty,
       maxForces: level.solutionMoves.forces.length,
     };
     grades[grades.length - 1].push(full);
     return full;
   });
+  return { id, difficulty: tier.difficulty, name, stage, symbol, levels, grades, main };
+}
+
+// The stages
+export const TIERS: Tier[] = data.tiers.map((tier, t) => {
   const [stage, symbol] = STAGES[t] ?? [String(t + 1), ""];
-  return { difficulty: tier.difficulty, name: stage, stage, symbol, levels, grades };
+  return makeTier(tier, tier.difficulty, stage, stage, symbol);
 });
 
-// A level's name: its stage and its number, e.g. "Alpha 7"
-export const levelName = (level: Level) => `${findTier(level.difficulty)!.stage} ${level.number}`;
+// The bonus levels of each stage from Gamma on: levels of the same difficulty that aren't in the
+// game otherwise, up to 40 per group (see scripts/curate-levels.mjs). They are a tier of their
+// own (`main`: their stage), shown inside their stage once it is complete (every star), with a tab
+// per group; all their groups are open at once. Their stars count in the total, but not towards
+// opening the stages, the Codex or ranked mode.
+export const BONUS_TIERS: Tier[] = (data.bonus as TierData[]).map((tier) => {
+  const main = TIERS.find((t) => t.difficulty === tier.difficulty)!;
+  return makeTier(tier, BONUS_ID + tier.difficulty, `Bonus ${main.stage}`, main.stage, main.symbol, main);
+});
 
-export const findTier = (difficulty: number) => TIERS.find((t) => t.difficulty === difficulty);
+// A stage's bonus levels (none for Alpha and Beta)
+export const bonusOf = (tier: Tier) => BONUS_TIERS.find((b) => b.main === tier);
 
-export const findLevel = (difficulty: number, number: number) =>
-  findTier(difficulty)?.levels[number - 1];
+// Every tier, the stages first
+export const ALL_TIERS = [...TIERS, ...BONUS_TIERS];
+
+// A level's name: its stage and its number, e.g. "Alpha 7", "Bonus Epsilon 12"
+export const levelName = (level: Level) => `${findTier(level.tier)!.name} ${level.number}`;
+
+// A tier by its id (Tier.id)
+export const findTier = (id: number) => ALL_TIERS.find((t) => t.id === id);
+
+export const findLevel = (tier: number, number: number) =>
+  findTier(tier)?.levels[number - 1];
 
 // The level after this one in its tier (undefined after the last)
-export const nextLevel = (level: Level) => findTier(level.difficulty)?.levels[level.number];
+export const nextLevel = (level: Level) => findTier(level.tier)?.levels[level.number];
 
-export const totalLevels = TIERS.reduce((n, t) => n + t.levels.length, 0);
+export const totalLevels = ALL_TIERS.reduce((n, t) => n + t.levels.length, 0);

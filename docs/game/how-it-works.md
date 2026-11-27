@@ -59,7 +59,12 @@ Every part of the game, one by one. Back to [the documentation](../index.md).
     score on them, so playing well everywhere beats being best at one. Times are shown in
     minutes and seconds;
   - *Peter Pathetic*, a made-up player, is on every leaderboard with the worst score (5:00, no
-    games), so none is empty; he always comes last overall (`netlify/leaderboard.ts`).
+    games), so none is empty; he always comes last overall (`netlify/leaderboard.ts`);
+  - one more leaderboard, *Bonus stars*, isn't ranked games: the stars a player earned on the
+    bonus levels, the most first, for every player who joined and has at least one (also without
+    ranked games). The app sends its count with the games, and again whenever it changed. It
+    doesn't count towards Top Ranked Players, has no Peter, and can't be checked by the server
+    (the bonus levels are played offline), like the scores the app reports.
 
   **No cheating by leaving** (`ranked.ts`): the game is saved as *active* before the puzzle is
   shown. Leaving its screen (back arrow, Android's back button) asks first and then counts as a
@@ -105,7 +110,9 @@ Every part of the game, one by one. Back to [the documentation](../index.md).
   the solve that earns its last star shows "Stage complete!" without buttons and goes to the
   menu by itself, where "+50" rises from the stage's card and its coins burst out and fly into
   the coin pouch, which counts up (`payStageRewards` in `progress.ts`, `flyCoins` in `home.ts`;
-  the wallet remembers which stages were paid, so each pays once). After a stage's last level
+  the wallet remembers which stages were paid, so each pays once). A stage's bonus levels, bought
+  for 200 coins once it is complete, pay 150 back the same way when every bonus star is earned (see
+  [the levels](levels.md#bonus-levels)). After a stage's last level
   otherwise, the button under the stars says *Menu* and leads home.
 - **Unlocking.** A stage opens when 80% of all the stars of the stages before it are earned
   (`UNLOCK_SHARE` in `progress.ts`, rounded up: Gamma needs 17 of the 21 of Alpha and Beta, ...),
@@ -113,8 +120,8 @@ Every part of the game, one by one. Back to [the documentation](../index.md).
   (`BETA_STARS`) so new players get going quickly. Or a stage opens right away for 100 coins
   (`UNLOCK_COST`). Within a stage, the levels come in groups (a grade: the levels with the same
   minMoves); the first group is open, and each next one opens when 10 stars are earned in the
-  group before it (`UNLOCK_GRADE_STARS`; all its stars when it has fewer). The divider line above
-  a locked group says how many stars are still needed, and the locked group next in line can be
+  group before it (`UNLOCK_GRADE_STARS`; all its stars when it has fewer). The line above a locked
+  group says how many stars are still needed, and the locked group next in line can be
   unlocked for 50 coins (`GRADE_UNLOCK_COST`). Locked or open is not saved: it follows from the
   stars every time (only coin purchases are saved), so only stars on levels that are in the game
   count.
@@ -135,7 +142,7 @@ Every part of the game, one by one. Back to [the documentation](../index.md).
   lower-case letter in gold before the name ("α Alpha", `stageTitle` in `ui.ts`), and a level is
   called by its stage and number ("Alpha 7"). The code and the addresses (`#/tier/3`) still
   use the difficulty.
-- **Coins.** A new player gets 100 (`STARTING_COINS`). More come from completing stages, from
+- **Coins.** A new player starts with none (`STARTING_COINS` = 0). They come from completing stages, from
   watching a short video, and from coin packs bought in the app (see *Monetization: coins, ads
   and prices*; all the numbers are in `src/monetization.ts`).
 - **The shop** (`#/shop`: the bag button on the home screen, or tap your coins) sells the look

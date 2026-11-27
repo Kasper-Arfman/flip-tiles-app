@@ -142,6 +142,14 @@ export const sound = {
     tone({ freq: vary(1975), length: 0.08, volume: 0.08, type: "square" });
     tone({ freq: vary(2637), at: 0.06, length: 0.2, volume: 0.07, type: "square" });
   },
+  // A warm-up of the final challenge's run solved (step: 0 for the first): a short bleep, one note
+  // higher up a major scale each time, from C5 to E6 for the tenth
+  climb(step: number) {
+    const scale = [0, 2, 4, 5, 7, 9, 11, 12, 14, 16];
+    const freq = C5 * 2 ** (scale[Math.min(step, scale.length - 1)] / 12);
+    tone({ freq, length: 0.07, volume: 0.08, type: "square" });
+    tone({ freq: freq * 1.5, at: 0.05, length: 0.16, volume: 0.06, type: "square" });
+  },
   hint() {
     tone({ freq: G5, length: 0.15, volume: 0.12 });
     tone({ freq: C6, at: 0.12, length: 0.25, volume: 0.12 });

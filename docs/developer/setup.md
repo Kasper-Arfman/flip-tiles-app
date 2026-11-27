@@ -93,6 +93,28 @@ Leave it running while you work. Saving a file updates the page right away. Stop
 The scripts are defined in `package.json`. `cap` is the Capacitor command line; run it directly
 with `npx cap ...` (e.g. `npx cap doctor` checks your Capacitor setup).
 
+### Console commands for testing
+
+While developing (`npm run dev`, `npm run serve`) and in test builds, the game has commands in the
+browser's console (F12, the *Console* tab), to get to what you want to test without playing for it
+(`src/devConsole.ts`). A release build doesn't have them.
+
+| Command | What it does |
+|---|---|
+| `ft.help()` | the list of commands |
+| `ft.unlockAll()` | every stage and every group of levels open (no stars given) |
+| `ft.complete("epsilon")` | every star of a stage, by name or difficulty (`ft.complete(5)`); `ft.complete()`: every stage |
+| `ft.unlockBonus("epsilon")` | the stage complete and its bonus levels bought; `ft.unlockBonus()`: every stage's |
+| `ft.completeBonus(5)` | every bonus star of a stage (bought too); `ft.completeBonus()`: every stage's |
+| `ft.coins(500)` | 500 more coins; `ft.coins(-100)`: 100 fewer |
+| `ft.setCoins(0)` | exactly this many coins |
+| `ft.clear("epsilon")` | a stage's stars gone, its bonus levels' too; `ft.clear()`: every star |
+| `ft.status()` | a table of what is saved |
+
+The screen is drawn again after each command. A stage completed this way pays its coin reward
+on the home screen, as in the game. (In a phone app, the same commands work from Chrome's or
+Safari's remote debugging of the web view, in a test build.)
+
 ## Glossary
 
 - **npm**: Node's package manager. `package.json` lists the packages; `npm install` fetches them.

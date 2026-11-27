@@ -10,7 +10,7 @@
 // solves are moves on the board as shown, so they are kept by the board itself.
 import { Preferences } from "@capacitor/preferences";
 import { solveFlips, type Move } from "./game/flipTiles";
-import { TIERS, type Level, type Tier } from "./levels/levels";
+import { ALL_TIERS, BONUS_TIERS, TIERS, type Level, type Tier } from "./levels/levels";
 import { log } from "./log";
 import { HINT_COST } from "./monetization";
 import { DEFAULT_SKIN, SHAPES, SKINS, SQUARE, type Look, type Shape, type Skin } from "./skins";
@@ -43,10 +43,11 @@ export const unlockStars = (i: number) =>
 export const UNLOCK_GRADE_STARS = 10;
 
 // Coins
-// The coins of the whole game: 100 to start + 50 for each of the 12 stages = 700, enough for
-// the 25 skins to find (25 each), when nothing else is bought; not for the 12 shapes as well
-// (another 300)
-export const STARTING_COINS = 100; // what a new player gets
+// The coins of the whole game: none to start + 50 for each of the 12 stages = 600, nearly enough
+// for the 25 skins to find (25 each), when nothing else is bought; not for the 12 shapes as well
+// (another 300). The bonus levels pay back most of what they cost (below). The rest comes from
+// videos and coin packs: hints are what the harder levels make players want.
+export const STARTING_COINS = 0; // what a new player gets
 export const UNLOCK_COST = 100; // to open a difficulty early
 export const GRADE_UNLOCK_COST = 50; // to open the next group of levels in a difficulty early
 // (what a hint costs, and everything else about money: monetization.ts)
@@ -57,6 +58,12 @@ export const SKIN_COST = 25; // a mystery box in the shop: a random new skin, or
 // levels (50 each).
 export const UNLOCK_ALL_COST = 10_000;
 export const STAGE_REWARD = 50; // for completing a stage: every star in it
+// A stage's bonus levels: bought with coins once the stage is complete, and paying most of it
+// back for completing them (every bonus star). With the stage's own reward, a stage and its bonus
+// levels pay 200, what the bonus levels cost: they cost nothing in the end; but they are many
+// and hard, and the more a player plays, the more hints they want.
+export const BONUS_UNLOCK_COST = 200;
+export const BONUS_REWARD = 150;
 
 // The two solutions a level's hints show: "flips" (only flips, the second star) and "moves"
 // (the fewest moves, the third star)
@@ -68,8 +75,8 @@ let stars: Record<string, number> = {}; // level key -> star bits
 // players with the same stars rank by who got there first, also for stars earned offline.
 let starTimes: Record<string, number> = {};
 let entries: Record<number, number> = {}; // a stage's difficulty -> the board it discovered
-// The wallet: coins, the difficulties and groups of levels opened with coins (a group as
-// "difficulty/minMoves", see gradeKey), the skins and shapes owned and the ones in use, the
+// The wallet: coins, the tiers and groups of levels opened with coins (by Tier.id: a stage's
+// difficulty; a group as "id/minMoves", see gradeKey), the skins and shapes owned and the ones in use, the
 // stages whose completion reward was paid (by difficulty), and the version of this format (see
 // migrate)
 const WALLET_VERSION = 3;
@@ -80,7 +87,8 @@ const NEW_WALLET = () => ({
   boughtCoins: 0, // all coins ever bought with real money (Reset progress gives them back)
 });
 let wallet = NEW_WALLET();
-let hints: Record<string, Partial<Record<HintGoal, number>>> = {}; // level key -> hints bought per goal
+// level key -> hints bought per goal (also the final challenge's, whose goals include "solve")
+let hints: Record<string, Partial<Record<string, number>>> = {};
 // board -> solves to replay, as moves (tile, + 32 for a force): the last ones that earned the
 // flips star and the moves star
 type Recorded = Partial<Record<ReplayKind, number[]>>;
@@ -173,7 +181,7 @@ function migrate() {
 // a solve made since the limit can't break it.
 function enforceForceLimits() {
   const taken: string[] = [];
-  for (const level of TIERS.flatMap((tier) => tier.levels)) {
+  for (const level of ALL_TIERS.flatMap((tier) => tier.levels)) {
     const solve = recorded(level.board).moves;
     if (!Array.isArray(solve) || !(starsOf(level) & STAR_MOVES)) continue;
     if (solve.filter((move) => move & 32).length <= level.maxForces) continue;
@@ -234,10 +242,38 @@ export function giveTestCoins(amount: number) {
 // Test builds and developing only: every star of every level, and the tutorial done (every stage
 // and ranked difficulty opens; stage rewards are paid on the home screen as usual)
 export function giveAllStars() {
-  for (const level of TIERS.flatMap((t) => t.levels)) stars[level.key] = ALL_STARS;
+  for (const level of ALL_TIERS.flatMap((t) => t.levels)) stars[level.key] = ALL_STARS;
   tutorialDone = true;
   write(KEYS.stars, stars);
   write(KEYS.tutorial, true);
+}
+
+// --- developing only: the console commands (devConsole.ts) -------------------------------------
+
+// The stars of these tiers' levels set to `bits` (ALL_STARS: every star; 0: none), and the
+// tutorial done
+export function devSetStars(tiers: Tier[], bits: number) {
+  for (const level of tiers.flatMap((t) => t.levels)) {
+    if (bits) stars[level.key] = bits;
+    else delete stars[level.key];
+  }
+  tutorialDone = true;
+  write(KEYS.stars, stars);
+  write(KEYS.tutorial, true);
+}
+
+// These tiers opened for free, every group of them too: stages as if bought, bonus levels as
+// bought (they still need their stage complete: see isTierOpen)
+export function devOpen(tiers: Tier[]) {
+  wallet.unlocked = [...new Set([...wallet.unlocked, ...tiers.map((t) => t.id)])];
+  wallet.grades = [...new Set([...wallet.grades, ...tiers.flatMap((t) => t.grades.map((_, g) => gradeKey(t, g)).slice(1))])];
+  write(KEYS.wallet, wallet);
+}
+
+// The coins set (not below 0; not counted as bought)
+export function devSetCoins(amount: number) {
+  wallet.coins = Math.max(0, Math.round(amount));
+  write(KEYS.wallet, wallet);
 }
 
 // A short account of what is saved
@@ -245,7 +281,7 @@ export const saveSummary = () => ({
   coins: wallet.coins,
   boughtCoins: wallet.boughtCoins,
   purchases: wallet.purchases.length,
-  stars: `${totalStars()} of ${TIERS.reduce((n, t) => n + maxStars(t), 0)}`,
+  stars: `${totalStars()} of ${ALL_TIERS.reduce((n, t) => n + maxStars(t), 0)}`,
   levelsWithStars: Object.keys(stars).length,
   replays: Object.keys(replays).length,
   codexEntries: Object.keys(entries).length,
@@ -293,7 +329,16 @@ export function award(level: Level, earned: number): number {
 
 export const tierStars = (tier: Tier) => tier.levels.reduce((n, l) => n + countStars(starsOf(l)), 0);
 export const tierSolved = (tier: Tier) => tier.levels.filter((l) => starsOf(l) & STAR_SOLVED).length;
-export const totalStars = () => TIERS.reduce((n, t) => n + tierStars(t), 0);
+// (the bonus stages' stars too: they count only here, not towards opening the stages)
+export const totalStars = () => ALL_TIERS.reduce((n, t) => n + tierStars(t), 0);
+// The stars of the stages, and of the bonus levels: kept apart on the home screen. The stages'
+// with the final challenge's Solve it run: FINAL_RUN_STARS, all or none (669 from the stages and
+// 31 from it, 700 in all).
+export const FINAL_RUN_STARS = 31; // (10 warm-ups x 3, and the board's 1)
+export const stageStars = () => TIERS.reduce((n, t) => n + tierStars(t), 0) + (hasFinalStar("solve") ? FINAL_RUN_STARS : 0);
+// (with the final challenge's two: 4998 from the bonus levels and 2 from it, 5000 in all)
+export const bonusStars = () =>
+  BONUS_TIERS.reduce((n, t) => n + tierStars(t), 0) + (["flips", "moves"] as const).filter((g) => hasFinalStar(g)).length;
 
 // The most stars a tier can give
 export const maxStars = (tier: Tier) => 3 * tier.levels.length;
@@ -303,14 +348,18 @@ export const isTierComplete = (tier: Tier) => tierStars(tier) === maxStars(tier)
 
 // --- the reward for completing a stage ------------------------------------------------------
 
-// Pay STAGE_REWARD for each completed stage not paid for yet (once per stage, also for a stage
-// completed before this reward existed); returns those stages. The home screen calls it, and
-// shows the coins flying from the stage to the coin pouch.
+// What completing a tier pays: a stage STAGE_REWARD, its bonus levels BONUS_REWARD
+export const rewardOf = (tier: Tier) => (tier.main ? BONUS_REWARD : STAGE_REWARD);
+
+// Pay the reward of each completed tier not paid for yet (once per tier, also for a stage
+// completed before this reward existed; by Tier.id, so a stage's is its difficulty, as before);
+// returns those tiers. The home screen calls it, and shows the coins flying from the stage's card
+// to the coin pouch.
 export function payStageRewards(): Tier[] {
-  const due = TIERS.filter((t) => isTierComplete(t) && !wallet.rewarded.includes(t.difficulty));
+  const due = ALL_TIERS.filter((t) => isTierOpen(t) && isTierComplete(t) && !wallet.rewarded.includes(t.id));
   if (!due.length) return [];
-  wallet.coins += STAGE_REWARD * due.length;
-  wallet.rewarded.push(...due.map((t) => t.difficulty));
+  wallet.coins += due.reduce((n, t) => n + rewardOf(t), 0);
+  wallet.rewarded.push(...due.map((t) => t.id));
   write(KEYS.wallet, wallet);
   return due;
 }
@@ -326,21 +375,25 @@ function spend(amount: number): boolean {
   return true;
 }
 
-// How many more stars must be earned in the tiers before to open this tier (0 = open)
+// How many more stars must be earned in the tiers before to open this tier (0 = open). A stage's
+// bonus levels: the stars still missing in the stage (once it is complete, they can be bought:
+// see isTierOpen).
 export function starsToUnlock(tier: Tier): number {
+  if (tier.main) return maxStars(tier.main) - tierStars(tier.main);
   const i = TIERS.indexOf(tier);
-  if (i <= 0 || wallet.unlocked.includes(tier.difficulty)) return 0;
+  if (i <= 0 || wallet.unlocked.includes(tier.id)) return 0;
   const earned = TIERS.slice(0, i).reduce((n, t) => n + tierStars(t), 0);
   return Math.max(0, unlockStars(i) - earned);
 }
 
 // A group of levels as saved in the wallet: by its minMoves, which stays the same when the
 // levels are curated again (its place in the tier may not)
-const gradeKey = (tier: Tier, grade: number) => `${tier.difficulty}/${tier.grades[grade][0].minMoves}`;
+const gradeKey = (tier: Tier, grade: number) => `${tier.id}/${tier.grades[grade][0].minMoves}`;
 
-// How many more stars must be earned in the group before to open this group of a tier (0 = open)
+// How many more stars must be earned in the group before to open this group of a tier (0 = open).
+// (Bonus levels: every group is open, they have a tab each.)
 export function starsToUnlockGrade(tier: Tier, grade: number): number {
-  if (grade <= 0 || wallet.grades.includes(gradeKey(tier, grade))) return 0;
+  if (tier.main || grade <= 0 || wallet.grades.includes(gradeKey(tier, grade))) return 0;
   const before = tier.grades[grade - 1];
   const earned = before.reduce((n, l) => n + countStars(starsOf(l)), 0);
   return Math.max(0, Math.min(UNLOCK_GRADE_STARS, 3 * before.length) - earned);
@@ -358,14 +411,31 @@ export function buyGrade(tier: Tier, grade: number): boolean {
   return true;
 }
 
+// A tier can be played: a stage once enough stars are earned before it (or it is bought); a
+// stage's bonus levels once the stage is complete and they are bought (BONUS_UNLOCK_COST)
+export const isTierOpen = (tier: Tier) =>
+  starsToUnlock(tier) === 0 && (!tier.main || wallet.unlocked.includes(tier.id));
+
+// A stage's bonus levels can be bought: the stage is complete, and they aren't bought yet
+export const canBuyBonus = (tier: Tier) =>
+  tier.main !== undefined && starsToUnlock(tier) === 0 && !wallet.unlocked.includes(tier.id);
+
+// Buy a stage's bonus levels; false when they can't be bought (yet) or coins are short
+export function buyBonus(tier: Tier): boolean {
+  if (!canBuyBonus(tier) || !spend(BONUS_UNLOCK_COST)) return false;
+  wallet.unlocked.push(tier.id);
+  write(KEYS.wallet, wallet);
+  return true;
+}
+
 // A level can be played: its tier and its group are open
 export const isLevelOpen = (tier: Tier, level: Level) =>
-  starsToUnlock(tier) === 0 && starsToUnlockGrade(tier, level.grade) === 0;
+  isTierOpen(tier) && starsToUnlockGrade(tier, level.grade) === 0;
 
-// Open a tier with coins; false when there aren't enough
+// Open a stage with coins; false when there aren't enough (bonus levels: buyBonus)
 export function buyTier(tier: Tier): boolean {
-  if (!spend(UNLOCK_COST)) return false;
-  wallet.unlocked.push(tier.difficulty);
+  if (tier.main || !spend(UNLOCK_COST)) return false;
+  wallet.unlocked.push(tier.id);
   write(KEYS.wallet, wallet);
   return true;
 }
@@ -390,7 +460,8 @@ export function earnCoins(amount: number) {
   write(KEYS.wallet, wallet);
 }
 
-// Everything is open and owned: every stage, every group of levels, every skin and shape
+// Everything is open and owned: every stage, every group of levels, every skin and shape. (Not the
+// bonus levels: each is bought on its own, once its stage is complete.)
 export const ownsAll = () =>
   TIERS.every((t) => starsToUnlock(t) === 0 && t.grades.every((_, g) => starsToUnlockGrade(t, g) === 0)) &&
   skinsLeft().length === 0 && shapesLeft().length === 0;
@@ -399,7 +470,7 @@ export const ownsAll = () =>
 // shape. False when there aren't enough coins or nothing is left to get.
 export function buyUnlockAll(): boolean {
   if (ownsAll() || !spend(UNLOCK_ALL_COST)) return false;
-  wallet.unlocked = TIERS.map((t) => t.difficulty);
+  wallet.unlocked = TIERS.map((t) => t.id);
   wallet.grades = TIERS.flatMap((t) => t.grades.map((_, g) => gradeKey(t, g)).slice(1));
   wallet.skins = SKINS.map((s) => s.id);
   wallet.shapes = SHAPES.map((s) => s.id);
@@ -520,6 +591,43 @@ export const hintsBought = (level: Level, goal: HintGoal) => hints[level.key]?.[
 export function buyHint(level: Level, goal: HintGoal): boolean {
   if (hintsBought(level, goal) >= solutionFor(level, goal).length || !spend(HINT_COST)) return false;
   hints[level.key] = { ...hints[level.key], [goal]: hintsBought(level, goal) + 1 };
+  write(KEYS.hints, hints);
+  return true;
+}
+
+// The final challenge's hints (screens/final.ts): FINAL_HINT_COST each, kept like a level's (under
+// "final"), at most `total` per goal (its solution's moves). Its goals: Solve it (within 15 moves,
+// a gold star, counted with the stages'), and flips only and fewest moves (blue, with the bonus
+// stars).
+export type FinalGoal = "solve" | "flips" | "moves";
+export const FINAL_HINT_COST = 100;
+// Its goals open to play: Solve it always; flips only and fewest moves (the blue stars) once
+// every bonus star is earned (all of every stage's bonus levels)
+export const isFinalGoalOpen = (goal: FinalGoal) => goal === "solve" || BONUS_TIERS.every(isTierComplete);
+// Its stars, kept with the levels' stars (under "final:solve", "final:flips", "final:moves")
+export const hasFinalStar = (goal: FinalGoal) => (stars[`final:${goal}`] ?? 0) !== 0;
+export function awardFinalStar(goal: FinalGoal) {
+  if (hasFinalStar(goal)) return;
+  stars[`final:${goal}`] = STAR_SOLVED;
+  starTimes[`final:${goal}`] = Date.now();
+  write(KEYS.stars, stars);
+  write(KEYS.starTimes, starTimes);
+}
+// The order its hints come in, per goal: a random number made once on this device, and kept (under
+// "final-order"). So each player gets the solution's moves in an order of their own, the same on
+// every try: friends who share their hints together see more of it than each alone.
+export function finalHintSeed(goal: FinalGoal): number {
+  const seeds = hints["final-order"] ?? {};
+  if (seeds[goal] === undefined) {
+    hints["final-order"] = { ...seeds, [goal]: Math.floor(Math.random() * 2 ** 31) };
+    write(KEYS.hints, hints);
+  }
+  return hints["final-order"]![goal]!;
+}
+export const finalHintsBought = (goal: FinalGoal) => hints.final?.[goal] ?? 0;
+export function buyFinalHint(goal: FinalGoal, total: number): boolean {
+  if (finalHintsBought(goal) >= total || !spend(FINAL_HINT_COST)) return false;
+  hints.final = { ...hints.final, [goal]: finalHintsBought(goal) + 1 };
   write(KEYS.hints, hints);
   return true;
 }

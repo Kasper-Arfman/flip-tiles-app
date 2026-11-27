@@ -1,57 +1,33 @@
 /* A stage's levels (screens/tier.ts): the grid of level tiles, in groups, on a dark screen. */
 
-/* Always 4 levels in a row (a group of 8 is two full rows), on any phone */
+/* Always 4 levels in a row (a group of 8 is two full rows), on any phone; a little room on both
+   sides (kept free, for later), the same in a stage and on the bonus pages */
 .level-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
   margin: 0;
-  padding: 0;
+  padding: 0 calc((1.1rem + 8px) / 2);
   list-style: none;
 }
 
-/* Between two grades of a tier: a thin line across the grid */
-.grade-divider {
-  grid-column: 1 / -1;
-  height: 1px;
-  margin: 4px 12px;
-  background: var(--line);
+/* A stage: its groups one under the other, with room between them */
+.grade-section + .grade-section {
+  margin-top: 0.6rem; /* (the same room as under its line) */
 }
 
-/* Above a locked group: the line with what opens it in the middle */
-.grade-divider.locked {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  height: auto;
-  margin: 6px 0;
-  background: none;
-  color: var(--muted);
-  font-size: 0.85rem;
-  font-weight: 600;
+/* The last group's levels: at least the screen under the head tall, so it too can be scrolled
+   up right under the head (the rows stay at the top) */
+.grade-section:last-child .level-grid {
+  min-height: calc(100dvh - var(--topbar-height, calc(env(safe-area-inset-top) + 3.5rem)) - 4.3rem);
+  align-content: start;
 }
 
-.grade-divider.locked::before,
-.grade-divider.locked::after {
-  content: "";
-  flex: 1;
-  height: 1px;
-  background: var(--line);
-}
-
-.grade-divider.locked span {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  white-space: nowrap;
-}
-
-/* Under the line of the group next in line: the button to unlock it with coins */
+/* Under a locked group's line, for the group next in line: the button to unlock it with coins */
 .grade-buy {
-  grid-column: 1 / -1;
   display: flex;
   justify-content: center;
-  margin: -4px 0 4px;
+  margin: -0.2rem 0 0.6rem;
 }
 
 .grade-buy .unlock-button {
@@ -84,10 +60,103 @@
   transform: scale(0.95);
 }
 
-/* All three stars (a level with fewer has no border) */
+/* All three stars (a level with fewer has no border): a gold rim (3px: the 2px border and 1px
+   inside it, so the tile keeps its size), shaded like polished metal, light on the top left and
+   deep on the bottom right; and two soft glimmers of light, opposite each other, slowly circling
+   it counterclockwise, on every finished level in step */
 .level-tile.perfect {
-  border-color: var(--gold);
-  box-shadow: inset 0 0 0 1px var(--gold); /* 1px more inside the border: 3px in all, the tile's size unchanged */
+  position: relative;
+  border-color: transparent;
+  background:
+    linear-gradient(var(--blush), var(--blush)) padding-box,
+    linear-gradient(135deg, #ffe27a, var(--gold-bright) 20%, var(--gold) 45%, var(--gold-deep) 70%,
+      var(--gold-bright) 90%, var(--gold)) border-box;
+  box-shadow: inset 0 0 0 1px rgba(201, 138, 18, 0.7);
+}
+
+/* (the glimmers: a conic gradient with two soft bell-shaped bumps of light, at 0° and 180°,
+   turned by an animated angle, and cut out to the rim alone by a mask) */
+@property --glint {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 360deg;
+}
+
+.level-tile.perfect::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  padding: 3px;
+  border-radius: inherit;
+  background: conic-gradient(from var(--glint),
+    rgba(255, 248, 220, 0.7) 0deg, rgba(255, 248, 220, 0.5) 8deg, rgba(255, 248, 220, 0.2) 18deg,
+    rgba(255, 248, 220, 0.05) 28deg, transparent 36deg 144deg,
+    rgba(255, 248, 220, 0.05) 152deg, rgba(255, 248, 220, 0.2) 162deg, rgba(255, 248, 220, 0.5) 172deg,
+    rgba(255, 248, 220, 0.7) 180deg, rgba(255, 248, 220, 0.5) 188deg, rgba(255, 248, 220, 0.2) 198deg,
+    rgba(255, 248, 220, 0.05) 208deg, transparent 216deg 324deg,
+    rgba(255, 248, 220, 0.05) 332deg, rgba(255, 248, 220, 0.2) 342deg, rgba(255, 248, 220, 0.5) 352deg,
+    rgba(255, 248, 220, 0.7) 360deg);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  pointer-events: none;
+  animation: glint 3s linear infinite;
+}
+
+/* (counterclockwise: the angle goes down. The two glimmers are the same after half a turn, so
+   half a turn is the whole loop) */
+@keyframes glint {
+  from {
+    --glint: 360deg;
+  }
+  to {
+    --glint: 180deg;
+  }
+}
+
+/* And now and then a sheen of light sweeping over it, like over a completed stage's card on the
+   home screen (the same timing). It moves its background, not itself, so it stays inside the
+   tile without clipping the glimmers on the rim. */
+.level-tile.perfect::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(105deg, transparent 42%, rgba(255, 255, 255, 0.5) 50%, transparent 58%) no-repeat;
+  background-size: 300% 100%;
+  background-position: 100% 0;
+  pointer-events: none;
+  animation: tile-sheen 5s ease-in-out 1s infinite;
+}
+
+/* A finished bonus level: the same, but ice instead of gold, like a mastered stage's card: an
+   ice-blue rim, light at the top left and deep at the bottom right, and a faint blue glow */
+.blue-stars .level-tile.perfect {
+  background:
+    linear-gradient(var(--blush), var(--blush)) padding-box,
+    linear-gradient(135deg, #e3f6ff, #8fd3ff 20%, #4aa8f0 45%, #1f63c4 70%, #8fd3ff 90%, #4aa8f0) border-box;
+  box-shadow: inset 0 0 0 1px rgba(31, 99, 196, 0.6), 0 0 8px rgba(90, 180, 255, 0.45);
+}
+
+/* (a group with every star, on the bonus side: its dot blue, not gold) */
+.blue-stars .grade-dot.done::before {
+  background: var(--bonus-blue);
+}
+
+.blue-stars .grade-dot.done[aria-selected="true"]::before {
+  background: #9fdcff;
+}
+
+@keyframes tile-sheen {
+  0% { background-position: 100% 0; }
+  30%, 100% { background-position: 0 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .level-tile.perfect::after,
+  .level-tile.perfect::before {
+    display: none;
+  }
 }
 
 /* Empty stars on a level tile: white inside, with the warm grey outline */
@@ -101,18 +170,36 @@
   line-height: 1;
 }
 
-/* A tier's levels: a narrow first column with each group's number of moves, written upwards
-   along the group's side (screens/tier.ts), then the 4 columns of levels */
-.tier-screen .level-grid {
-  grid-template-columns: 1.1rem repeat(4, minmax(0, 1fr));
-}
-
-.grade-label {
-  grid-column: 1;
+/* Above each group of a stage but the first: a line with its number of moves in the middle (and
+   for a locked group, what opens it) */
+.grade-divider {
   display: flex;
   align-items: center;
-  justify-content: center;
-  scroll-margin-top: 5rem; /* scrolled to (from ranked's popup): just under the sticky top bar */
+  gap: 0.6rem;
+  margin: 0 0 0.6rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.grade-divider::before,
+.grade-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+
+.grade-divider span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  white-space: nowrap;
+}
+
+/* (a locked group's: its lock and what opens it, a little less bold) */
+.grade-divider.locked span {
+  font-weight: 600;
 }
 
 /* A group scrolled to from ranked's popup: its levels flash gold twice */
@@ -134,12 +221,327 @@
   }
 }
 
-.grade-label span {
-  writing-mode: vertical-rl;
-  transform: rotate(180deg); /* (read from the bottom up) */
+/* The top bar with the head right under it (the head has the bar's usual gap inside it, at its
+   top): the head is where it sticks from the start, and doesn't move when scrolling begins */
+.tier-screen > .topbar {
+  margin-bottom: 0;
+}
+
+/* Once the stage is complete: at the right of the top bar, a small round button like a
+   phone's camera switch (two arrows round), to the bonus levels (a sparkle in the middle) or
+   back to the stage's levels (a grid of tiles); tapped, its arrows turn half a turn */
+.tier-swap {
+  display: grid;
+  place-items: center;
+  width: 2.1rem;
+  height: 2.1rem;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--gold-bright);
+}
+
+/* A stage's top bar: the back arrow at the left; at the right the stars (of fixed width: room for
+   999/999) and, once the stage is complete, the swap button after them; and the stage's name in
+   the middle of the room between the back arrow and the stars (the same space on both sides) */
+.tier-screen .topbar {
+  grid-template-columns: auto 1fr auto;
+}
+
+.tier-screen .topbar h1 {
+  justify-self: center;
+}
+
+.tier-screen .topbar-right {
+  gap: 0.7rem;
+}
+
+.tier-total {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.tier-count {
+  min-width: 7ch;
+}
+
+/* (its color says where it goes: gold to the stage's levels, blue to the bonus levels) */
+.tier-swap.to-main {
+  border-color: rgba(255, 210, 74, 0.45);
+}
+
+.tier-swap.to-bonus {
+  border-color: rgba(92, 184, 255, 0.5);
+  color: #5cb8ff;
+}
+
+/* (the bonus levels not bought yet: a small lock on the button; tapped, it offers them) */
+.tier-swap.for-sale {
+  position: relative;
+}
+
+.swap-lock {
+  position: absolute;
+  right: -0.3rem;
+  bottom: -0.3rem;
+  display: grid;
+  place-items: center;
+  width: 1.05rem;
+  height: 1.05rem;
+  border-radius: 50%;
+  background: var(--paper);
+}
+
+.tier-swap .swap-lock svg {
+  width: 0.75rem;
+  height: 0.75rem;
+  fill: none;
+  stroke: #5cb8ff;
+  stroke-width: 2.4;
+}
+
+/* The offer of a stage's bonus levels (tier.ts): what they are, what they pay back, the button */
+.bonus-offer {
+  display: grid;
+  gap: 0.6rem;
+  text-align: center;
+}
+
+.bonus-offer p {
+  margin: 0;
+}
+
+/* (what they are: a short list, left-aligned, its bullets in the bonus blue) */
+.bonus-offer-list {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0 0 0.3rem;
+  padding-left: 1.3rem;
+  text-align: left;
+}
+
+.bonus-offer-list li::marker {
+  color: var(--bonus-blue);
+}
+
+.bonus-offer .coin,
+.bonus-offer .star {
+  width: 1.05em;
+  height: 1.05em;
+  vertical-align: -0.18em;
+}
+
+.bonus-offer-short {
   color: var(--muted);
-  font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
+  font-size: 0.9rem;
+}
+
+.bonus-offer .link-button {
+  margin-left: 0.3rem;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+}
+
+.tier-swap svg {
+  width: 1.35rem;
+  height: 1.35rem;
+}
+
+.swap-arrows {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transform-origin: 12px 12px;
+  transition: transform 0.26s ease-in-out;
+}
+
+.swap-inner {
+  fill: currentColor;
+}
+
+.tier-swap.turning .swap-arrows {
+  transform: rotate(180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .swap-arrows {
+    transition: none;
+  }
+}
+
+.tier-swap:active {
+  transform: scale(0.92);
+}
+
+/* The head (over the bonus pages and over a stage's groups): an arrow on each side; in the
+   middle of the screen the shown group's number of moves over a dot per group, and its stars on
+   the right. It stays just under the top bar, on the screen's color, across the whole width:
+   the levels scroll up behind it. The same height on both sides, so the levels are in the same
+   place */
+.grade-head {
+  position: sticky;
+  top: var(--topbar-height, calc(env(safe-area-inset-top) + 3.5rem));
+  z-index: 1;
+  display: grid;
+  grid-template-columns: 2.5rem 1fr auto 1fr 2.5rem;
+  grid-template-areas:
+    "back . name stars next"
+    "back . dots . next";
+  align-items: center;
+  row-gap: 0.1rem;
+  box-sizing: border-box;
+  height: 4.3rem;
+  margin: 0 -16px;
+  padding: 0.5rem 16px 0.6rem;
+  background: var(--paper);
+}
+
+.grade-arrow[data-step="-1"] {
+  grid-area: back;
+}
+
+.grade-arrow[data-step="1"] {
+  grid-area: next;
+}
+
+.grade-name {
+  grid-area: name;
+  justify-self: center; /* (in the middle, also over a row of dots wider than it) */
+  text-align: center;
+  margin: 0;
+  font-weight: 700;
+  font-size: 1rem;
   white-space: nowrap;
+}
+
+.grade-stars {
+  grid-area: stars;
+  justify-self: end;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.grade-dots {
+  grid-area: dots;
+}
+
+.grade-stars .star {
+  width: 0.9em;
+  height: 0.9em;
+}
+
+.grade-arrow {
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink);
+}
+
+.grade-arrow svg {
+  width: 1.3rem;
+  height: 1.3rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* (no page that way) */
+.grade-arrow:disabled {
+  opacity: 0.2;
+}
+
+/* A dot per page: the shown one white and wider, a complete group's gold */
+.grade-dots {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+/* With a mouse, while the pages are dragged: no snapping until it is let go */
+.grade-pages.dragging {
+  scroll-snap-type: none;
+  cursor: grabbing;
+  user-select: none;
+}
+
+.grade-dot {
+  display: grid;
+  place-items: center;
+  width: 1.6rem; /* (a bigger target than the dot itself) */
+  height: 1.6rem;
+  padding: 0;
+  border: none;
+  background: transparent;
+}
+
+.grade-dot::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--muted);
+  opacity: 0.5;
+  transition: width 0.2s ease, opacity 0.2s ease;
+}
+
+.grade-dot.done::before {
+  background: var(--gold);
+  opacity: 0.8;
+}
+
+.grade-dot[aria-selected="true"]::before {
+  width: 18px;
+  background: var(--white);
+  opacity: 1;
+}
+
+.grade-dot.done[aria-selected="true"]::before {
+  background: var(--gold-bright);
+}
+
+/* The bonus levels: a page per group, side by side with a gap between them; a swipe goes to the
+   next one, and it snaps into place. The row reaches the screen's edges (the screen's padding
+   is inside it), so the pages slide out of view there. Each page is as tall as its own levels. */
+.grade-pages {
+  display: flex;
+  align-items: flex-start;
+  gap: 40px;
+  margin: 0 -16px;
+  padding: 0 16px;
+  scroll-padding: 0 16px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+
+.grade-pages::-webkit-scrollbar {
+  display: none;
+}
+
+.grade-page {
+  flex: 0 0 100%;
+  scroll-snap-align: start;
+  scroll-snap-stop: always; /* (one page per swipe, also a fast one) */
 }
